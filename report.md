@@ -19,7 +19,7 @@ The complexity measurement tool lizard was run on the code base to identify four
 These four large functions were:
 * wrap (in the ConstructorShortcut class in MockMethodAdvice), with NLOC = 234 and CC = 27. Manual count CC = 27. 
 * mockClass (in SubclassBytecodeGenerator) with NLOC = 149 and CC = 34. Manual count CC = 34. The purpose of the function is to create a mock class.
-* adjustModuleGraph (in ModuleSystemFound class in ModuleHandler) with NLOC = 123 and CC = 13. Manual count CC = 13 if not counting throws, otherwise 10.
+* adjustModuleGraph (in ModuleSystemFound class in ModuleHandler) with NLOC = 123 and CC = 13. Manual count CC = 13 if not counting throws, otherwise 10. The function is used to adjust a module graph of a source module so that a mock can be created.
 * InlineDelegateByteBuddyMockMaker (constructor for class with identical name) with NLOC = 119 and CC = 24. Manual count CC = 15 if not counting throws, otherwise 13. This function is a constructor for the class with the same name, which is used to mock final types and methods and avoid creating a sub-class when mocking.
 
 
