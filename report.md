@@ -28,23 +28,24 @@ The complexity measurement tool lizard was run on the code base to identify four
 
 From this, we picked out the first 4 functions to count manually: 
 
-| function                         | CCN | CCN manual1 | CCN manual2 |
-|----------------------------------|-----|-------------|-------------|
-| InlineDelegateByteBuddyMockMaker | 24  |             |             |
-| wrap                             | 27  |             |             |
-| adjustModuleGraph                | 13  |             |             |
-| mockClass                        | 34  |             |             |
+| function                         | lizard CCN | jacoco CCN | CCN manual1 | CCN manual2 |
+|----------------------------------|------------|------------|-------------|-------------|
+| InlineDelegateByteBuddyMockMaker | 24         | 8          | 15          | 8           |
+| wrap                             | 27         | 8          | 27          | 24          |
+| adjustModuleGraph                | 13         | 15         | 13          | 10          |
+| mockClass                        | 34         | 35         | 34          | 39          |
 
-* InlineDelegateByteBuddyMockMaker (constructor for class with identical name) with NLOC = 119 and CC = 24. Manual count CC = 15 if not counting throws, otherwise 13. This function is a constructor for the class with the same name, which is used to mock final types and methods and avoid creating a sub-class when mocking.
-* wrap (in the ConstructorShortcut class in MockMethodAdvice), with NLOC = 234 and CC = 27. Manual count CC = 27. 
-* adjustModuleGraph (in ModuleSystemFound class in ModuleHandler) with NLOC = 123 and CC = 13. Manual count CC = 13 if not counting throws, otherwise 10. The function is used to adjust a module graph of a source module so that a mock can be created.
-* mockClass (in SubclassBytecodeGenerator) with NLOC = 149 and CC = 34. Manual count CC = 34. The purpose of the function is to create a mock class.
-
-
+* InlineDelegateByteBuddyMockMaker (constructor for class with identical name). This function is a constructor for the class with the same name, which is used to mock final types and methods and avoid creating a sub-class when mocking.
+* wrap (in the ConstructorShortcut class in MockMethodAdvice). 
+* adjustModuleGraph (in ModuleSystemFound class in ModuleHandler). The function is used to adjust a module graph of a source module so that a mock can be created.
+* mockClass (in SubclassBytecodeGenerator). The purpose of the function is to create a mock class.
 
 1. What are your results for five complex functions?
    * Did all methods (tools vs. manual count) get the same result?
    * Are the results clear?
+
+The first function, InlineDelegateByteBuddyMockMaker, was also calculated by JaCoCo, where it gave a CCN of 8, different from the lizard calculation. 
+
 2. Are the functions just complex, or also long?
 
 Both long and complex, however there are some other functions that are complex but not as long (ReturnValueFor in ReturnsEmptyValues class with CC=23 and NLOC=48, and matches in ArrayEquals class with CC=21 and NLOC=25).
