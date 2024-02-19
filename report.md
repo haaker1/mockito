@@ -35,11 +35,6 @@ From this, we picked out the first 4 functions to count manually:
 | adjustModuleGraph                | 13         | 15         | 13          | 10          |
 | mockClass                        | 34         | 35         | 34          | 39          |
 
-* InlineDelegateByteBuddyMockMaker (constructor for class with identical name). This function is a constructor for the class with the same name, which is used to mock final types and methods and avoid creating a sub-class when mocking.
-* wrap (in the ConstructorShortcut class in MockMethodAdvice). 
-* adjustModuleGraph (in ModuleSystemFound class in ModuleHandler). The function is used to adjust a module graph of a source module so that a mock can be created.
-* mockClass (in SubclassBytecodeGenerator). The purpose of the function is to create a mock class.
-
 1. What are your results for five complex functions?
    * Did all methods (tools vs. manual count) get the same result?
    * Are the results clear?
@@ -51,11 +46,19 @@ The first function, InlineDelegateByteBuddyMockMaker, was also calculated by JaC
 Both long and complex, however there are some other functions that are complex but not as long (ReturnValueFor in ReturnsEmptyValues class with CC=23 and NLOC=48, and matches in ArrayEquals class with CC=21 and NLOC=25).
 
 3. What is the purpose of the functions?
-4. Are exceptions taken into account in the given measurements?
+
+| function                         | purpose                                                                                                                                                    |
+|----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| InlineDelegateByteBuddyMockMaker | This function is a constructor for the class with the same name, which is used to mock final types and methods and avoid creating a sub-class when mocking |
+| wrap                             |                                                                                                                                                            |
+| adjustModuleGraph                | The function is used to adjust a module graph of a source module so that a mock can be created                                                             |
+| mockClass                        | The purpose of the function is to create a mock class                                                                                                      |
+
+5. Are exceptions taken into account in the given measurements?
 
 Exceptions are not taken into account in the measurements for the tools, but are shown for manually calculated measurements. There, exceptions are thought of as an exit point, which lowers the CC.
 
-5. Is the documentation clear w.r.t. all the possible outcomes?
+6. Is the documentation clear w.r.t. all the possible outcomes?
 
 The documentation is lacking for all of the functions...
 
