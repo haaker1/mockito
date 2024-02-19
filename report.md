@@ -14,15 +14,30 @@ The could be built and run as documented in the project README. To build the pro
 
 ## Complexity
 
+The complexity measurement tool lizard was run on the code base to identify four large functions. The cyclomatic complexity of these functions was also counted by hand. 
+
+These four large functions were:
+* wrap (in the ConstructorShortcut class in MockMethodAdvice), with NLOC = 234 and CC = 27. Manual count CC = 27. 
+* mockClass (in SubclassBytecodeGenerator) with NLOC = 149 and CC = 34. Manual count CC = 34. The purpose of the function is to create a mock class.
+* adjustModuleGraph (in ModuleSystemFound class in ModuleHandler) with NLOC = 123 and CC = 13. Manual count CC = 13 if not counting throws, otherwise 10.
+* InlineDelegateByteBuddyMockMaker (constructor for class with identical name) with NLOC = 119 and CC = 24. Manual count CC = 15 if not counting throws, otherwise 13. This function is a constructor for the class with the same name, which is used to mock final types and methods and avoid creating a sub-class when mocking.
+
 
 
 1. What are your results for five complex functions?
    * Did all methods (tools vs. manual count) get the same result?
    * Are the results clear?
 2. Are the functions just complex, or also long?
+
+Both long and complex, however there are some other functions that are complex but not as long (CC=23 and NLOC=48, CC=21 and NLOC=25).
+
 3. What is the purpose of the functions?
 4. Are exceptions taken into account in the given measurements?
+
+Exceptions are not taken into account in the measurements for the tools, but are shown for manually calculated measurements. There, exceptions are thought of as an exit point, which lowers the CC.
 5. Is the documentation clear w.r.t. all the possible outcomes?
+
+The documentation is lacking for all of the functions...
 
 ## Refactoring
 
