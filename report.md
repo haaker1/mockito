@@ -29,12 +29,13 @@ These four large functions were:
    * Are the results clear?
 2. Are the functions just complex, or also long?
 
-Both long and complex, however there are some other functions that are complex but not as long (ReturnValueFor in ReturnsEmptyValues class with CC=23 and NLOC=48, and matches in ArrayEquals with CC=21 and NLOC=25).
+Both long and complex, however there are some other functions that are complex but not as long (ReturnValueFor in ReturnsEmptyValues class with CC=23 and NLOC=48, and matches in ArrayEquals class with CC=21 and NLOC=25).
 
 3. What is the purpose of the functions?
 4. Are exceptions taken into account in the given measurements?
 
 Exceptions are not taken into account in the measurements for the tools, but are shown for manually calculated measurements. There, exceptions are thought of as an exit point, which lowers the CC.
+
 5. Is the documentation clear w.r.t. all the possible outcomes?
 
 The documentation is lacking for all of the functions...
