@@ -29,7 +29,7 @@ These four large functions were:
    * Are the results clear?
 2. Are the functions just complex, or also long?
 
-Both long and complex, however there are some other functions that are complex but not as long (CC=23 and NLOC=48, CC=21 and NLOC=25).
+Both long and complex, however there are some other functions that are complex but not as long (ReturnValueFor in ReturnsEmptyValues class with CC=23 and NLOC=48, and matches in ArrayEquals with CC=21 and NLOC=25).
 
 3. What is the purpose of the functions?
 4. Are exceptions taken into account in the given measurements?
@@ -52,6 +52,10 @@ git diff ...
 ## Coverage
 
 ### Tools
+
+The tool used to measure code coverage was jacoco. It was already integrated in the existing build environment which made it easy to use with the command `./gradlew coverageReport`. This generated a html file with information about the coverage for all the functions in the project. 
+
+
 
 Document your experience in using a "new"/different coverage tool.
 
