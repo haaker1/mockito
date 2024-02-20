@@ -14,7 +14,7 @@ The could be built and run as documented in the project README. To build the pro
 
 ## Complexity
 
-The complexity measurement tool lizard was run on the code base to identify four large functions. The cyclomatic complexity of these functions was also counted by hand. We ran lizard using the command `lizard src/ -x"./src/tests/*" -l java -T nloc=100` and obtained the following results:
+The complexity measurement tool lizard was run on the code base to identify four large functions. The cyclomatic complexity of these functions was also counted by hand. We ran lizard using the command `lizard src/ -x"./src/tests/*" -l java -T cyclomatic_complexity=10` and obtained the following results:
 
 | NLOC | CCN | location                                                                   | file                                                                                         |
 |------|-----|----------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
