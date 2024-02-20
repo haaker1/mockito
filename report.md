@@ -104,13 +104,11 @@ The table below shows the coverage in percentage.
 | function (without new tests)     | jacoco coverage | DIY coverage |
 |----------------------------------|-----------------|--------------|
 | SerializableMethod::equals       | 46%             | 41.7%        |
-| ArrayEquals::matches             | 72%             |              |
-| EqualsBuilder::append            | 94%             |              |
+| ArrayEquals::matches             | 72%             | 91.7%        |
+| EqualsBuilder::append            | 94%             | 100%         |
 |                                  |                 |              |
 
 Report of old coverage: [link]
-
-Report of new coverage: [link]
 
 Number of test cases added: two per team member (P) or at least four (P+).
 
@@ -129,10 +127,12 @@ Requirements to increase coverage:
 
 | function (with new tests)        | jacoco coverage | DIY coverage |
 |----------------------------------|-----------------|--------------|
-| SerializableMethod::equals       |                 |              |
+| SerializableMethod::equals       | 61%             | 58.3%        |
 | ArrayEquals::matches             | 80%             |              |
 | EqualsBuilder::append            |                 |              |
 |                                  |                 |              |
+
+Report of new coverage: [link]
 
 
 ## Self-assessment: Way of working
