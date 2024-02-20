@@ -65,7 +65,7 @@ Method InlineDelegateByteBuddyMockMaker::InlineDelegateByteBuddyMockMaker():
 
 - CCN: 24
 
-- Possible refactor: a large part at the beginning (lines 263 to 265) can be extracted into a separate function. This code deals with initialization error and is independent from the object creation. This part greatly lowers the CC yet has no real drawback. With only this refactor, the function is still above 15 CCN according to lizard's computation method. If needed, we can also refactor the lambda method to assign `isMockConstruction`  (lines 293 to 337) into a separate method.
+- Possible refactor: a large part at the beginning (lines 227 to 265) can be extracted into a separate function. This code deals with initialization error and is independent from the object creation. This part greatly lowers the CC yet has no real drawback. With only this refactor, the function is still above 15 CCN according to lizard's computation method. If needed, we can also refactor the lambda method to assign `onConstruction`  (lines 293 to 337) into a separate method. We can in the same way extract the lambda for `isMockConstruction` (lines (274-292) but it is not necessary as the above reduce most of the CCN.
 
 Method ArrayEquals::matches(Object):
 
