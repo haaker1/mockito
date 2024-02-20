@@ -48,6 +48,7 @@ import net.bytebuddy.jar.asm.Type;
 import net.bytebuddy.pool.TypePool;
 import net.bytebuddy.utility.OpenedClassReader;
 
+import org.mockito.Coverage;
 import org.mockito.exceptions.base.MockitoException;
 import org.mockito.internal.configuration.plugins.Plugins;
 import org.mockito.internal.creation.bytebuddy.inject.MockMethodDispatcher;
@@ -392,7 +393,10 @@ public class MockMethodAdvice extends MockMethodDispatcher {
                 TypePool typePool,
                 int writerFlags,
                 int readerFlags) {
+            Coverage.setTotalBranches("wrap", 8);
+            Coverage.reached("wrap", 0);
             if (instrumentedMethod.isConstructor() && !instrumentedType.represents(Object.class)) {
+                Coverage.reached("wrap", 1);
                 MethodList<MethodDescription.InDefinedShape> constructors =
                         instrumentedType
                                 .getSuperClass()
@@ -403,17 +407,22 @@ public class MockMethodAdvice extends MockMethodDispatcher {
                 boolean packagePrivate = true;
                 MethodDescription.InDefinedShape current = null;
                 for (MethodDescription.InDefinedShape constructor : constructors) {
+                    Coverage.reached("wrap", 2);
                     // We are choosing the shortest constructor with regards to arguments.
                     // Yet, we prefer a non-package-private constructor since they require
                     // the super class to be on the same class loader.
                     if (constructor.getParameters().size() < arguments
                             && (packagePrivate || !constructor.isPackagePrivate())) {
+                                Coverage.reached("wrap", 3);
                         arguments = constructor.getParameters().size();
                         packagePrivate = constructor.isPackagePrivate();
                         current = constructor;
+                    } else {
+                        Coverage.reached("wrap", 4);
                     }
                 }
                 if (current != null) {
+                    Coverage.reached("wrap", 5);
                     final MethodDescription.InDefinedShape selected = current;
                     return new MethodVisitor(OpenedClassReader.ASM_API, methodVisitor) {
                         @Override
@@ -637,7 +646,11 @@ public class MockMethodAdvice extends MockMethodDispatcher {
                             super.visitMaxs(Math.max(maxStack, prequel), maxLocals);
                         }
                     };
+                } else {
+                    Coverage.reached("wrap", 6);
                 }
+            } else {
+                Coverage.reached("wrap", 7);
             }
             return methodVisitor;
         }

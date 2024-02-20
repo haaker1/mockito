@@ -41,6 +41,8 @@ import net.bytebuddy.implementation.attribute.MethodAttributeAppender;
 import net.bytebuddy.matcher.ElementMatcher;
 import net.bytebuddy.utility.GraalImageCode;
 import net.bytebuddy.utility.RandomString;
+
+import org.mockito.Coverage;
 import org.mockito.codegen.InjectionBase;
 import org.mockito.exceptions.base.MockitoException;
 import org.mockito.internal.creation.bytebuddy.ByteBuddyCrossClassLoaderSerializationSupport.CrossClassLoaderSerializableMock;
@@ -124,6 +126,8 @@ class SubclassBytecodeGenerator implements BytecodeGenerator {
 
     @Override
     public <T> Class<? extends T> mockClass(MockFeatures<T> features) {
+        Coverage.setTotalBranches("mockClass", 8);
+        Coverage.reached("mockClass", 0);
         MultipleParentClassLoader.Builder loaderBuilder =
                 new MultipleParentClassLoader.Builder()
                         .appendMostSpecific(features.mockedType)
@@ -137,6 +141,7 @@ class SubclassBytecodeGenerator implements BytecodeGenerator {
         ClassLoader contextLoader = currentThread().getContextClassLoader();
         boolean shouldIncludeContextLoader = true;
         if (needsSamePackageClassLoader(features)) {
+            Coverage.reached("mockClass", 1);
             // For the generated class to access package-private methods, it must be defined by the
             // same classloader as its type. All the other added classloaders are required to load
             // the type; if the context classloader is a child of the mocked type's defining
@@ -144,14 +149,23 @@ class SubclassBytecodeGenerator implements BytecodeGenerator {
             // loader is a child of the classloader we'd otherwise use, and possibly skip it.
             ClassLoader candidateLoader = loaderBuilder.build();
             for (ClassLoader parent = contextLoader; parent != null; parent = parent.getParent()) {
+                Coverage.reached("mockClass", 2);
                 if (parent == candidateLoader) {
+                    Coverage.reached("mockClass", 3);
                     shouldIncludeContextLoader = false;
                     break;
+                } else {
+                    Coverage.reached("mockClass", 4);
                 }
             }
+        } else {
+            Coverage.reached("mockClass", 5);
         }
         if (shouldIncludeContextLoader) {
+            Coverage.reached("mockClass", 6);
             loaderBuilder = loaderBuilder.appendMostSpecific(contextLoader);
+        } else {
+            Coverage.reached("mockClass", 7);
         }
         ClassLoader classLoader = loaderBuilder.build();
 
@@ -173,8 +187,10 @@ class SubclassBytecodeGenerator implements BytecodeGenerator {
         if (localMock
                 || (loader instanceof MultipleParentClassLoader
                         && !isComingFromJDK(features.mockedType))) {
+            Coverage.reached("mockClass", 8);
             typeName = features.mockedType.getName();
         } else {
+            Coverage.reached("mockClass", 9);
             typeName =
                     InjectionBase.class.getPackage().getName()
                             + "."
@@ -188,17 +204,26 @@ class SubclassBytecodeGenerator implements BytecodeGenerator {
                         GraalImageCode.getCurrent().isDefined()
                                 ? suffix(features)
                                 : RandomString.make());
+        if (GraalImageCode.getCurrent().isDefined()) {
+            Coverage.reached("mockClass", 10);
+        } else {
+            Coverage.reached("mockClass", 11);
+        }
 
         if (localMock) {
+            Coverage.reached("mockClass", 12);
             handler.adjustModuleGraph(features.mockedType, MockAccess.class, false, true);
             for (Class<?> iFace : features.interfaces) {
+                Coverage.reached("mockClass", 13);
                 handler.adjustModuleGraph(iFace, features.mockedType, true, false);
                 handler.adjustModuleGraph(features.mockedType, iFace, false, true);
             }
         } else {
+            Coverage.reached("mockClass", 14);
             boolean exported = handler.isExported(features.mockedType);
             Iterator<Class<?>> it = features.interfaces.iterator();
             while (exported && it.hasNext()) {
+                Coverage.reached("mockClass", 15);
                 exported = handler.isExported(it.next());
             }
             // We check if all mocked types are exported without qualification to avoid generating a
@@ -207,15 +232,19 @@ class SubclassBytecodeGenerator implements BytecodeGenerator {
             // makes this a
             // worthy performance optimization.
             if (exported) {
+                Coverage.reached("mockClass", 16);
                 assertVisibility(features.mockedType);
                 for (Class<?> iFace : features.interfaces) {
+                    Coverage.reached("mockClass", 17);
                     assertVisibility(iFace);
                 }
             } else {
+                Coverage.reached("mockClass", 18);
                 Class<?> hook = handler.injectionBase(classLoader, typeName);
                 assertVisibility(features.mockedType);
                 handler.adjustModuleGraph(features.mockedType, hook, true, false);
                 for (Class<?> iFace : features.interfaces) {
+                    Coverage.reached("mockClass", 19);
                     assertVisibility(iFace);
                     handler.adjustModuleGraph(iFace, hook, true, false);
                 }
@@ -229,6 +258,11 @@ class SubclassBytecodeGenerator implements BytecodeGenerator {
                 GraalImageCode.getCurrent().isDefined() && features.mockedType.isInterface()
                         ? (Class<T>) Object.class
                         : features.mockedType;
+        if (GraalImageCode.getCurrent().isDefined() && features.mockedType.isInterface()) {
+            Coverage.reached("mockClass", 20);
+        } else {
+            Coverage.reached("mockClass", 21);
+        }
         // If we create a mock for an interface with additional interfaces implemented, we do not
         // want to preserve the annotations of either interface. The caching mechanism does not
         // consider the order of these interfaces and the same mock class might be reused for
@@ -236,10 +270,13 @@ class SubclassBytecodeGenerator implements BytecodeGenerator {
         // preserved for interfaces in Java.
         Annotation[] annotationsOnType;
         if (features.stripAnnotations) {
+            Coverage.reached("mockClass", 22);
             annotationsOnType = new Annotation[0];
         } else if (!features.mockedType.isInterface() || features.interfaces.isEmpty()) {
+            Coverage.reached("mockClass", 23);
             annotationsOnType = features.mockedType.getAnnotations();
         } else {
+            Coverage.reached("mockClass", 24);
             annotationsOnType = new Annotation[0];
         }
         DynamicType.Builder<T> builder =
@@ -274,24 +311,48 @@ class SubclassBytecodeGenerator implements BytecodeGenerator {
                         .intercept(hashCode)
                         .method(isEquals())
                         .intercept(equals);
+        if (GraalImageCode.getCurrent().isDefined()) {
+            Coverage.reached("mockClass", 25);
+            if (GraalImageCode.getCurrent().isDefined() && features.mockedType.isInterface()) {
+                Coverage.reached("mockClass", 26);
+            } else {
+                Coverage.reached("mockClass", 27);
+            }
+        } else {
+            Coverage.reached("mockClass", 28);
+        }
+        if (features.stripAnnotations) {
+            Coverage.reached("mockClass", 29);
+        } else {
+            Coverage.reached("mockClass", 30);
+        }
         if (features.serializableMode == SerializableMode.ACROSS_CLASSLOADERS) {
+            Coverage.reached("mockClass", 31);
             builder =
                     builder.implement(CrossClassLoaderSerializableMock.class)
                             .intercept(writeReplace);
+        } else {
+            Coverage.reached("mockClass", 32);
         }
         if (readReplace != null) {
+            Coverage.reached("mockClass", 33);
             builder =
                     builder.defineMethod("readObject", void.class, Visibility.PRIVATE)
                             .withParameters(ObjectInputStream.class)
                             .throwing(ClassNotFoundException.class, IOException.class)
                             .intercept(readReplace);
+        } else {
+            Coverage.reached("mockClass", 34);
         }
         if (name.startsWith(CODEGEN_PACKAGE) || classLoader instanceof MultipleParentClassLoader) {
+            Coverage.reached("mockClass", 35);
             builder =
                     builder.ignoreAlso(
                             isPackagePrivate()
                                     .or(returns(isPackagePrivate()))
                                     .or(hasParameters(whereAny(hasType(isPackagePrivate())))));
+        } else {
+            Coverage.reached("mockClass", 36);
         }
         return builder.make()
                 .load(
