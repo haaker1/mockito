@@ -36,29 +36,20 @@ public class Coverage {
     public static void reached(String function, int branchID) {
         if (!branchesReached.containsKey(function)) branchesReached.put(function, new HashSet<>());
         branchesReached.get(function).add(branchID);
-        writeCoverage(function);
-    }
-
-    /**
-     * Prints the branch coverage for a specific function. Undefined behaviour if totalBranches
-     * is not positive.
-     * @param function The name of the function which was previously used when denoting the branches as having been reached.
-     */
-    public static void printCoverage(String function) {
-        System.out.println(getPrintCoverage(function));
+        writeCoverage();
     }
 
     /**
      * Write the current branch coverage to disk.
      * @param function The function identifier.
      */
-    public static void writeCoverage(String function) {
-        File f = new File("./build/coverage/" + function + ".txt");
+    public static void writeCoverage() {
+        File f = new File("./build/coverage/coverage.txt");
         f.getParentFile().mkdirs();
         try {
             FileWriter fw = new FileWriter(f);
             BufferedWriter bw = new BufferedWriter(fw);
-            bw.write(getPrintCoverage(function));
+            bw.write(getPrintCoverage());
             bw.close();
             fw.close();
         } catch (IOException e) {
@@ -73,16 +64,26 @@ public class Coverage {
         return totalBranches;
     }
 
-    private static String getPrintCoverage(String function) {
-        String str = "============================\n";
-        int totalBranches = getTotalBranches(function);
-        int branches = branchesReached.get(function) != null ? branchesReached.get(function).size() : 0;
-        str += String.format("Coverage for %s: %.1f%%\n", function, ((double) branches * 100) / totalBranches);
-        str += "Taken branchIDs:";
-        for (Integer branch : branchesReached.get(function)) {
-            str += " " + branch;
+    private static String getPrintCoverage() {
+        String str = "";
+        for (String function : branchesReached.keySet()) {
+            str += "============================\n";
+            int totalBranches = getTotalBranches(function);
+            int branches = branchesReached.get(function) != null ? branchesReached.get(function).size() : 0;
+            str += String.format("Coverage for %s: %.1f%%\n", function, ((double) branches * 100) / totalBranches);
+            str += "Taken branchIDs:";
+            for (Integer branch : branchesReached.get(function)) {
+                str += " " + branch;
+            }
+            str += "\nNon-taken branchIDs:";
+            for (int i = 0; i < totalBranches; ++i) {
+                if (branchesReached.get(function) != null) {
+                    if (!branchesReached.get(function).contains(i))
+                        str += " " + i;
+                }
+            }
+            str += "\n============================\n\n";
         }
-        str += "\n============================\n";
         return str;
     }
 }
