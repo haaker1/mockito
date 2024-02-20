@@ -9,6 +9,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 
+import org.mockito.Coverage;
 import org.mockito.exceptions.base.MockitoException;
 import org.mockito.internal.creation.SuspendMethod;
 
@@ -99,39 +100,74 @@ public class SerializableMethod implements Serializable, MockitoMethod {
 
     @Override
     public boolean equals(Object obj) {
+        Coverage.setTotalBranches("SerializableMethod::equals", 24);
+        Coverage.reached("SerializableMethod::equals", 0);
         if (this == obj) {
+            Coverage.reached("SerializableMethod::equals", 1);
             return true;
+        } else {
+            Coverage.reached("SerializableMethod::equals", 2);
         }
         if (obj == null) {
+            Coverage.reached("SerializableMethod::equals", 3);
             return false;
+        } else {
+            Coverage.reached("SerializableMethod::equals", 4);
         }
         if (getClass() != obj.getClass()) {
+            Coverage.reached("SerializableMethod::equals", 5);
             return false;
+        } else {
+            Coverage.reached("SerializableMethod::equals", 6);
         }
         SerializableMethod other = (SerializableMethod) obj;
         if (declaringClass == null) {
+            Coverage.reached("SerializableMethod::equals", 7);
             if (other.declaringClass != null) {
+                Coverage.reached("SerializableMethod::equals", 8);
                 return false;
+            } else {
+                Coverage.reached("SerializableMethod::equals", 9);
             }
         } else if (!declaringClass.equals(other.declaringClass)) {
+            Coverage.reached("SerializableMethod::equals", 10);
             return false;
+        } else {
+            Coverage.reached("SerializableMethod::equals", 11);
         }
         if (methodName == null) {
+            Coverage.reached("SerializableMethod::equals", 12);
             if (other.methodName != null) {
+                Coverage.reached("SerializableMethod::equals", 13);
                 return false;
+            } else {
+                Coverage.reached("SerializableMethod::equals", 14);
             }
         } else if (!methodName.equals(other.methodName)) {
+            Coverage.reached("SerializableMethod::equals", 15);
             return false;
+        } else {
+            Coverage.reached("SerializableMethod::equals", 16);
         }
         if (!Arrays.equals(parameterTypes, other.parameterTypes)) {
+            Coverage.reached("SerializableMethod::equals", 17);
             return false;
+        } else {
+            Coverage.reached("SerializableMethod::equals", 18);
         }
         if (returnType == null) {
+            Coverage.reached("SerializableMethod::equals", 19);
             if (other.returnType != null) {
+                Coverage.reached("SerializableMethod::equals", 20);
                 return false;
+            } else {
+                Coverage.reached("SerializableMethod::equals", 21);
             }
         } else if (!returnType.equals(other.returnType)) {
+            Coverage.reached("SerializableMethod::equals", 22);
             return false;
+        } else {
+            Coverage.reached("SerializableMethod::equals", 23);
         }
         return true;
     }
