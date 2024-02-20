@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LocationFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.debugging</a> &gt; <span class="el_source">LocationFactory.java</span></div><h1>LocationFactory.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.debugging;
+
+import org.mockito.invocation.Location;
+
+public final class LocationFactory {
+<span class="fc" id="L10">    private static final Factory factory = createLocationFactory();</span>
+
+    private LocationFactory() {}
+
+    public static Location create() {
+<span class="fc" id="L15">        return create(false);</span>
+    }
+
+    public static Location create(boolean inline) {
+<span class="fc" id="L19">        return factory.create(inline);</span>
+    }
+
+    private interface Factory {
+        Location create(boolean inline);
+    }
+
+    private static Factory createLocationFactory() {
+        try {
+            // On some platforms, like Android, the StackWalker APIs may not be
+            // available, in this case we have to fallback to Java 8 style of stack
+            // traversing.
+<span class="fc" id="L31">            Class.forName(&quot;java.lang.StackWalker&quot;);</span>
+<span class="fc" id="L32">            return new DefaultLocationFactory();</span>
+<span class="nc" id="L33">        } catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L34">            return new Java8LocationFactory();</span>
+        }
+    }
+
+    private static final class Java8LocationFactory implements Factory {
+        @Override
+        public Location create(boolean inline) {
+<span class="nc" id="L41">            return new Java8LocationImpl(new Throwable(), inline);</span>
+        }
+    }
+
+    private static final class DefaultLocationFactory implements Factory {
+        @Override
+        public Location create(boolean inline) {
+<span class="fc" id="L48">            return new LocationImpl(inline);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

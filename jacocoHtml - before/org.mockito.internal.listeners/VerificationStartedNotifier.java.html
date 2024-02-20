@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VerificationStartedNotifier.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.listeners</a> &gt; <span class="el_source">VerificationStartedNotifier.java</span></div><h1>VerificationStartedNotifier.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.listeners;
+
+import java.util.List;
+import java.util.Set;
+
+import org.mockito.MockingDetails;
+import org.mockito.Mockito;
+import org.mockito.internal.exceptions.Reporter;
+import org.mockito.internal.matchers.text.ValuePrinter;
+import org.mockito.listeners.VerificationStartedEvent;
+import org.mockito.listeners.VerificationStartedListener;
+import org.mockito.mock.MockCreationSettings;
+
+public final class VerificationStartedNotifier {
+
+    public static Object notifyVerificationStarted(
+            List&lt;VerificationStartedListener&gt; listeners, MockingDetails originalMockingDetails) {
+<span class="fc bfc" id="L22" title="All 2 branches covered.">        if (listeners.isEmpty()) {</span>
+<span class="fc" id="L23">            return originalMockingDetails.getMock();</span>
+        }
+<span class="fc" id="L25">        VerificationStartedEvent event = new Event(originalMockingDetails);</span>
+<span class="fc bfc" id="L26" title="All 2 branches covered.">        for (VerificationStartedListener listener : listeners) {</span>
+<span class="fc" id="L27">            listener.onVerificationStarted(event);</span>
+<span class="fc" id="L28">        }</span>
+<span class="fc" id="L29">        return event.getMock();</span>
+    }
+
+    static class Event implements VerificationStartedEvent {
+        private final MockingDetails originalMockingDetails;
+        private Object mock;
+
+<span class="fc" id="L36">        public Event(MockingDetails originalMockingDetails) {</span>
+<span class="fc" id="L37">            this.originalMockingDetails = originalMockingDetails;</span>
+<span class="fc" id="L38">            this.mock = originalMockingDetails.getMock();</span>
+<span class="fc" id="L39">        }</span>
+
+        @Override
+        public void setMock(Object mock) {
+<span class="fc bfc" id="L43" title="All 2 branches covered.">            if (mock == null) {</span>
+<span class="fc" id="L44">                throw Reporter.methodDoesNotAcceptParameter(</span>
+                        &quot;VerificationStartedEvent.setMock&quot;, &quot;null parameter.&quot;);
+            }
+<span class="fc" id="L47">            MockingDetails mockingDetails = Mockito.mockingDetails(mock);</span>
+<span class="fc bfc" id="L48" title="All 2 branches covered.">            if (!mockingDetails.isMock()) {</span>
+<span class="fc" id="L49">                throw Reporter.methodDoesNotAcceptParameter(</span>
+                        &quot;VerificationStartedEvent.setMock&quot;,
+                        &quot;parameter which is not a Mockito mock.\n&quot;
+                                + &quot;  Received parameter: &quot;
+<span class="fc" id="L53">                                + ValuePrinter.print(mock)</span>
+                                + &quot;.\n &quot;);
+            }
+<span class="fc" id="L56">            MockCreationSettings originalMockSettings =</span>
+<span class="fc" id="L57">                    this.originalMockingDetails.getMockCreationSettings();</span>
+<span class="fc" id="L58">            assertCompatibleTypes(mock, originalMockSettings);</span>
+<span class="fc" id="L59">            this.mock = mock;</span>
+<span class="fc" id="L60">        }</span>
+
+        @Override
+        public Object getMock() {
+<span class="fc" id="L64">            return mock;</span>
+        }
+    }
+
+    static void assertCompatibleTypes(Object mock, MockCreationSettings originalSettings) {
+<span class="fc" id="L69">        Class originalType = originalSettings.getTypeToMock();</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">        if (!originalType.isInstance(mock)) {</span>
+<span class="fc" id="L71">            throw Reporter.methodDoesNotAcceptParameter(</span>
+                    &quot;VerificationStartedEvent.setMock&quot;,
+                    &quot;parameter which is not the same type as the original mock.\n&quot;
+                            + &quot;  Required type: &quot;
+<span class="fc" id="L75">                            + originalType.getName()</span>
+                            + &quot;\n&quot;
+                            + &quot;  Received parameter: &quot;
+<span class="fc" id="L78">                            + ValuePrinter.print(mock)</span>
+                            + &quot;.\n &quot;);
+        }
+
+<span class="fc bfc" id="L82" title="All 2 branches covered.">        for (Class iface : (Set&lt;Class&gt;) originalSettings.getExtraInterfaces()) {</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">            if (!iface.isInstance(mock)) {</span>
+<span class="fc" id="L84">                throw Reporter.methodDoesNotAcceptParameter(</span>
+                        &quot;VerificationStartedEvent.setMock&quot;,
+                        &quot;parameter which does not implement all extra interfaces of the original mock.\n&quot;
+                                + &quot;  Required type: &quot;
+<span class="fc" id="L88">                                + originalType.getName()</span>
+                                + &quot;\n&quot;
+                                + &quot;  Required extra interface: &quot;
+<span class="fc" id="L91">                                + iface.getName()</span>
+                                + &quot;\n&quot;
+                                + &quot;  Received parameter: &quot;
+<span class="fc" id="L94">                                + ValuePrinter.print(mock)</span>
+                                + &quot;.\n &quot;);
+            }
+<span class="fc" id="L97">        }</span>
+<span class="fc" id="L98">    }</span>
+
+    private VerificationStartedNotifier() {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockCreationValidator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.util</a> &gt; <span class="el_source">MockCreationValidator.java</span></div><h1>MockCreationValidator.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.util;
+
+import static org.mockito.internal.exceptions.Reporter.cannotMockClass;
+import static org.mockito.internal.exceptions.Reporter.extraInterfacesCannotContainMockedType;
+import static org.mockito.internal.exceptions.Reporter.mockedTypeIsInconsistentWithDelegatedInstanceType;
+import static org.mockito.internal.exceptions.Reporter.mockedTypeIsInconsistentWithSpiedInstanceType;
+import static org.mockito.internal.exceptions.Reporter.usingConstructorWithFancySerializable;
+
+import java.util.Collection;
+
+import org.mockito.mock.SerializableMode;
+import org.mockito.plugins.MockMaker.TypeMockability;
+
+@SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L19">public class MockCreationValidator {</span>
+
+    public void validateType(Class&lt;?&gt; classToMock, String mockMaker) {
+<span class="fc" id="L22">        TypeMockability typeMockability = MockUtil.typeMockabilityOf(classToMock, mockMaker);</span>
+<span class="fc bfc" id="L23" title="All 2 branches covered.">        if (!typeMockability.mockable()) {</span>
+<span class="fc" id="L24">            throw cannotMockClass(classToMock, typeMockability.nonMockableReason());</span>
+        }
+<span class="fc" id="L26">    }</span>
+
+    public void validateExtraInterfaces(
+            Class&lt;?&gt; classToMock, Collection&lt;Class&lt;?&gt;&gt; extraInterfaces) {
+<span class="pc bpc" id="L30" title="1 of 2 branches missed.">        if (extraInterfaces == null) {</span>
+<span class="nc" id="L31">            return;</span>
+        }
+
+<span class="fc bfc" id="L34" title="All 2 branches covered.">        for (Class&lt;?&gt; i : extraInterfaces) {</span>
+<span class="fc bfc" id="L35" title="All 2 branches covered.">            if (classToMock == i) {</span>
+<span class="fc" id="L36">                throw extraInterfacesCannotContainMockedType(classToMock);</span>
+            }
+<span class="fc" id="L38">        }</span>
+<span class="fc" id="L39">    }</span>
+
+    public void validateMockedType(Class&lt;?&gt; classToMock, Object spiedInstance) {
+<span class="fc bfc" id="L42" title="All 4 branches covered.">        if (classToMock == null || spiedInstance == null) {</span>
+<span class="fc" id="L43">            return;</span>
+        }
+<span class="fc bfc" id="L45" title="All 2 branches covered.">        if (!classToMock.equals(spiedInstance.getClass())) {</span>
+<span class="fc" id="L46">            throw mockedTypeIsInconsistentWithSpiedInstanceType(classToMock, spiedInstance);</span>
+        }
+<span class="fc" id="L48">    }</span>
+
+    public void validateDelegatedInstance(Class&lt;?&gt; classToMock, Object delegatedInstance) {
+<span class="nc bnc" id="L51" title="All 4 branches missed.">        if (classToMock == null || delegatedInstance == null) {</span>
+<span class="nc" id="L52">            return;</span>
+        }
+<span class="nc bnc" id="L54" title="All 2 branches missed.">        if (delegatedInstance.getClass().isAssignableFrom(classToMock)) {</span>
+<span class="nc" id="L55">            throw mockedTypeIsInconsistentWithDelegatedInstanceType(classToMock, delegatedInstance);</span>
+        }
+<span class="nc" id="L57">    }</span>
+
+    public void validateConstructorUse(boolean usingConstructor, SerializableMode mode) {
+<span class="fc bfc" id="L60" title="All 4 branches covered.">        if (usingConstructor &amp;&amp; mode == SerializableMode.ACROSS_CLASSLOADERS) {</span>
+<span class="fc" id="L61">            throw usingConstructorWithFancySerializable(mode);</span>
+        }
+<span class="fc" id="L63">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

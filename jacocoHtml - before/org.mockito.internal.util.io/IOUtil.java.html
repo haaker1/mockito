@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>IOUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.util.io</a> &gt; <span class="el_source">IOUtil.java</span></div><h1>IOUtil.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.util.io;
+
+import java.io.BufferedReader;
+import java.io.Closeable;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
+import org.mockito.exceptions.base.MockitoException;
+
+/**
+ * IO utils. A bit of reinventing the wheel but we don't want extra dependencies at this stage and
+ * we want to be java.
+ */
+public final class IOUtil {
+
+    /**
+     * Writes text to file in UTF-8.
+     */
+    public static void writeText(String text, File output) {
+<span class="fc" id="L31">        OutputStreamWriter pw = null;</span>
+        try {
+<span class="fc" id="L33">            pw = new OutputStreamWriter(new FileOutputStream(output), StandardCharsets.UTF_8);</span>
+<span class="fc" id="L34">            pw.write(text);</span>
+<span class="nc" id="L35">        } catch (Exception e) {</span>
+<span class="nc" id="L36">            throw new MockitoException(&quot;Problems writing text to file: &quot; + output, e);</span>
+        } finally {
+<span class="fc" id="L38">            close(pw);</span>
+        }
+<span class="fc" id="L40">    }</span>
+
+    /**
+     * Reads all lines from the given stream. Uses UTF-8.
+     */
+    public static Collection&lt;String&gt; readLines(InputStream is) {
+<span class="fc" id="L46">        List&lt;String&gt; out = new LinkedList&lt;&gt;();</span>
+<span class="fc" id="L47">        BufferedReader r = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));</span>
+        String line;
+        try {
+<span class="fc bfc" id="L50" title="All 2 branches covered.">            while ((line = r.readLine()) != null) {</span>
+<span class="fc" id="L51">                out.add(line);</span>
+            }
+<span class="nc" id="L53">        } catch (IOException e) {</span>
+<span class="nc" id="L54">            throw new MockitoException(&quot;Problems reading from: &quot; + is, e);</span>
+<span class="fc" id="L55">        }</span>
+<span class="fc" id="L56">        return out;</span>
+    }
+
+    /**
+     * Closes the target. Does nothing when target is null. Is silent.
+     *
+     * @param closeable the target, may be null
+     */
+    public static void closeQuietly(Closeable closeable) {
+        try {
+<span class="fc" id="L66">            close(closeable);</span>
+<span class="nc" id="L67">        } catch (MockitoException ignored) {</span>
+            // ignore, for backwards compatibility
+<span class="fc" id="L69">        }</span>
+<span class="fc" id="L70">    }</span>
+
+    /**
+     * Closes the target. Does nothing when target is null. Is not silent and exceptions are rethrown.
+     *
+     * @param closeable the target, may be null
+     */
+    public static void close(Closeable closeable) {
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        if (closeable != null) {</span>
+            try {
+<span class="fc" id="L80">                closeable.close();</span>
+<span class="nc" id="L81">            } catch (IOException e) {</span>
+<span class="nc" id="L82">                throw new MockitoException(&quot;Problems closing stream: &quot; + closeable, e);</span>
+<span class="fc" id="L83">            }</span>
+        }
+<span class="fc" id="L85">    }</span>
+
+    private IOUtil() {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

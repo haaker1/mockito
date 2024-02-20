@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Plugins.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.configuration.plugins</a> &gt; <span class="el_source">Plugins.java</span></div><h1>Plugins.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.configuration.plugins;
+
+import java.util.List;
+
+import org.mockito.DoNotMock;
+import org.mockito.plugins.AnnotationEngine;
+import org.mockito.plugins.DoNotMockEnforcer;
+import org.mockito.plugins.DoNotMockEnforcerWithType;
+import org.mockito.plugins.InstantiatorProvider2;
+import org.mockito.plugins.MemberAccessor;
+import org.mockito.plugins.MockMaker;
+import org.mockito.plugins.MockResolver;
+import org.mockito.plugins.MockitoLogger;
+import org.mockito.plugins.MockitoPlugins;
+import org.mockito.plugins.StackTraceCleanerProvider;
+
+/**
+ * Access to Mockito behavior that can be reconfigured by plugins
+ */
+public final class Plugins {
+
+<span class="fc" id="L26">    private static final PluginRegistry registry = new PluginRegistry();</span>
+
+    /**
+     * The implementation of the stack trace cleaner
+     */
+    public static StackTraceCleanerProvider getStackTraceCleanerProvider() {
+<span class="fc" id="L32">        return registry.getStackTraceCleanerProvider();</span>
+    }
+
+    /**
+     * Returns the implementation of the mock maker available for the current runtime.
+     *
+     * &lt;p&gt;Returns default mock maker if no
+     * {@link org.mockito.plugins.MockMaker} extension exists or is visible in the current classpath.&lt;/p&gt;
+     */
+    public static MockMaker getMockMaker() {
+<span class="fc" id="L42">        return registry.getMockMaker();</span>
+    }
+
+    /**
+     * Returns the implementation of the member accessor available for the current runtime.
+     *
+     * &lt;p&gt;Returns default member accessor if no
+     * {@link org.mockito.plugins.MemberAccessor} extension exists or is visible in the current classpath.&lt;/p&gt;
+     */
+    public static MemberAccessor getMemberAccessor() {
+<span class="fc" id="L52">        return registry.getMemberAccessor();</span>
+    }
+
+    /**
+     * Returns the instantiator provider available for the current runtime.
+     *
+     * &lt;p&gt;Returns {@link org.mockito.internal.creation.instance.DefaultInstantiatorProvider} if no
+     * {@link org.mockito.plugins.InstantiatorProvider2} extension exists or is visible in the
+     * current classpath.&lt;/p&gt;
+     */
+    public static InstantiatorProvider2 getInstantiatorProvider() {
+<span class="fc" id="L63">        return registry.getInstantiatorProvider();</span>
+    }
+
+    /**
+     * Returns the annotation engine available for the current runtime.
+     *
+     * &lt;p&gt;Returns {@link org.mockito.internal.configuration.InjectingAnnotationEngine} if no
+     * {@link org.mockito.plugins.AnnotationEngine} extension exists or is visible in the current classpath.&lt;/p&gt;
+     */
+    public static AnnotationEngine getAnnotationEngine() {
+<span class="fc" id="L73">        return registry.getAnnotationEngine();</span>
+    }
+
+    /**
+     * Returns the logger available for the current runtime.
+     *
+     * &lt;p&gt;Returns {@link org.mockito.internal.util.ConsoleMockitoLogger} if no
+     * {@link org.mockito.plugins.MockitoLogger} extension exists or is visible in the current classpath.&lt;/p&gt;
+     */
+    public static MockitoLogger getMockitoLogger() {
+<span class="fc" id="L83">        return registry.getMockitoLogger();</span>
+    }
+
+    /**
+     * Returns a list of available mock resolvers if any.
+     *
+     * @return A list of available mock resolvers or an empty list if none are registered.
+     */
+    public static List&lt;MockResolver&gt; getMockResolvers() {
+<span class="fc" id="L92">        return registry.getMockResolvers();</span>
+    }
+
+    /**
+     * @return instance of mockito plugins type
+     */
+    public static MockitoPlugins getPlugins() {
+<span class="fc" id="L99">        return new DefaultMockitoPlugins();</span>
+    }
+
+    /**
+     * Returns the {@link DoNotMock} enforcer available for the current runtime.
+     *
+     * &lt;p&gt; Returns {@link org.mockito.internal.configuration.DefaultDoNotMockEnforcer} if no
+     * {@link DoNotMockEnforcerWithType} or {@link DoNotMockEnforcer} extension exists or is visible
+     * in the current classpath.&lt;/p&gt;
+     */
+    public static DoNotMockEnforcerWithType getDoNotMockEnforcer() {
+<span class="fc" id="L110">        return registry.getDoNotMockEnforcer();</span>
+    }
+
+    private Plugins() {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

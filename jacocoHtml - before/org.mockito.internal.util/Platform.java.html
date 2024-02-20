@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Platform.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.util</a> &gt; <span class="el_source">Platform.java</span></div><h1>Platform.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.util;
+
+import static org.mockito.internal.util.StringUtil.join;
+
+import java.util.Locale;
+
+public abstract class Platform {
+
+<span class="fc" id="L13">    public static final String JAVA_VERSION = System.getProperty(&quot;java.specification.version&quot;);</span>
+<span class="fc" id="L14">    public static final String JVM_VERSION = System.getProperty(&quot;java.runtime.version&quot;);</span>
+<span class="fc" id="L15">    public static final String JVM_VENDOR = System.getProperty(&quot;java.vm.vendor&quot;);</span>
+<span class="fc" id="L16">    public static final String JVM_VENDOR_VERSION = System.getProperty(&quot;java.vm.version&quot;);</span>
+<span class="fc" id="L17">    public static final String JVM_NAME = System.getProperty(&quot;java.vm.name&quot;);</span>
+<span class="fc" id="L18">    public static final String JVM_INFO = System.getProperty(&quot;java.vm.info&quot;);</span>
+<span class="fc" id="L19">    public static final String OS_NAME = System.getProperty(&quot;os.name&quot;);</span>
+<span class="fc" id="L20">    public static final String OS_VERSION = System.getProperty(&quot;os.version&quot;);</span>
+
+    private Platform() {}
+
+    public static boolean isAndroid() {
+<span class="fc" id="L25">        return System.getProperty(&quot;java.vendor&quot;, &quot;&quot;).toLowerCase(Locale.US).contains(&quot;android&quot;);</span>
+    }
+
+    public static boolean isAndroidMockMakerRequired() {
+<span class="nc" id="L29">        return Boolean.getBoolean(&quot;org.mockito.mock.android&quot;);</span>
+    }
+
+    public static String describe() {
+<span class="fc" id="L33">        String description =</span>
+<span class="fc" id="L34">                String.format(</span>
+                        &quot;Java               : %s\n&quot;
+                                + &quot;JVM vendor name    : %s\n&quot;
+                                + &quot;JVM vendor version : %s\n&quot;
+                                + &quot;JVM name           : %s\n&quot;
+                                + &quot;JVM version        : %s\n&quot;
+                                + &quot;JVM info           : %s\n&quot;
+                                + &quot;OS name            : %s\n&quot;
+                                + &quot;OS version         : %s\n&quot;,
+                        JAVA_VERSION,
+                        JVM_VENDOR,
+                        JVM_VENDOR_VERSION,
+                        JVM_NAME,
+                        JVM_VERSION,
+                        JVM_INFO,
+                        OS_NAME,
+                        OS_VERSION);
+<span class="pc bpc" id="L51" title="1 of 2 branches missed.">        if (isAndroid()) {</span>
+<span class="nc" id="L52">            description =</span>
+<span class="nc" id="L53">                    join(</span>
+                            &quot;IMPORTANT INFORMATION FOR ANDROID USERS:&quot;,
+                            &quot;&quot;,
+                            &quot;The regular Byte Buddy mock makers cannot generate code on an Android VM!&quot;,
+                            &quot;To resolve this, please use the 'mockito-android' dependency for your application:&quot;,
+                            &quot;https://search.maven.org/artifact/org.mockito/mockito-android&quot;,
+                            &quot;&quot;,
+                            description);
+        }
+<span class="fc" id="L62">        return description;</span>
+    }
+
+    public static String warnForVM(
+            String vmName1, String warnMessage1, String vmName2, String warnMessage2) {
+<span class="nc" id="L67">        return warnForVM(JVM_NAME, vmName1, warnMessage1, vmName2, warnMessage2);</span>
+    }
+
+    static String warnForVM(
+            String current,
+            String vmName1,
+            String warnMessage1,
+            String vmName2,
+            String warnMessage2) {
+<span class="fc bfc" id="L76" title="All 4 branches covered.">        if (vmName1 != null &amp;&amp; current.contains(vmName1)) {</span>
+<span class="fc" id="L77">            return warnMessage1;</span>
+        }
+<span class="pc bpc" id="L79" title="1 of 4 branches missed.">        if (vmName2 != null &amp;&amp; current.contains(vmName2)) {</span>
+<span class="fc" id="L80">            return warnMessage2;</span>
+        }
+<span class="fc" id="L82">        return &quot;&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

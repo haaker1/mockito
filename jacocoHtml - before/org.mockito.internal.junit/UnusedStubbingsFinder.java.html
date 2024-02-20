@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnusedStubbingsFinder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.junit</a> &gt; <span class="el_source">UnusedStubbingsFinder.java</span></div><h1>UnusedStubbingsFinder.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.junit;
+
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.mockito.internal.invocation.finder.AllInvocationsFinder;
+import org.mockito.internal.stubbing.UnusedStubbingReporting;
+import org.mockito.invocation.Invocation;
+import org.mockito.stubbing.Stubbing;
+
+/**
+ * Finds unused stubbings
+ */
+<span class="fc" id="L22">public class UnusedStubbingsFinder {</span>
+
+    /**
+     * Gets all unused stubbings for given set of mock objects, in order.
+     * Stubbings explicitily marked as LENIENT are not included.
+     */
+    public UnusedStubbings getUnusedStubbings(Iterable&lt;Object&gt; mocks) {
+<span class="fc" id="L29">        return new UnusedStubbings(</span>
+<span class="fc" id="L30">                AllInvocationsFinder.findStubbings(mocks).stream()</span>
+<span class="fc" id="L31">                        .filter(UnusedStubbingReporting::shouldBeReported)</span>
+<span class="fc" id="L32">                        .collect(Collectors.toList()));</span>
+    }
+
+    /**
+     * Gets unused stubbings per location. This method is less accurate than {@link #getUnusedStubbings(Iterable)}.
+     * It considers that stubbings with the same location (e.g. ClassFile + line number) are the same.
+     * This is not completely accurate because a stubbing declared in a setup or constructor
+     * is created per each test method. Because those are different test methods,
+     * different mocks are created, different 'Invocation' instance is backing the 'Stubbing' instance.
+     * In certain scenarios (detecting unused stubbings by JUnit runner), we need this exact level of accuracy.
+     * Stubbing declared in constructor but realized in % of test methods is considered as 'used' stubbing.
+     * There are high level unit tests that demonstrate this scenario.
+     */
+    public Collection&lt;Invocation&gt; getUnusedStubbingsByLocation(Iterable&lt;Object&gt; mocks) {
+<span class="fc" id="L46">        Set&lt;Stubbing&gt; stubbings = AllInvocationsFinder.findStubbings(mocks);</span>
+
+        // 1st pass, collect all the locations of the stubbings that were used
+        // note that those are _not_ locations where the stubbings was used
+<span class="fc" id="L50">        Set&lt;String&gt; locationsOfUsedStubbings = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L51" title="All 2 branches covered.">        for (Stubbing s : stubbings) {</span>
+<span class="fc bfc" id="L52" title="All 2 branches covered.">            if (!UnusedStubbingReporting.shouldBeReported(s)) {</span>
+<span class="fc" id="L53">                String location = s.getInvocation().getLocation().toString();</span>
+<span class="fc" id="L54">                locationsOfUsedStubbings.add(location);</span>
+            }
+<span class="fc" id="L56">        }</span>
+
+        // 2nd pass, collect unused stubbings by location
+        // If the location matches we assume the stubbing was used in at least one test method
+        // Also, using map to deduplicate reported unused stubbings
+        // if unused stubbing appear in the setup method / constructor we don't want to report it
+        // per each test case
+<span class="fc" id="L63">        Map&lt;String, Invocation&gt; out = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        for (Stubbing s : stubbings) {</span>
+<span class="fc" id="L65">            String location = s.getInvocation().getLocation().toString();</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">            if (!locationsOfUsedStubbings.contains(location)) {</span>
+<span class="fc" id="L67">                out.put(location, s.getInvocation());</span>
+            }
+<span class="fc" id="L69">        }</span>
+
+<span class="fc" id="L71">        return out.values();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

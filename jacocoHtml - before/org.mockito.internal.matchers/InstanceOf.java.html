@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InstanceOf.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.matchers</a> &gt; <span class="el_source">InstanceOf.java</span></div><h1>InstanceOf.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.matchers;
+
+import java.io.Serializable;
+
+import org.mockito.ArgumentMatcher;
+import org.mockito.internal.util.Primitives;
+
+public class InstanceOf implements ArgumentMatcher&lt;Object&gt;, Serializable {
+
+    final Class&lt;?&gt; clazz;
+    private final String description;
+
+    public InstanceOf(Class&lt;?&gt; clazz) {
+<span class="fc" id="L18">        this(clazz, &quot;isA(&quot; + clazz.getCanonicalName() + &quot;)&quot;);</span>
+<span class="fc" id="L19">    }</span>
+
+<span class="fc" id="L21">    public InstanceOf(Class&lt;?&gt; clazz, String describedAs) {</span>
+<span class="fc" id="L22">        this.clazz = clazz;</span>
+<span class="fc" id="L23">        this.description = describedAs;</span>
+<span class="fc" id="L24">    }</span>
+
+    @Override
+    public boolean matches(Object actual) {
+<span class="fc bfc" id="L28" title="All 2 branches covered.">        return (actual != null)</span>
+<span class="fc bfc" id="L29" title="All 2 branches covered.">                &amp;&amp; (Primitives.isAssignableFromWrapper(actual.getClass(), clazz)</span>
+<span class="fc bfc" id="L30" title="All 2 branches covered.">                        || clazz.isAssignableFrom(actual.getClass()));</span>
+    }
+
+    @Override
+    public Class&lt;?&gt; type() {
+<span class="fc" id="L35">        return clazz;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L40">        return description;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

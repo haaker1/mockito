@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultInvocationFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.invocation</a> &gt; <span class="el_source">DefaultInvocationFactory.java</span></div><h1>DefaultInvocationFactory.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.invocation;
+
+import java.lang.reflect.Method;
+import java.util.concurrent.Callable;
+
+import org.mockito.internal.creation.DelegatingMethod;
+import org.mockito.internal.debugging.LocationFactory;
+import org.mockito.internal.invocation.mockref.MockWeakReference;
+import org.mockito.internal.progress.SequenceNumber;
+import org.mockito.invocation.Invocation;
+import org.mockito.invocation.InvocationFactory;
+import org.mockito.invocation.Location;
+import org.mockito.mock.MockCreationSettings;
+
+<span class="fc" id="L19">public class DefaultInvocationFactory implements InvocationFactory {</span>
+
+    public Invocation createInvocation(
+            Object target,
+            MockCreationSettings settings,
+            Method method,
+            final Callable realMethod,
+            Object... args) {
+<span class="nc" id="L27">        RealMethod superMethod = new RealMethod.FromCallable(realMethod);</span>
+<span class="nc" id="L28">        return createInvocation(target, settings, method, superMethod, args);</span>
+    }
+
+    @Override
+    public Invocation createInvocation(
+            Object target,
+            MockCreationSettings settings,
+            Method method,
+            RealMethodBehavior realMethod,
+            Object... args) {
+<span class="fc" id="L38">        RealMethod superMethod = new RealMethod.FromBehavior(realMethod);</span>
+<span class="fc" id="L39">        return createInvocation(target, settings, method, superMethod, args);</span>
+    }
+
+    private Invocation createInvocation(
+            Object target,
+            MockCreationSettings settings,
+            Method method,
+            RealMethod superMethod,
+            Object[] args) {
+<span class="fc" id="L48">        return createInvocation(target, method, args, superMethod, settings);</span>
+    }
+
+    public static InterceptedInvocation createInvocation(
+            Object mock,
+            Method invokedMethod,
+            Object[] arguments,
+            RealMethod realMethod,
+            MockCreationSettings settings,
+            Location location) {
+<span class="fc" id="L58">        return new InterceptedInvocation(</span>
+                new MockWeakReference&lt;Object&gt;(mock),
+<span class="fc" id="L60">                createMockitoMethod(invokedMethod, settings),</span>
+                arguments,
+                realMethod,
+                location,
+<span class="fc" id="L64">                SequenceNumber.next());</span>
+    }
+
+    private static InterceptedInvocation createInvocation(
+            Object mock,
+            Method invokedMethod,
+            Object[] arguments,
+            RealMethod realMethod,
+            MockCreationSettings settings) {
+<span class="fc" id="L73">        return createInvocation(</span>
+<span class="fc" id="L74">                mock, invokedMethod, arguments, realMethod, settings, LocationFactory.create());</span>
+    }
+
+    private static MockitoMethod createMockitoMethod(Method method, MockCreationSettings settings) {
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        if (settings.isSerializable()) {</span>
+<span class="fc" id="L79">            return new SerializableMethod(method);</span>
+        } else {
+<span class="fc" id="L81">            return new DelegatingMethod(method);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

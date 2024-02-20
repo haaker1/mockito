@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultDoNotMockEnforcer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.configuration</a> &gt; <span class="el_source">DefaultDoNotMockEnforcer.java</span></div><h1>DefaultDoNotMockEnforcer.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2019 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.configuration;
+
+import java.lang.annotation.Annotation;
+
+import org.mockito.DoNotMock;
+import org.mockito.plugins.DoNotMockEnforcer;
+
+<span class="fc" id="L12">public class DefaultDoNotMockEnforcer implements DoNotMockEnforcer {</span>
+
+    @Override
+    public String checkTypeForDoNotMockViolation(Class&lt;?&gt; type) {
+<span class="fc bfc" id="L16" title="All 2 branches covered.">        for (Annotation annotation : type.getAnnotations()) {</span>
+<span class="fc bfc" id="L17" title="All 2 branches covered.">            if (annotation.annotationType().getName().endsWith(&quot;org.mockito.DoNotMock&quot;)) {</span>
+<span class="fc" id="L18">                String exceptionMessage =</span>
+                        type + &quot; is annotated with @org.mockito.DoNotMock and can't be mocked.&quot;;
+<span class="fc bfc" id="L20" title="All 2 branches covered.">                if (DoNotMock.class.equals(annotation.annotationType())) {</span>
+<span class="fc" id="L21">                    exceptionMessage += &quot; &quot; + type.getAnnotation(DoNotMock.class).reason();</span>
+                }
+
+<span class="fc" id="L24">                return exceptionMessage;</span>
+            }
+        }
+
+<span class="fc" id="L28">        return null;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

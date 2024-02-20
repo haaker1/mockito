@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockSettingsImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.creation</a> &gt; <span class="el_source">MockSettingsImpl.java</span></div><h1>MockSettingsImpl.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.creation;
+
+import static java.util.Arrays.asList;
+
+import static org.mockito.internal.exceptions.Reporter.defaultAnswerDoesNotAcceptNullParameter;
+import static org.mockito.internal.exceptions.Reporter.extraInterfacesAcceptsOnlyInterfaces;
+import static org.mockito.internal.exceptions.Reporter.extraInterfacesDoesNotAcceptNullParameters;
+import static org.mockito.internal.exceptions.Reporter.extraInterfacesRequiresAtLeastOneInterface;
+import static org.mockito.internal.exceptions.Reporter.methodDoesNotAcceptParameter;
+import static org.mockito.internal.exceptions.Reporter.requiresAtLeastOneListener;
+import static org.mockito.internal.exceptions.Reporter.strictnessDoesNotAcceptNullParameter;
+import static org.mockito.internal.util.collections.Sets.newSet;
+
+import java.io.Serializable;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.mockito.MockSettings;
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.internal.creation.settings.CreationSettings;
+import org.mockito.internal.debugging.VerboseMockInvocationLogger;
+import org.mockito.internal.util.Checks;
+import org.mockito.internal.util.MockCreationValidator;
+import org.mockito.internal.util.MockNameImpl;
+import org.mockito.listeners.InvocationListener;
+import org.mockito.listeners.StubbingLookupListener;
+import org.mockito.listeners.VerificationStartedListener;
+import org.mockito.mock.MockCreationSettings;
+import org.mockito.mock.MockName;
+import org.mockito.mock.MockType;
+import org.mockito.mock.SerializableMode;
+import org.mockito.quality.Strictness;
+import org.mockito.stubbing.Answer;
+
+@SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L43">public class MockSettingsImpl&lt;T&gt; extends CreationSettings&lt;T&gt;</span>
+        implements MockSettings, MockCreationSettings&lt;T&gt; {
+
+    private static final long serialVersionUID = 4475297236197939569L;
+    private boolean useConstructor;
+    private Object outerClassInstance;
+    private Object[] constructorArgs;
+
+    @Override
+    public MockSettings serializable() {
+<span class="fc" id="L53">        return serializable(SerializableMode.BASIC);</span>
+    }
+
+    @Override
+    public MockSettings serializable(SerializableMode mode) {
+<span class="fc" id="L58">        this.serializableMode = mode;</span>
+<span class="fc" id="L59">        return this;</span>
+    }
+
+    @Override
+    public MockSettings extraInterfaces(Class&lt;?&gt;... extraInterfaces) {
+<span class="fc bfc" id="L64" title="All 4 branches covered.">        if (extraInterfaces == null || extraInterfaces.length == 0) {</span>
+<span class="fc" id="L65">            throw extraInterfacesRequiresAtLeastOneInterface();</span>
+        }
+
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        for (Class&lt;?&gt; i : extraInterfaces) {</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">            if (i == null) {</span>
+<span class="fc" id="L70">                throw extraInterfacesDoesNotAcceptNullParameters();</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">            } else if (!i.isInterface()) {</span>
+<span class="fc" id="L72">                throw extraInterfacesAcceptsOnlyInterfaces(i);</span>
+            }
+        }
+<span class="fc" id="L75">        this.extraInterfaces = newSet(extraInterfaces);</span>
+<span class="fc" id="L76">        return this;</span>
+    }
+
+    @Override
+    public MockName getMockName() {
+<span class="nc" id="L81">        return mockName;</span>
+    }
+
+    @Override
+    public Set&lt;Class&lt;?&gt;&gt; getExtraInterfaces() {
+<span class="fc" id="L86">        return extraInterfaces;</span>
+    }
+
+    @Override
+    public Object getSpiedInstance() {
+<span class="fc" id="L91">        return spiedInstance;</span>
+    }
+
+    @Override
+    public MockSettings name(String name) {
+<span class="fc" id="L96">        this.name = name;</span>
+<span class="fc" id="L97">        return this;</span>
+    }
+
+    @Override
+    public MockSettings spiedInstance(Object spiedInstance) {
+<span class="fc" id="L102">        this.spiedInstance = spiedInstance;</span>
+<span class="fc" id="L103">        return this;</span>
+    }
+
+    @Override
+    public MockSettings defaultAnswer(Answer defaultAnswer) {
+<span class="fc" id="L108">        this.defaultAnswer = defaultAnswer;</span>
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">        if (defaultAnswer == null) {</span>
+<span class="nc" id="L110">            throw defaultAnswerDoesNotAcceptNullParameter();</span>
+        }
+<span class="fc" id="L112">        return this;</span>
+    }
+
+    @Override
+    public Answer&lt;Object&gt; getDefaultAnswer() {
+<span class="fc" id="L117">        return defaultAnswer;</span>
+    }
+
+    @Override
+    public MockSettingsImpl&lt;T&gt; stubOnly() {
+<span class="fc" id="L122">        this.stubOnly = true;</span>
+<span class="fc" id="L123">        return this;</span>
+    }
+
+    @Override
+    public MockSettings useConstructor(Object... constructorArgs) {
+<span class="fc" id="L128">        Checks.checkNotNull(</span>
+                constructorArgs,
+                &quot;constructorArgs&quot;,
+                &quot;If you need to pass null, please cast it to the right type, e.g.: useConstructor((String) null)&quot;);
+<span class="fc" id="L132">        this.useConstructor = true;</span>
+<span class="fc" id="L133">        this.constructorArgs = constructorArgs;</span>
+<span class="fc" id="L134">        return this;</span>
+    }
+
+    @Override
+    public MockSettings outerInstance(Object outerClassInstance) {
+<span class="fc" id="L139">        this.outerClassInstance = outerClassInstance;</span>
+<span class="fc" id="L140">        return this;</span>
+    }
+
+    @Override
+    public MockSettings withoutAnnotations() {
+<span class="fc" id="L145">        stripAnnotations = true;</span>
+<span class="fc" id="L146">        return this;</span>
+    }
+
+    @Override
+    public boolean isUsingConstructor() {
+<span class="fc" id="L151">        return useConstructor;</span>
+    }
+
+    @Override
+    public Object getOuterClassInstance() {
+<span class="fc" id="L156">        return outerClassInstance;</span>
+    }
+
+    @Override
+    public Object[] getConstructorArgs() {
+<span class="fc bfc" id="L161" title="All 2 branches covered.">        if (outerClassInstance == null) {</span>
+<span class="fc" id="L162">            return constructorArgs;</span>
+        }
+<span class="fc" id="L164">        List&lt;Object&gt; resultArgs = new ArrayList&lt;&gt;(constructorArgs.length + 1);</span>
+<span class="fc" id="L165">        resultArgs.add(outerClassInstance);</span>
+<span class="fc" id="L166">        resultArgs.addAll(asList(constructorArgs));</span>
+<span class="fc" id="L167">        return resultArgs.toArray(new Object[constructorArgs.length + 1]);</span>
+    }
+
+    @Override
+    public boolean isStubOnly() {
+<span class="fc" id="L172">        return this.stubOnly;</span>
+    }
+
+    @Override
+    public MockSettings verboseLogging() {
+<span class="fc bfc" id="L177" title="All 2 branches covered.">        if (!invocationListenersContainsType(VerboseMockInvocationLogger.class)) {</span>
+<span class="fc" id="L178">            invocationListeners(new VerboseMockInvocationLogger());</span>
+        }
+<span class="fc" id="L180">        return this;</span>
+    }
+
+    @Override
+    public MockSettings invocationListeners(InvocationListener... listeners) {
+<span class="fc" id="L185">        addListeners(listeners, invocationListeners, &quot;invocationListeners&quot;);</span>
+<span class="fc" id="L186">        return this;</span>
+    }
+
+    @Override
+    public MockSettings stubbingLookupListeners(StubbingLookupListener... listeners) {
+<span class="fc" id="L191">        addListeners(listeners, stubbingLookupListeners, &quot;stubbingLookupListeners&quot;);</span>
+<span class="fc" id="L192">        return this;</span>
+    }
+
+    static &lt;T&gt; void addListeners(T[] listeners, List&lt;T&gt; container, String method) {
+<span class="fc bfc" id="L196" title="All 2 branches covered.">        if (listeners == null) {</span>
+<span class="fc" id="L197">            throw methodDoesNotAcceptParameter(method, &quot;null vararg array.&quot;);</span>
+        }
+<span class="fc bfc" id="L199" title="All 2 branches covered.">        if (listeners.length == 0) {</span>
+<span class="fc" id="L200">            throw requiresAtLeastOneListener(method);</span>
+        }
+<span class="fc bfc" id="L202" title="All 2 branches covered.">        for (T listener : listeners) {</span>
+<span class="fc bfc" id="L203" title="All 2 branches covered.">            if (listener == null) {</span>
+<span class="fc" id="L204">                throw methodDoesNotAcceptParameter(method, &quot;null listeners.&quot;);</span>
+            }
+<span class="fc" id="L206">            container.add(listener);</span>
+        }
+<span class="fc" id="L208">    }</span>
+
+    @Override
+    public MockSettings verificationStartedListeners(VerificationStartedListener... listeners) {
+<span class="fc" id="L212">        addListeners(listeners, this.verificationStartedListeners, &quot;verificationStartedListeners&quot;);</span>
+<span class="fc" id="L213">        return this;</span>
+    }
+
+    private boolean invocationListenersContainsType(Class&lt;?&gt; clazz) {
+<span class="fc bfc" id="L217" title="All 2 branches covered.">        for (InvocationListener listener : invocationListeners) {</span>
+<span class="pc bpc" id="L218" title="1 of 2 branches missed.">            if (listener.getClass().equals(clazz)) {</span>
+<span class="fc" id="L219">                return true;</span>
+            }
+<span class="nc" id="L221">        }</span>
+<span class="fc" id="L222">        return false;</span>
+    }
+
+    public boolean hasInvocationListeners() {
+<span class="pc bpc" id="L226" title="1 of 2 branches missed.">        return !getInvocationListeners().isEmpty();</span>
+    }
+
+    @Override
+    public Class&lt;T&gt; getTypeToMock() {
+<span class="fc" id="L231">        return typeToMock;</span>
+    }
+
+    @Override
+    public &lt;T2&gt; MockCreationSettings&lt;T2&gt; build(Class&lt;T2&gt; typeToMock) {
+<span class="fc" id="L236">        return validatedSettings(typeToMock, (CreationSettings&lt;T2&gt;) this);</span>
+    }
+
+    @Override
+    public &lt;T2&gt; MockCreationSettings&lt;T2&gt; buildStatic(Class&lt;T2&gt; classToMock) {
+<span class="fc" id="L241">        return validatedStaticSettings(classToMock, (CreationSettings&lt;T2&gt;) this);</span>
+    }
+
+    @Override
+    public MockSettings lenient() {
+<span class="fc" id="L246">        this.strictness = Strictness.LENIENT;</span>
+<span class="fc" id="L247">        return this;</span>
+    }
+
+    @Override
+    public MockSettings strictness(Strictness strictness) {
+<span class="fc bfc" id="L252" title="All 2 branches covered.">        if (strictness == null) {</span>
+<span class="fc" id="L253">            throw strictnessDoesNotAcceptNullParameter();</span>
+        }
+<span class="fc" id="L255">        this.strictness = strictness;</span>
+<span class="fc" id="L256">        return this;</span>
+    }
+
+    @Override
+    public MockSettings mockMaker(String mockMaker) {
+<span class="fc" id="L261">        this.mockMaker = mockMaker;</span>
+<span class="fc" id="L262">        return this;</span>
+    }
+
+    @Override
+    public MockSettings genericTypeToMock(Type genericType) {
+<span class="fc" id="L267">        this.genericTypeToMock = genericType;</span>
+<span class="fc" id="L268">        return this;</span>
+    }
+
+    private static &lt;T&gt; CreationSettings&lt;T&gt; validatedSettings(
+            Class&lt;T&gt; typeToMock, CreationSettings&lt;T&gt; source) {
+<span class="fc" id="L273">        MockCreationValidator validator = new MockCreationValidator();</span>
+
+<span class="fc" id="L275">        validator.validateType(typeToMock, source.getMockMaker());</span>
+<span class="fc" id="L276">        validator.validateExtraInterfaces(typeToMock, source.getExtraInterfaces());</span>
+<span class="fc" id="L277">        validator.validateMockedType(typeToMock, source.getSpiedInstance());</span>
+
+        // TODO SF - add this validation and also add missing coverage
+        //        validator.validateDelegatedInstance(classToMock, settings.getDelegatedInstance());
+
+<span class="fc" id="L282">        validator.validateConstructorUse(source.isUsingConstructor(), source.getSerializableMode());</span>
+
+        // TODO SF - I don't think we really need CreationSettings type
+        // TODO do we really need to copy the entire settings every time we create mock object? it
+        // does not seem necessary.
+<span class="fc" id="L287">        CreationSettings&lt;T&gt; settings = buildCreationSettings(typeToMock, source, MockType.INSTANCE);</span>
+<span class="fc" id="L288">        settings.setExtraInterfaces(prepareExtraInterfaces(source));</span>
+<span class="fc" id="L289">        return settings;</span>
+    }
+
+    private static &lt;T&gt; CreationSettings&lt;T&gt; validatedStaticSettings(
+            Class&lt;T&gt; classToMock, CreationSettings&lt;T&gt; source) {
+
+<span class="pc bpc" id="L295" title="1 of 2 branches missed.">        if (classToMock.isPrimitive()) {</span>
+<span class="nc" id="L296">            throw new MockitoException(</span>
+                    &quot;Cannot create static mock of primitive type &quot; + classToMock);
+        }
+<span class="pc bpc" id="L299" title="1 of 2 branches missed.">        if (!source.getExtraInterfaces().isEmpty()) {</span>
+<span class="nc" id="L300">            throw new MockitoException(</span>
+                    &quot;Cannot specify additional interfaces for static mock of &quot; + classToMock);
+        }
+<span class="pc bpc" id="L303" title="1 of 2 branches missed.">        if (source.getSpiedInstance() != null) {</span>
+<span class="nc" id="L304">            throw new MockitoException(</span>
+                    &quot;Cannot specify spied instance for static mock of &quot; + classToMock);
+        }
+
+<span class="fc" id="L308">        return buildCreationSettings(classToMock, source, MockType.STATIC);</span>
+    }
+
+    private static &lt;T&gt; CreationSettings&lt;T&gt; buildCreationSettings(
+            Class&lt;T&gt; classToMock, CreationSettings&lt;T&gt; source, MockType mockType) {
+<span class="fc" id="L313">        CreationSettings&lt;T&gt; settings = new CreationSettings&lt;&gt;(source);</span>
+<span class="fc" id="L314">        settings.setMockName(new MockNameImpl(source.getName(), classToMock, mockType));</span>
+<span class="fc" id="L315">        settings.setTypeToMock(classToMock);</span>
+<span class="fc" id="L316">        settings.setMockType(mockType);</span>
+<span class="fc" id="L317">        return settings;</span>
+    }
+
+    private static Set&lt;Class&lt;?&gt;&gt; prepareExtraInterfaces(CreationSettings settings) {
+<span class="fc" id="L321">        Set&lt;Class&lt;?&gt;&gt; interfaces = new HashSet&lt;&gt;(settings.getExtraInterfaces());</span>
+<span class="fc bfc" id="L322" title="All 2 branches covered.">        if (settings.isSerializable()) {</span>
+<span class="fc" id="L323">            interfaces.add(Serializable.class);</span>
+        }
+<span class="fc" id="L325">        return interfaces;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

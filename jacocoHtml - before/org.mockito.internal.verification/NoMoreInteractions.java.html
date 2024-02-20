@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NoMoreInteractions.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.verification</a> &gt; <span class="el_source">NoMoreInteractions.java</span></div><h1>NoMoreInteractions.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.verification;
+
+import static org.mockito.internal.exceptions.Reporter.noMoreInteractionsWanted;
+import static org.mockito.internal.exceptions.Reporter.noMoreInteractionsWantedInOrder;
+import static org.mockito.internal.invocation.InvocationsFinder.findFirstUnverified;
+import static org.mockito.internal.invocation.InvocationsFinder.findFirstUnverifiedInOrder;
+
+import java.util.List;
+
+import org.mockito.internal.verification.api.VerificationData;
+import org.mockito.internal.verification.api.VerificationDataInOrder;
+import org.mockito.internal.verification.api.VerificationInOrderMode;
+import org.mockito.invocation.Invocation;
+import org.mockito.verification.VerificationMode;
+
+<span class="fc" id="L20">public class NoMoreInteractions implements VerificationMode, VerificationInOrderMode {</span>
+
+    @Override
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public void verify(VerificationData data) {
+<span class="fc" id="L25">        Invocation unverified = findFirstUnverified(data.getAllInvocations());</span>
+<span class="fc bfc" id="L26" title="All 2 branches covered.">        if (unverified != null) {</span>
+<span class="fc" id="L27">            throw noMoreInteractionsWanted(unverified, (List) data.getAllInvocations());</span>
+        }
+<span class="fc" id="L29">    }</span>
+
+    @Override
+    public void verifyInOrder(VerificationDataInOrder data) {
+<span class="fc" id="L33">        List&lt;Invocation&gt; invocations = data.getAllInvocations();</span>
+<span class="fc" id="L34">        Invocation unverified = findFirstUnverifiedInOrder(data.getOrderingContext(), invocations);</span>
+
+<span class="fc bfc" id="L36" title="All 2 branches covered.">        if (unverified != null) {</span>
+<span class="fc" id="L37">            throw noMoreInteractionsWantedInOrder(unverified);</span>
+        }
+<span class="fc" id="L39">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

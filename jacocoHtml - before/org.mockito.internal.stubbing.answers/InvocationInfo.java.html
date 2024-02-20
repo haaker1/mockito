@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InvocationInfo.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.stubbing.answers</a> &gt; <span class="el_source">InvocationInfo.java</span></div><h1>InvocationInfo.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.stubbing.answers;
+
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import org.mockito.internal.invocation.AbstractAwareMethod;
+import org.mockito.internal.util.MockUtil;
+import org.mockito.internal.util.Primitives;
+import org.mockito.internal.util.reflection.GenericMetadataSupport;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.mock.MockCreationSettings;
+
+public class InvocationInfo implements AbstractAwareMethod {
+
+    private final Method method;
+    private final InvocationOnMock invocation;
+
+<span class="fc" id="L25">    public InvocationInfo(InvocationOnMock theInvocation) {</span>
+<span class="fc" id="L26">        this.method = theInvocation.getMethod();</span>
+<span class="fc" id="L27">        this.invocation = theInvocation;</span>
+<span class="fc" id="L28">    }</span>
+
+    public boolean isValidException(final Throwable throwable) {
+<span class="fc bfc" id="L31" title="All 2 branches covered.">        if (isValidException(method, throwable)) {</span>
+<span class="fc" id="L32">            return true;</span>
+        }
+
+<span class="fc" id="L35">        return isValidExceptionForParents(method.getDeclaringClass(), throwable);</span>
+    }
+
+    private boolean isValidExceptionForParents(final Class&lt;?&gt; parent, final Throwable throwable) {
+<span class="fc" id="L39">        final List&lt;Class&lt;?&gt;&gt; ancestors = new ArrayList&lt;&gt;(Arrays.asList(parent.getInterfaces()));</span>
+
+<span class="fc bfc" id="L41" title="All 2 branches covered.">        if (parent.getSuperclass() != null) {</span>
+<span class="fc" id="L42">            ancestors.add(parent.getSuperclass());</span>
+        }
+
+<span class="fc" id="L45">        final boolean validException =</span>
+<span class="fc" id="L46">                ancestors.stream()</span>
+<span class="fc" id="L47">                        .anyMatch(ancestor -&gt; isValidExceptionForClass(ancestor, throwable));</span>
+
+<span class="fc bfc" id="L49" title="All 2 branches covered.">        if (validException) {</span>
+<span class="fc" id="L50">            return true;</span>
+        }
+
+<span class="fc" id="L53">        return ancestors.stream()</span>
+<span class="fc" id="L54">                .anyMatch(ancestor -&gt; isValidExceptionForParents(ancestor, throwable));</span>
+    }
+
+    private boolean isValidExceptionForClass(final Class&lt;?&gt; parent, final Throwable throwable) {
+        try {
+<span class="fc" id="L59">            final Method parentMethod =</span>
+<span class="fc" id="L60">                    parent.getMethod(this.method.getName(), this.method.getParameterTypes());</span>
+<span class="fc" id="L61">            return isValidException(parentMethod, throwable);</span>
+<span class="fc" id="L62">        } catch (NoSuchMethodException e) {</span>
+            // ignore interfaces that doesn't have such a method
+<span class="fc" id="L64">            return false;</span>
+        }
+    }
+
+    private boolean isValidException(final Method method, final Throwable throwable) {
+<span class="fc" id="L69">        final Class&lt;?&gt;[] exceptions = method.getExceptionTypes();</span>
+<span class="fc" id="L70">        final Class&lt;?&gt; throwableClass = throwable.getClass();</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">        for (final Class&lt;?&gt; exception : exceptions) {</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">            if (exception.isAssignableFrom(throwableClass)) {</span>
+<span class="fc" id="L73">                return true;</span>
+            }
+        }
+<span class="fc" id="L76">        return false;</span>
+    }
+
+    public boolean isValidReturnType(Class&lt;?&gt; clazz) {
+<span class="fc bfc" id="L80" title="All 4 branches covered.">        if (method.getReturnType().isPrimitive() || clazz.isPrimitive()) {</span>
+<span class="fc" id="L81">            return Primitives.primitiveTypeOf(clazz)</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">                    == Primitives.primitiveTypeOf(method.getReturnType());</span>
+        } else {
+<span class="fc" id="L84">            return method.getReturnType().isAssignableFrom(clazz);</span>
+        }
+    }
+
+    /**
+     * Returns {@code true} is the return type is {@link Void} or represents the pseudo-type to the keyword {@code void}.
+     * E.g:  {@code void foo()} or {@code Void bar()}
+     */
+    public boolean isVoid() {
+<span class="fc" id="L93">        final MockCreationSettings mockSettings =</span>
+<span class="fc" id="L94">                MockUtil.getMockHandler(invocation.getMock()).getMockSettings();</span>
+<span class="fc" id="L95">        Class&lt;?&gt; returnType =</span>
+<span class="fc" id="L96">                GenericMetadataSupport.inferFrom(mockSettings.getTypeToMock())</span>
+<span class="fc" id="L97">                        .resolveGenericReturnType(this.method)</span>
+<span class="fc" id="L98">                        .rawType();</span>
+<span class="fc bfc" id="L99" title="All 4 branches covered.">        return returnType == Void.TYPE || returnType == Void.class;</span>
+    }
+
+    public String printMethodReturnType() {
+<span class="fc" id="L103">        return method.getReturnType().getSimpleName();</span>
+    }
+
+    public String getMethodName() {
+<span class="fc" id="L107">        return method.getName();</span>
+    }
+
+    public boolean returnsPrimitive() {
+<span class="fc" id="L111">        return method.getReturnType().isPrimitive();</span>
+    }
+
+    public Method getMethod() {
+<span class="fc" id="L115">        return method;</span>
+    }
+
+    public boolean isDeclaredOnInterface() {
+<span class="fc" id="L119">        return method.getDeclaringClass().isInterface();</span>
+    }
+
+    @Override
+    public boolean isAbstract() {
+<span class="fc bfc" id="L124" title="All 2 branches covered.">        return (method.getModifiers() &amp; Modifier.ABSTRACT) != 0;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

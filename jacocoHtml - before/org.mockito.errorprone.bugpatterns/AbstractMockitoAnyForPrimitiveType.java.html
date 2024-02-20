@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AbstractMockitoAnyForPrimitiveType.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.errorprone.bugpatterns</a> &gt; <span class="el_source">AbstractMockitoAnyForPrimitiveType.java</span></div><h1>AbstractMockitoAnyForPrimitiveType.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.errorprone.bugpatterns;
+
+import static com.google.errorprone.matchers.Description.NO_MATCH;
+
+import com.google.errorprone.VisitorState;
+import com.google.errorprone.bugpatterns.BugChecker;
+import com.google.errorprone.bugpatterns.BugChecker.MethodInvocationTreeMatcher;
+import com.google.errorprone.fixes.SuggestedFix;
+import com.google.errorprone.matchers.Description;
+import com.google.errorprone.matchers.Matcher;
+import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.util.TreePath;
+import com.sun.tools.javac.code.Symbol.MethodSymbol;
+import com.sun.tools.javac.code.Symbol.VarSymbol;
+import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Type.ArrayType;
+import java.util.List;
+import javax.lang.model.type.TypeKind;
+
+/** Base for {@link BugChecker}s that detect issues with any() matchers and primitive types. */
+<span class="fc" id="L29">public abstract class AbstractMockitoAnyForPrimitiveType extends BugChecker</span>
+        implements MethodInvocationTreeMatcher {
+
+    protected abstract Matcher&lt;? super MethodInvocationTree&gt; matcher();
+
+    protected abstract String formatMessage(
+            String expectedTypeAsString, Type matcherType, String replacementName);
+
+    @Override
+    public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
+<span class="fc bfc" id="L39" title="All 2 branches covered.">        if (!matcher().matches(tree, state)) {</span>
+<span class="fc" id="L40">            return NO_MATCH;</span>
+        }
+
+<span class="fc" id="L43">        MethodSymbol method = ASTHelpers.getSymbol(tree);</span>
+<span class="fc" id="L44">        Type matcherType = method.getReturnType();</span>
+
+        // It is expected that the call to anyX() is itself the argument to another call which is
+        // the one being mocked, e.g. something like this:
+        //   when(mock.call(..., anyInt(), ...))...
+<span class="fc" id="L49">        TreePath path = state.getPath();</span>
+<span class="fc" id="L50">        Tree parentTree = path.getParentPath().getLeaf();</span>
+<span class="pc bpc" id="L51" title="1 of 2 branches missed.">        if (!(parentTree instanceof MethodInvocationTree)) {</span>
+            // Ignore calls that are not arguments to another method call.
+            // TODO: Report this as a problem because it makes little sense.
+            // TODO: Support casting.
+<span class="nc" id="L55">            return NO_MATCH;</span>
+        }
+
+<span class="fc" id="L58">        MethodInvocationTree parentCall = (MethodInvocationTree) parentTree;</span>
+<span class="fc" id="L59">        MethodSymbol parentMethod = ASTHelpers.getSymbol(parentCall);</span>
+
+        // Find the index of the argument in the parent call.
+<span class="fc" id="L62">        int argumentIndex = -1;</span>
+<span class="fc" id="L63">        List&lt;? extends ExpressionTree&gt; parentArguments = parentCall.getArguments();</span>
+<span class="pc bpc" id="L64" title="1 of 2 branches missed.">        for (int i = 0; i &lt; parentArguments.size(); i++) {</span>
+<span class="fc" id="L65">            ExpressionTree argumentTree = parentArguments.get(i);</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">            if (argumentTree == tree) {</span>
+<span class="fc" id="L67">                argumentIndex = i;</span>
+<span class="fc" id="L68">                break;</span>
+            }
+        }
+<span class="pc bpc" id="L71" title="1 of 2 branches missed.">        if (argumentIndex == -1) {</span>
+<span class="nc" id="L72">            throw new IllegalStateException(</span>
+                    &quot;Cannot find argument &quot;
+<span class="nc" id="L74">                            + state.getSourceForNode(tree)</span>
+                            + &quot; in argument list from &quot;
+<span class="nc" id="L76">                            + state.getSourceForNode(parentTree));</span>
+        }
+
+<span class="fc" id="L79">        Type parameterType = getParameterType(parentMethod, argumentIndex);</span>
+
+<span class="fc" id="L81">        TypeKind parameterTypeKind = parameterType.getKind();</span>
+<span class="fc bfc" id="L82" title="All 4 branches covered.">        if (parameterTypeKind.isPrimitive() &amp;&amp; parameterTypeKind != matcherType.getKind()) {</span>
+<span class="fc" id="L83">            String expectedTypeAsString = parameterType.toString();</span>
+<span class="fc" id="L84">            String replacementName =</span>
+                    &quot;any&quot;
+<span class="fc" id="L86">                            + Character.toUpperCase(expectedTypeAsString.charAt(0))</span>
+<span class="fc" id="L87">                            + expectedTypeAsString.substring(1);</span>
+
+<span class="fc" id="L89">            String message = formatMessage(expectedTypeAsString, matcherType, replacementName);</span>
+
+<span class="fc" id="L91">            SuggestedFix.Builder fixBuilder = SuggestedFix.builder();</span>
+
+<span class="fc" id="L93">            ExpressionTree methodSelect = tree.getMethodSelect();</span>
+            String replacement;
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">            if (methodSelect instanceof MemberSelectTree) {</span>
+<span class="nc" id="L96">                MemberSelectTree qualifier = (MemberSelectTree) methodSelect;</span>
+<span class="nc" id="L97">                replacement =</span>
+<span class="nc" id="L98">                        state.getSourceForNode(qualifier.getExpression()) + &quot;.&quot; + replacementName;</span>
+<span class="nc" id="L99">            } else {</span>
+<span class="fc" id="L100">                replacement = replacementName;</span>
+<span class="fc" id="L101">                String staticImport = method.owner + &quot;.&quot; + replacementName;</span>
+<span class="fc" id="L102">                fixBuilder.addStaticImport(staticImport);</span>
+            }
+
+<span class="fc" id="L105">            SuggestedFix fix = fixBuilder.replace(tree, replacement + &quot;()&quot;).build();</span>
+
+<span class="fc" id="L107">            return buildDescription(tree).setMessage(message).addFix(fix).build();</span>
+        }
+
+<span class="fc" id="L110">        return NO_MATCH;</span>
+    }
+
+    /**
+     * Get the type of the parameter for a supplied argument.
+     *
+     * @param method the method symbol that is being called.
+     * @param argumentIndex the index of the argument, can be greater than the number of parameters
+     *     for a var arg method.
+     * @return the type of the associated parameter.
+     */
+    private Type getParameterType(MethodSymbol method, int argumentIndex) {
+<span class="fc" id="L122">        List&lt;VarSymbol&gt; parameters = method.getParameters();</span>
+        Type parameterType;
+<span class="fc" id="L124">        int parameterCount = parameters.size();</span>
+<span class="pc bpc" id="L125" title="3 of 4 branches missed.">        if (argumentIndex &gt;= parameterCount &amp;&amp; method.isVarArgs()) {</span>
+<span class="nc" id="L126">            VarSymbol varArgParameter = parameters.get(parameterCount - 1);</span>
+<span class="nc" id="L127">            parameterType = ((ArrayType) varArgParameter.asType()).getComponentType();</span>
+<span class="nc" id="L128">        } else {</span>
+<span class="fc" id="L129">            parameterType = parameters.get(argumentIndex).asType();</span>
+        }
+<span class="fc" id="L131">        return parameterType;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

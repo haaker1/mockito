@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BeanPropertySetter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.util.reflection</a> &gt; <span class="el_source">BeanPropertySetter.java</span></div><h1>BeanPropertySetter.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.util.reflection;
+
+import org.mockito.internal.configuration.plugins.Plugins;
+import org.mockito.plugins.MemberAccessor;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Locale;
+
+/**
+ * This utility class will call the setter of the property to inject a new value.
+ */
+public class BeanPropertySetter {
+
+    private static final String SET_PREFIX = &quot;set&quot;;
+
+    private final Object target;
+    private final boolean reportNoSetterFound;
+    private final Field field;
+
+    /**
+     * New BeanPropertySetter
+     * @param target The target on which the setter must be invoked
+     * @param propertyField The field that should be accessed with the setter
+     * @param reportNoSetterFound Allow the set method to raise an Exception if the setter cannot be found
+     */
+    public BeanPropertySetter(
+<span class="fc" id="L33">            final Object target, final Field propertyField, boolean reportNoSetterFound) {</span>
+<span class="fc" id="L34">        this.field = propertyField;</span>
+<span class="fc" id="L35">        this.target = target;</span>
+<span class="fc" id="L36">        this.reportNoSetterFound = reportNoSetterFound;</span>
+<span class="fc" id="L37">    }</span>
+
+    /**
+     * New BeanPropertySetter that don't report failure
+     * @param target The target on which the setter must be invoked
+     * @param propertyField The propertyField that must be accessed through a setter
+     */
+    public BeanPropertySetter(final Object target, final Field propertyField) {
+<span class="fc" id="L45">        this(target, propertyField, false);</span>
+<span class="fc" id="L46">    }</span>
+
+    /**
+     * Set the value to the property represented by this {@link BeanPropertySetter}
+     * @param value the new value to pass to the property setter
+     * @return &lt;code&gt;true&lt;/code&gt; if the value has been injected, &lt;code&gt;false&lt;/code&gt; otherwise
+     * @throws RuntimeException Can be thrown if the setter threw an exception, if the setter is not accessible
+     *          or, if &lt;code&gt;reportNoSetterFound&lt;/code&gt; and setter could not be found.
+     */
+    public boolean set(final Object value) {
+
+<span class="fc" id="L57">        MemberAccessor accessor = Plugins.getMemberAccessor();</span>
+<span class="fc" id="L58">        Method writeMethod = null;</span>
+        try {
+<span class="fc" id="L60">            writeMethod = target.getClass().getMethod(setterName(field.getName()), field.getType());</span>
+<span class="fc" id="L61">            accessor.invoke(writeMethod, target, value);</span>
+<span class="fc" id="L62">            return true;</span>
+<span class="nc" id="L63">        } catch (InvocationTargetException e) {</span>
+<span class="nc" id="L64">            throw new RuntimeException(</span>
+                    &quot;Setter '&quot;
+                            + writeMethod
+                            + &quot;' of '&quot;
+                            + target
+                            + &quot;' with value '&quot;
+                            + value
+                            + &quot;' threw exception : '&quot;
+<span class="nc" id="L72">                            + e.getTargetException()</span>
+                            + &quot;'&quot;,
+                    e);
+<span class="nc" id="L75">        } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L76">            throw new RuntimeException(</span>
+                    &quot;Access not authorized on field '&quot;
+                            + field
+                            + &quot;' of object '&quot;
+                            + target
+                            + &quot;' with value: '&quot;
+                            + value
+                            + &quot;'&quot;,
+                    e);
+<span class="fc" id="L85">        } catch (NoSuchMethodException e) {</span>
+<span class="fc" id="L86">            reportNoSetterFound();</span>
+        }
+
+<span class="fc" id="L89">        reportNoSetterFound();</span>
+<span class="fc" id="L90">        return false;</span>
+    }
+
+    /**
+     * Retrieve the setter name from the field name.
+     *
+     * &lt;p&gt;Implementation is based on the code of {@link java.beans.Introspector}.&lt;/p&gt;
+     *
+     * @param fieldName the Field name
+     * @return Setter name.
+     */
+    private String setterName(String fieldName) {
+<span class="fc" id="L102">        return new StringBuilder(SET_PREFIX)</span>
+<span class="fc" id="L103">                .append(fieldName.substring(0, 1).toUpperCase(Locale.ENGLISH))</span>
+<span class="fc" id="L104">                .append(fieldName, 1, fieldName.length())</span>
+<span class="fc" id="L105">                .toString();</span>
+    }
+
+    private void reportNoSetterFound() {
+<span class="fc bfc" id="L109" title="All 2 branches covered.">        if (reportNoSetterFound) {</span>
+<span class="fc" id="L110">            throw new RuntimeException(</span>
+                    &quot;Problems setting value on object: [&quot;
+                            + target
+                            + &quot;] for property : [&quot;
+<span class="fc" id="L114">                            + field.getName()</span>
+                            + &quot;], setter not found&quot;);
+        }
+<span class="fc" id="L117">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

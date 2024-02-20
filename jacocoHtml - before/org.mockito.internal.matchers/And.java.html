@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>And.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.matchers</a> &gt; <span class="el_source">And.java</span></div><h1>And.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.matchers;
+
+import java.io.Serializable;
+
+import org.mockito.ArgumentMatcher;
+
+@SuppressWarnings({&quot;unchecked&quot;, &quot;serial&quot;, &quot;rawtypes&quot;})
+public class And implements ArgumentMatcher&lt;Object&gt;, Serializable {
+    private final ArgumentMatcher m1;
+    private final ArgumentMatcher m2;
+
+<span class="fc" id="L16">    public And(ArgumentMatcher&lt;?&gt; m1, ArgumentMatcher&lt;?&gt; m2) {</span>
+<span class="fc" id="L17">        this.m1 = m1;</span>
+<span class="fc" id="L18">        this.m2 = m2;</span>
+<span class="fc" id="L19">    }</span>
+
+    @Override
+    public boolean matches(Object actual) {
+<span class="pc bpc" id="L23" title="1 of 4 branches missed.">        return m1.matches(actual) &amp;&amp; m2.matches(actual);</span>
+    }
+
+    @Override
+    public Class&lt;?&gt; type() {
+<span class="fc bfc" id="L28" title="All 2 branches covered.">        return m1.type().isAssignableFrom(m2.type())</span>
+<span class="fc" id="L29">                ? m1.type()</span>
+<span class="fc bfc" id="L30" title="All 2 branches covered.">                : m2.type().isAssignableFrom(m1.type()) ? m2.type() : ArgumentMatcher.super.type();</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L35">        return &quot;and(&quot; + m1 + &quot;, &quot; + m2 + &quot;)&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

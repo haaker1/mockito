@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StubbingArgMismatches.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.junit</a> &gt; <span class="el_source">StubbingArgMismatches.java</span></div><h1>StubbingArgMismatches.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.junit;
+
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+
+import org.mockito.invocation.Invocation;
+import org.mockito.plugins.MockitoLogger;
+
+/**
+ * Contains stubbing arg mismatches, knows how to format them
+ */
+<span class="fc" id="L18">class StubbingArgMismatches {</span>
+
+<span class="fc" id="L20">    final Map&lt;Invocation, Set&lt;Invocation&gt;&gt; mismatches = new LinkedHashMap&lt;&gt;();</span>
+
+    public void add(Invocation invocation, Invocation stubbing) {
+<span class="fc" id="L23">        Set&lt;Invocation&gt; matchingInvocations =</span>
+<span class="fc" id="L24">                mismatches.computeIfAbsent(</span>
+<span class="fc" id="L25">                        stubbing, (Invocation k) -&gt; new LinkedHashSet&lt;Invocation&gt;());</span>
+<span class="fc" id="L26">        matchingInvocations.add(invocation);</span>
+<span class="fc" id="L27">    }</span>
+
+    public void format(String testName, MockitoLogger logger) {
+<span class="fc bfc" id="L30" title="All 2 branches covered.">        if (mismatches.isEmpty()) {</span>
+<span class="fc" id="L31">            return;</span>
+        }
+
+<span class="fc" id="L34">        StubbingHint hint = new StubbingHint(testName);</span>
+<span class="fc" id="L35">        int x = 1;</span>
+<span class="fc bfc" id="L36" title="All 2 branches covered.">        for (Map.Entry&lt;Invocation, Set&lt;Invocation&gt;&gt; m : mismatches.entrySet()) {</span>
+<span class="fc" id="L37">            hint.appendLine(x++, &quot;. Unused... &quot;, m.getKey().getLocation());</span>
+<span class="fc bfc" id="L38" title="All 2 branches covered.">            for (Invocation invocation : m.getValue()) {</span>
+<span class="fc" id="L39">                hint.appendLine(&quot; ...args ok? &quot;, invocation.getLocation());</span>
+<span class="fc" id="L40">            }</span>
+<span class="fc" id="L41">        }</span>
+
+<span class="fc" id="L43">        logger.log(hint.toString());</span>
+<span class="fc" id="L44">    }</span>
+
+    public int size() {
+<span class="fc" id="L47">        return mismatches.size();</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L52">        return &quot;&quot; + mismatches;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

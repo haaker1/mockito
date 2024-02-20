@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VerificationWrapper.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.verification</a> &gt; <span class="el_source">VerificationWrapper.java</span></div><h1>VerificationWrapper.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.verification;
+
+import org.mockito.internal.verification.api.VerificationData;
+import org.mockito.verification.VerificationMode;
+
+public abstract class VerificationWrapper&lt;WrapperT extends VerificationMode&gt;
+        implements VerificationMode {
+
+    protected final WrapperT wrappedVerification;
+
+<span class="fc" id="L15">    public VerificationWrapper(WrapperT wrappedVerification) {</span>
+<span class="fc" id="L16">        this.wrappedVerification = wrappedVerification;</span>
+<span class="fc" id="L17">    }</span>
+
+    @Override
+    public void verify(VerificationData data) {
+<span class="fc" id="L21">        wrappedVerification.verify(data);</span>
+<span class="fc" id="L22">    }</span>
+
+    protected abstract VerificationMode copySelfWithNewVerificationMode(
+            VerificationMode verificationMode);
+
+    public VerificationMode times(int wantedNumberOfInvocations) {
+<span class="fc" id="L28">        return copySelfWithNewVerificationMode(</span>
+<span class="fc" id="L29">                VerificationModeFactory.times(wantedNumberOfInvocations));</span>
+    }
+
+    public VerificationMode never() {
+<span class="fc" id="L33">        return copySelfWithNewVerificationMode(VerificationModeFactory.atMost(0));</span>
+    }
+
+    public VerificationMode atLeastOnce() {
+<span class="fc" id="L37">        return copySelfWithNewVerificationMode(VerificationModeFactory.atLeastOnce());</span>
+    }
+
+    public VerificationMode atLeast(int minNumberOfInvocations) {
+<span class="fc" id="L41">        return copySelfWithNewVerificationMode(</span>
+<span class="fc" id="L42">                VerificationModeFactory.atLeast(minNumberOfInvocations));</span>
+    }
+
+    public VerificationMode atMostOnce() {
+<span class="nc" id="L46">        return copySelfWithNewVerificationMode(VerificationModeFactory.atMostOnce());</span>
+    }
+
+    public VerificationMode atMost(int maxNumberOfInvocations) {
+<span class="fc" id="L50">        return copySelfWithNewVerificationMode(</span>
+<span class="fc" id="L51">                VerificationModeFactory.atMost(maxNumberOfInvocations));</span>
+    }
+
+    public VerificationMode only() {
+<span class="fc" id="L55">        return copySelfWithNewVerificationMode(VerificationModeFactory.only());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

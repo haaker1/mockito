@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultMockitoSessionBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.session</a> &gt; <span class="el_source">DefaultMockitoSessionBuilder.java</span></div><h1>DefaultMockitoSessionBuilder.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2018 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.session;
+
+import static java.util.Collections.emptyList;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.mockito.MockitoSession;
+import org.mockito.internal.configuration.plugins.Plugins;
+import org.mockito.internal.framework.DefaultMockitoSession;
+import org.mockito.plugins.MockitoLogger;
+import org.mockito.quality.Strictness;
+import org.mockito.session.MockitoSessionBuilder;
+import org.mockito.session.MockitoSessionLogger;
+
+<span class="fc" id="L20">public class DefaultMockitoSessionBuilder implements MockitoSessionBuilder {</span>
+
+<span class="fc" id="L22">    private final List&lt;Object&gt; testClassInstances = new ArrayList&lt;Object&gt;();</span>
+    private String name;
+    private Strictness strictness;
+    private MockitoSessionLogger logger;
+
+    @Override
+    public MockitoSessionBuilder initMocks(Object testClassInstance) {
+<span class="fc bfc" id="L29" title="All 2 branches covered.">        if (testClassInstance != null) {</span>
+<span class="fc" id="L30">            this.testClassInstances.add(testClassInstance);</span>
+        }
+<span class="fc" id="L32">        return this;</span>
+    }
+
+    @Override
+    public MockitoSessionBuilder initMocks(Object... testClassInstances) {
+<span class="fc bfc" id="L37" title="All 2 branches covered.">        if (testClassInstances != null) {</span>
+<span class="fc bfc" id="L38" title="All 2 branches covered.">            for (Object instance : testClassInstances) {</span>
+<span class="fc" id="L39">                initMocks(instance);</span>
+            }
+        }
+<span class="fc" id="L42">        return this;</span>
+    }
+
+    @Override
+    public MockitoSessionBuilder name(String name) {
+<span class="fc" id="L47">        this.name = name;</span>
+<span class="fc" id="L48">        return this;</span>
+    }
+
+    @Override
+    public MockitoSessionBuilder strictness(Strictness strictness) {
+<span class="fc" id="L53">        this.strictness = strictness;</span>
+<span class="fc" id="L54">        return this;</span>
+    }
+
+    @Override
+    public MockitoSessionBuilder logger(MockitoSessionLogger logger) {
+<span class="fc" id="L59">        this.logger = logger;</span>
+<span class="fc" id="L60">        return this;</span>
+    }
+
+    @Override
+    public MockitoSession startMocking() {
+        // Configure default values
+        List&lt;Object&gt; effectiveTestClassInstances;
+        String effectiveName;
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        if (testClassInstances.isEmpty()) {</span>
+<span class="fc" id="L69">            effectiveTestClassInstances = emptyList();</span>
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">            effectiveName = this.name == null ? &quot;&lt;Unnamed Session&gt;&quot; : this.name;</span>
+        } else {
+<span class="fc" id="L72">            effectiveTestClassInstances = new ArrayList&lt;&gt;(testClassInstances);</span>
+<span class="fc" id="L73">            Object lastTestClassInstance = testClassInstances.get(testClassInstances.size() - 1);</span>
+            effectiveName =
+<span class="fc bfc" id="L75" title="All 2 branches covered.">                    this.name == null ? lastTestClassInstance.getClass().getName() : this.name;</span>
+        }
+        Strictness effectiveStrictness =
+<span class="fc bfc" id="L78" title="All 2 branches covered.">                this.strictness == null ? Strictness.STRICT_STUBS : this.strictness;</span>
+        MockitoLogger logger =
+<span class="fc bfc" id="L80" title="All 2 branches covered.">                this.logger == null</span>
+<span class="fc" id="L81">                        ? Plugins.getMockitoLogger()</span>
+<span class="fc" id="L82">                        : new MockitoLoggerAdapter(this.logger);</span>
+<span class="fc" id="L83">        return new DefaultMockitoSession(</span>
+                effectiveTestClassInstances, effectiveName, effectiveStrictness, logger);
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StackTraceFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.exceptions.stacktrace</a> &gt; <span class="el_source">StackTraceFilter.java</span></div><h1>StackTraceFilter.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.exceptions.stacktrace;
+
+import java.io.Serializable;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.mockito.exceptions.stacktrace.StackTraceCleaner;
+import org.mockito.internal.configuration.plugins.Plugins;
+
+<span class="fc" id="L15">public class StackTraceFilter implements Serializable {</span>
+
+    static final long serialVersionUID = -5499819791513105700L;
+
+    private static final StackTraceCleaner CLEANER =
+<span class="fc" id="L20">            Plugins.getStackTraceCleanerProvider()</span>
+<span class="fc" id="L21">                    .getStackTraceCleaner(new DefaultStackTraceCleaner());</span>
+
+    private static Object JAVA_LANG_ACCESS;
+    private static Method GET_STACK_TRACE_ELEMENT;
+
+    static {
+        try {
+<span class="fc" id="L28">            JAVA_LANG_ACCESS =</span>
+<span class="nc" id="L29">                    Class.forName(&quot;sun.misc.SharedSecrets&quot;)</span>
+<span class="nc" id="L30">                            .getMethod(&quot;getJavaLangAccess&quot;)</span>
+<span class="nc" id="L31">                            .invoke(null);</span>
+<span class="nc" id="L32">            GET_STACK_TRACE_ELEMENT =</span>
+<span class="nc" id="L33">                    Class.forName(&quot;sun.misc.JavaLangAccess&quot;)</span>
+<span class="nc" id="L34">                            .getMethod(&quot;getStackTraceElement&quot;, Throwable.class, int.class);</span>
+<span class="fc" id="L35">        } catch (Exception ignored) {</span>
+            // Use the slow computational path for filtering stacktraces if fast path does not exist
+            // in JVM
+<span class="nc" id="L38">        }</span>
+<span class="fc" id="L39">    }</span>
+
+    /**
+     * Example how the filter works (+/- means good/bad):
+     * [a+, b+, c-, d+, e+, f-, g+] -&gt; [a+, b+, d+, e+, g+]
+     * Basically removes all bad from the middle.
+     * &lt;strike&gt;If any good are in the middle of bad those are also removed.&lt;/strike&gt;
+     */
+    public StackTraceElement[] filter(StackTraceElement[] target, boolean keepTop) {
+        // TODO: profile
+        // TODO: investigate &quot;keepTop&quot; commit history - no effect!
+<span class="fc" id="L50">        final List&lt;StackTraceElement&gt; filtered = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L51" title="All 2 branches covered.">        for (StackTraceElement element : target) {</span>
+<span class="fc bfc" id="L52" title="All 2 branches covered.">            if (CLEANER.isIn(element)) {</span>
+<span class="fc" id="L53">                filtered.add(element);</span>
+            }
+        }
+<span class="fc" id="L56">        StackTraceElement[] result = new StackTraceElement[filtered.size()];</span>
+<span class="fc" id="L57">        return filtered.toArray(result);</span>
+    }
+
+    /**
+     * This filtering strategy makes use of a fast-path computation to retrieve stackTraceElements
+     * from a Stacktrace of a Throwable. It does so, by taking advantage of {@link
+     * sun.misc.SharedSecrets} and {@link sun.misc.JavaLangAccess}.
+     *
+     * &lt;p&gt;The {@link sun.misc.SharedSecrets} provides a method to obtain an instance of an {@link
+     * sun.misc.JavaLangAccess}. The latter class has a method to fast-path into {@link
+     * Throwable#getStackTrace()} and retrieve a single {@link StackTraceElement}. This prevents the
+     * JVM from having to generate a full stacktrace, which could potentially be expensive if
+     * stacktraces become very large.
+     *
+     * @param target The throwable target to find the first {@link StackTraceElement} that should
+     *     not be filtered out per {@link StackTraceFilter#CLEANER}.
+     * @return The first {@link StackTraceElement} outside of the {@link StackTraceFilter#CLEANER}
+     */
+    public StackTraceElement filterFirst(Throwable target, boolean isInline) {
+<span class="nc" id="L76">        boolean shouldSkip = isInline;</span>
+
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        if (GET_STACK_TRACE_ELEMENT != null) {</span>
+<span class="nc" id="L79">            int i = 0;</span>
+
+            // The assumption here is that the CLEANER filter will not filter out every single
+            // element. However, since we don't want to compute the full length of the stacktrace,
+            // we don't know the upper boundary. Therefore, simply increment the counter and go as
+            // far as we have to go, assuming that we get there. If, in the rare occasion, we
+            // don't, we fall back to the old slow path.
+            while (true) {
+                try {
+<span class="nc" id="L88">                    StackTraceElement stackTraceElement =</span>
+                            (StackTraceElement)
+<span class="nc" id="L90">                                    GET_STACK_TRACE_ELEMENT.invoke(JAVA_LANG_ACCESS, target, i);</span>
+
+<span class="nc bnc" id="L92" title="All 2 branches missed.">                    if (CLEANER.isIn(stackTraceElement)) {</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">                        if (shouldSkip) {</span>
+<span class="nc" id="L94">                            shouldSkip = false;</span>
+                        } else {
+<span class="nc" id="L96">                            return stackTraceElement;</span>
+                        }
+                    }
+<span class="nc" id="L99">                } catch (Exception e) {</span>
+                    // Fall back to slow path
+<span class="nc" id="L101">                    break;</span>
+<span class="nc" id="L102">                }</span>
+<span class="nc" id="L103">                i++;</span>
+            }
+        }
+
+        // If we can't use the fast path of retrieving stackTraceElements, use the slow path by
+        // iterating over the actual stacktrace
+<span class="nc bnc" id="L109" title="All 2 branches missed.">        for (StackTraceElement stackTraceElement : target.getStackTrace()) {</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">            if (CLEANER.isIn(stackTraceElement)) {</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">                if (shouldSkip) {</span>
+<span class="nc" id="L112">                    shouldSkip = false;</span>
+                } else {
+<span class="nc" id="L114">                    return stackTraceElement;</span>
+                }
+            }
+        }
+<span class="nc" id="L118">        return null;</span>
+    }
+
+    /**
+     * Finds the source file of the target stack trace.
+     * Returns the default value if source file cannot be found.
+     */
+    public String findSourceFile(StackTraceElement[] target, String defaultValue) {
+<span class="nc bnc" id="L126" title="All 2 branches missed.">        for (StackTraceElement e : target) {</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">            if (CLEANER.isIn(e)) {</span>
+<span class="nc" id="L128">                return e.getFileName();</span>
+            }
+        }
+<span class="nc" id="L131">        return defaultValue;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

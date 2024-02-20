@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JUnitTestRule.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.junit</a> &gt; <span class="el_source">JUnitTestRule.java</span></div><h1>JUnitTestRule.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2020 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.junit;
+
+import org.junit.runner.Description;
+import org.junit.runners.model.Statement;
+import org.mockito.junit.MockitoTestRule;
+import org.mockito.plugins.MockitoLogger;
+import org.mockito.quality.Strictness;
+
+public final class JUnitTestRule implements MockitoTestRule {
+
+    private final Object testInstance;
+    private final JUnitSessionStore sessionStore;
+
+<span class="fc" id="L18">    public JUnitTestRule(MockitoLogger logger, Strictness strictness, Object testInstance) {</span>
+<span class="fc" id="L19">        this.sessionStore = new JUnitSessionStore(logger, strictness);</span>
+<span class="fc" id="L20">        this.testInstance = testInstance;</span>
+<span class="fc" id="L21">    }</span>
+
+    @Override
+    public Statement apply(Statement base, Description description) {
+<span class="fc" id="L25">        return sessionStore.createStatement(base, description.getDisplayName(), this.testInstance);</span>
+    }
+
+    @Override
+    public MockitoTestRule silent() {
+<span class="nc" id="L30">        return strictness(Strictness.LENIENT);</span>
+    }
+
+    @Override
+    public MockitoTestRule strictness(Strictness strictness) {
+<span class="fc" id="L35">        sessionStore.setStrictness(strictness);</span>
+<span class="fc" id="L36">        return this;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

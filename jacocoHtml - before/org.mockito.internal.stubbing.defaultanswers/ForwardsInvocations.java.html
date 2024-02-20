@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ForwardsInvocations.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.stubbing.defaultanswers</a> &gt; <span class="el_source">ForwardsInvocations.java</span></div><h1>ForwardsInvocations.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.stubbing.defaultanswers;
+
+import static org.mockito.internal.exceptions.Reporter.delegatedMethodDoesNotExistOnDelegate;
+import static org.mockito.internal.exceptions.Reporter.delegatedMethodHasWrongReturnType;
+
+import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
+import org.mockito.internal.configuration.plugins.Plugins;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.plugins.MemberAccessor;
+import org.mockito.stubbing.Answer;
+
+/**
+ * Internal answer to forward invocations on a real instance.
+ *
+ * @since 1.9.5
+ */
+public class ForwardsInvocations implements Answer&lt;Object&gt;, Serializable {
+    private static final long serialVersionUID = -8343690268123254910L;
+
+<span class="fc" id="L27">    private Object delegatedObject = null;</span>
+
+<span class="fc" id="L29">    public ForwardsInvocations(Object delegatedObject) {</span>
+<span class="fc" id="L30">        this.delegatedObject = delegatedObject;</span>
+<span class="fc" id="L31">    }</span>
+
+    @Override
+    public Object answer(InvocationOnMock invocation) throws Throwable {
+<span class="fc" id="L35">        Method mockMethod = invocation.getMethod();</span>
+
+        try {
+<span class="fc" id="L38">            Method delegateMethod = getDelegateMethod(mockMethod);</span>
+
+<span class="fc bfc" id="L40" title="All 2 branches covered.">            if (!compatibleReturnTypes(</span>
+<span class="fc" id="L41">                    mockMethod.getReturnType(), delegateMethod.getReturnType())) {</span>
+<span class="fc" id="L42">                throw delegatedMethodHasWrongReturnType(</span>
+<span class="fc" id="L43">                        mockMethod, delegateMethod, invocation.getMock(), delegatedObject);</span>
+            }
+
+<span class="fc" id="L46">            MemberAccessor accessor = Plugins.getMemberAccessor();</span>
+<span class="fc" id="L47">            Object[] rawArguments = invocation.getRawArguments();</span>
+<span class="fc" id="L48">            return accessor.invoke(delegateMethod, delegatedObject, rawArguments);</span>
+<span class="fc" id="L49">        } catch (NoSuchMethodException e) {</span>
+<span class="fc" id="L50">            throw delegatedMethodDoesNotExistOnDelegate(</span>
+<span class="fc" id="L51">                    mockMethod, invocation.getMock(), delegatedObject);</span>
+<span class="fc" id="L52">        } catch (InvocationTargetException e) {</span>
+            // propagate the original exception from the delegate
+<span class="fc" id="L54">            throw e.getCause();</span>
+        }
+    }
+
+    private Method getDelegateMethod(Method mockMethod) throws NoSuchMethodException {
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if (mockMethod.getDeclaringClass().isAssignableFrom(delegatedObject.getClass())) {</span>
+            // Compatible class. Return original method.
+<span class="fc" id="L61">            return mockMethod;</span>
+        } else {
+            // Return method of delegate object with the same signature as mockMethod.
+<span class="fc" id="L64">            return delegatedObject</span>
+<span class="fc" id="L65">                    .getClass()</span>
+<span class="fc" id="L66">                    .getMethod(mockMethod.getName(), mockMethod.getParameterTypes());</span>
+        }
+    }
+
+    private static boolean compatibleReturnTypes(Class&lt;?&gt; superType, Class&lt;?&gt; subType) {
+<span class="fc bfc" id="L71" title="All 4 branches covered.">        return superType.equals(subType) || superType.isAssignableFrom(subType);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockitoPlugins.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.plugins</a> &gt; <span class="el_source">MockitoPlugins.java</span></div><h1>MockitoPlugins.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.plugins;
+
+import org.mockito.Mockito;
+import org.mockito.MockitoFramework;
+import org.mockito.NotExtensible;
+
+/**
+ * Instance of this interface is available via {@link MockitoFramework#getPlugins()}.
+ * This object enables framework integrators to get access to default Mockito plugins.
+ * &lt;p&gt;
+ * Example use case: one needs to implement custom {@link MockMaker}
+ * and delegate some behavior to the default Mockito implementation.
+ * The interface was introduced to help framework integrations.
+ *
+ * @since 2.10.0
+ */
+@NotExtensible
+public interface MockitoPlugins {
+
+    /**
+     * Returns the default plugin implementation used by Mockito.
+     * Mockito plugins are stateless so it is recommended to keep hold of the returned plugin implementation
+     * rather than calling this method multiple times.
+     * Each time this method is called, new instance of the plugin is created.
+     *
+     * @param pluginType type of the plugin, for example {@link MockMaker}.
+     * @return the plugin instance
+     * @since 2.10.0
+     */
+    &lt;T&gt; T getDefaultPlugin(Class&lt;T&gt; pluginType);
+
+    /**
+     * Returns inline mock maker, an optional mock maker that is bundled with Mockito distribution.
+     * This method is needed because {@link #getDefaultPlugin(Class)} does not provide an instance of inline mock maker.
+     * Creates new instance each time is called so it is recommended to keep hold of the resulting object for future invocations.
+     * For more information about inline mock maker see the javadoc for main {@link Mockito} class.
+     *
+     * @return instance of inline mock maker
+     * @since 2.10.0
+     * @deprecated Please use {@link #getMockMaker(String)} with {@link org.mockito.MockMakers#INLINE} instead.
+     */
+    @Deprecated(since = &quot;5.6.0&quot;, forRemoval = true)
+    MockMaker getInlineMockMaker();
+
+    /**
+     * Returns {@link MockMaker} instance used by Mockito with the passed name {@code mockMaker}.
+     *
+     * &lt;p&gt;This will return the instance used by Mockito itself, not a new instance of it.
+     *
+     * &lt;p&gt;This method can be used to increase the interop of mocks created by Mockito and other
+     * libraries using Mockito mock maker API.
+     *
+     * @param mockMaker the name of the mock maker or {@code null} to retrieve the default mock maker
+     * @return instance of the mock maker
+     * @throws IllegalStateException if a mock maker with the name is not found
+     * @since 5.6.0
+     */
+    default MockMaker getMockMaker(String mockMaker) {
+<span class="fc" id="L63">        throw new UnsupportedOperationException(&quot;This method is not implemented.&quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

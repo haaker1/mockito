@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MatcherApplicationStrategy.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.invocation</a> &gt; <span class="el_source">MatcherApplicationStrategy.java</span></div><h1>MatcherApplicationStrategy.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.invocation;
+
+import java.util.List;
+
+import org.mockito.ArgumentMatcher;
+import org.mockito.internal.matchers.CapturingMatcher;
+import org.mockito.invocation.Invocation;
+
+public class MatcherApplicationStrategy {
+
+    private final Invocation invocation;
+    private final List&lt;? extends ArgumentMatcher&lt;?&gt;&gt; matchers;
+
+    private MatcherApplicationStrategy(
+<span class="fc" id="L19">            Invocation invocation, List&lt;? extends ArgumentMatcher&lt;?&gt;&gt; matchers) {</span>
+<span class="fc" id="L20">        this.invocation = invocation;</span>
+<span class="fc" id="L21">        this.matchers = matchers;</span>
+<span class="fc" id="L22">    }</span>
+
+    /**
+     * Returns the {@link MatcherApplicationStrategy} that must be used to capture the
+     * arguments of the given &lt;b&gt;invocation&lt;/b&gt; using the given &lt;b&gt;matchers&lt;/b&gt;.
+     *
+     * @param invocation
+     *            that contain the arguments to capture
+     * @param matchers
+     *            that will be used to capture the arguments of the invocation,
+     *            the passed {@link List} is not required to contain a
+     *            {@link CapturingMatcher}
+     * @return never &lt;code&gt;null&lt;/code&gt;
+     */
+    public static MatcherApplicationStrategy getMatcherApplicationStrategyFor(
+            Invocation invocation, List&lt;? extends ArgumentMatcher&lt;?&gt;&gt; matchers) {
+<span class="fc" id="L38">        return new MatcherApplicationStrategy(invocation, matchers);</span>
+    }
+
+    /**
+     * Applies the given {@link ArgumentMatcherAction} to all arguments and
+     * corresponding matchers
+     *
+     * @param action
+     *            must not be &lt;code&gt;null&lt;/code&gt;
+     * @return
+     *         &lt;ul&gt;
+     *         &lt;li&gt;&lt;code&gt;true&lt;/code&gt; if the given &lt;b&gt;action&lt;/b&gt; returned
+     *         &lt;code&gt;true&lt;/code&gt; for all arguments and matchers passed to it.
+     *         &lt;li&gt;&lt;code&gt;false&lt;/code&gt; if the given &lt;b&gt;action&lt;/b&gt; returned
+     *         &lt;code&gt;false&lt;/code&gt; for one of the passed arguments and matchers
+     *         &lt;li&gt;&lt;code&gt;false&lt;/code&gt; if the given matchers don't fit to the given invocation
+     *         because too many or to few matchers are available.
+     *         &lt;/ul&gt;
+     */
+    public boolean forEachMatcherAndArgument(ArgumentMatcherAction action) {
+<span class="fc" id="L58">        final boolean maybeVararg =</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">                invocation.getMethod().isVarArgs()</span>
+<span class="fc bfc" id="L60" title="All 2 branches covered.">                        &amp;&amp; invocation.getRawArguments().length == matchers.size();</span>
+
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (maybeVararg) {</span>
+<span class="fc" id="L63">            final Class&lt;?&gt; matcherType = lastMatcherType();</span>
+<span class="fc" id="L64">            final Class&lt;?&gt; paramType = lastParameterType();</span>
+<span class="fc bfc" id="L65" title="All 2 branches covered.">            if (paramType.isAssignableFrom(matcherType)) {</span>
+<span class="fc" id="L66">                return argsMatch(invocation.getRawArguments(), matchers, action);</span>
+            }
+        }
+
+<span class="fc bfc" id="L70" title="All 2 branches covered.">        if (invocation.getArguments().length == matchers.size()) {</span>
+<span class="fc" id="L71">            return argsMatch(invocation.getArguments(), matchers, action);</span>
+        }
+
+<span class="fc" id="L74">        return false;</span>
+    }
+
+    private boolean argsMatch(
+            Object[] arguments,
+            List&lt;? extends ArgumentMatcher&lt;?&gt;&gt; matchers,
+            ArgumentMatcherAction action) {
+<span class="fc bfc" id="L81" title="All 2 branches covered.">        for (int i = 0; i &lt; arguments.length; i++) {</span>
+<span class="fc" id="L82">            ArgumentMatcher&lt;?&gt; matcher = matchers.get(i);</span>
+<span class="fc" id="L83">            Object argument = arguments[i];</span>
+
+<span class="fc bfc" id="L85" title="All 2 branches covered.">            if (!action.apply(matcher, argument)) {</span>
+<span class="fc" id="L86">                return false;</span>
+            }
+        }
+<span class="fc" id="L89">        return true;</span>
+    }
+
+    private Class&lt;?&gt; lastMatcherType() {
+<span class="fc" id="L93">        return matchers.get(matchers.size() - 1).type();</span>
+    }
+
+    private Class&lt;?&gt; lastParameterType() {
+<span class="fc" id="L97">        final Class&lt;?&gt;[] parameterTypes = invocation.getMethod().getParameterTypes();</span>
+<span class="fc" id="L98">        return parameterTypes[parameterTypes.length - 1];</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VerificationMode.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.verification</a> &gt; <span class="el_source">VerificationMode.java</span></div><h1>VerificationMode.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.verification;
+
+import org.mockito.Mockito;
+import org.mockito.internal.verification.VerificationModeFactory;
+import org.mockito.internal.verification.api.VerificationData;
+
+/**
+ * Allows verifying that certain behavior happened at least once / exact number
+ * of times / never. E.g:
+ *
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ * verify(mock, times(5)).someMethod(&amp;quot;was called five times&amp;quot;);
+ *
+ * verify(mock, never()).someMethod(&amp;quot;was never called&amp;quot;);
+ *
+ * verify(mock, atLeastOnce()).someMethod(&amp;quot;was called at least once&amp;quot;);
+ *
+ * verify(mock, atLeast(2)).someMethod(&amp;quot;was called at least twice&amp;quot;);
+ *
+ * verify(mock, atMost(3)).someMethod(&amp;quot;was called at most 3 times&amp;quot;);
+ *
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * &lt;b&gt;times(1) is the default&lt;/b&gt; and can be omitted
+ * &lt;p&gt;
+ * See examples in javadoc for {@link Mockito#verify(Object, VerificationMode)}
+ */
+public interface VerificationMode {
+
+    /**
+     * Performs the verification
+     */
+    void verify(VerificationData data);
+
+    /**
+     * Description will be prepended to the assertion error if verification fails.
+     * @param description The custom failure message
+     * @return VerificationMode
+     * @since 2.1.0
+     */
+    default VerificationMode description(String description) {
+<span class="nc" id="L46">        return VerificationModeFactory.description(this, description);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>
