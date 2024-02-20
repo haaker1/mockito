@@ -85,4 +85,15 @@ public class SerializableMethodTest extends TestBase {
         Method hashCodeMethod = this.getClass().getMethod("hashCode", args);
         assertFalse(new SerializableMethod(toStringMethod).equals(new SerializableMethod(hashCodeMethod)));
     }
+
+    @Test
+    public void shouldNotBeEqualToOtherParameters() throws NoSuchMethodException, SecurityException {
+        class Dummy {
+            public void method() {}
+            public void method(int a) {}
+        }
+        Method m1 = new Dummy().getClass().getMethod("method", new Class<?>[]{});
+        Method m2 = new Dummy().getClass().getMethod("method", new Class<?>[]{int.class});
+        assertFalse(new SerializableMethod(m1).equals(new SerializableMethod(m2)));
+    }
 }
