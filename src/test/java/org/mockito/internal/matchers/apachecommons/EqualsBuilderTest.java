@@ -547,6 +547,20 @@ public class EqualsBuilderTest extends TestBase {
     }
 
     @Test
+    public void testIntArrayOfDifferentLength() {
+        int[] obj1 = {1, 2, 3};
+        int[] obj2 = {1, 2, 3, 4, 5, 6, 7};
+        assertFalse(new EqualsBuilder().append(obj1, obj2).isEquals());
+    }
+
+    @Test
+    public void testIntArrayEmptyArrays() {
+        int[] obj1 = new int[0];
+        int[] obj2 = new int[0];
+        assertTrue(new EqualsBuilder().append(obj1, obj2).isEquals());
+    }
+
+    @Test
     public void testShortArray() {
         short[] obj1 = new short[2];
         obj1[0] = 5;
