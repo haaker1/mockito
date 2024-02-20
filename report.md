@@ -57,6 +57,11 @@ Both lizard and JaCoCo disagree with regards to CCN, which means they measure it
 
 ## Refactoring
 
+* SerializableMethod::equals - 
+* ArrayEquals::matches - 
+* EqualsBuilder::append - 
+*  - 
+
 Plan for refactoring complex code:
 
 Estimated impact of refactoring (lower CC, but other drawbacks?).
@@ -75,7 +80,7 @@ The tool used to measure code coverage was jacoco. It was already integrated in 
 
 **The git command that is used to obtain the patch:**
 
-git diff a10d43ca5cb9377978b2a1fe2888fdeef33cdf79
+git diff dd5de3f^..0a075f8
 
 **What kinds of constructs does your tool support, and how accurate is its output?**
 
@@ -114,7 +119,7 @@ Number of test cases added: two per team member (P) or at least four (P+).
 
 | Member         | TC1    | TC2    | TC3    | TC4    |
 |----------------|--------|--------|--------|--------|
-| Alex           |        |        |        |        |
+| Alex           | `git diff a4fa4ce^..a4fa4ce`       | `git diff 787f032^..787f032`       | `git diff 8e7796c^..8e7796c`       | `git diff 68919fb^..68919fb`       |
 | Anne           |        |        |        |        |
 | Hugo           |        |        |        |        |
 | Juan           |        |        |        |        |
