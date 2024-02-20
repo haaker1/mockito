@@ -66,33 +66,38 @@ git diff ...
 
 The tool used to measure code coverage was jacoco. It was already integrated in the existing build environment which made it easy to use with the command `./gradlew coverageReport`. This generated a html file with information about the coverage for all the functions in the project. 
 
-
-
-Document your experience in using a "new"/different coverage tool.
-
-How well was the tool documented? Was it possible/easy/difficult to
-integrate it with your build environment?
-
 ### Your own coverage tool
 
-Show a patch (or link to a branch) that shows the instrumented code to
-gather coverage measurements.
+The git command that is used to obtain the patch:
 
-The patch is probably too long to be copied here, so please add
-the git command that is used to obtain the patch instead:
-
-git diff ...
+git diff a4da798
 
 What kinds of constructs does your tool support, and how accurate is
 its output?
+
+
+Our tool checks if a branch has been reached. It supports constructs such as if/else, for and while loops and catch blocks. It does not measure coverage inside lambda functions or other functions contained within the function that is checked. 
 
 ### Evaluation
 
 1. How detailed is your coverage measurement?
 
+The coverage tool outputs the coverage measurement as a percentage of branches visited. In addition, it outputs which branches have been visited and which have not as identified by the branch ID. 
+
 2. What are the limitations of your own tool?
 
+There are some limitations of the tool. For example, in if-statements such as `if(a || b)`, it does not measure which of `a` or `b` was true, only if the inside of the if-statement was reached. In such cases there are two ways to reach the if-statement, but we cannot know which way we took. Functionally they are the same branch since it does not matter for the outcome of the if/else statement which of the variables was true. However, it could lead to limitations in testing and make it harder to spot bugs since the coverage tool does not tell us if we have tested both ways to reach the if-statement. 
+
 3. Are the results of your tool consistent with existing coverage tools?
+
+There were some differences in results between our coverage tool and jacoco. 
+
+| function                         | jacoco coverage | DIY coverage | 
+|----------------------------------|-----------------|--------------|
+| InlineDelegateByteBuddyMockMaker | 50%             | 8            | 
+| wrap                             | 78%             | 8            | 
+| adjustModuleGraph                | 28%             | 15           | 
+| mockClass                        | 63%             | 35           | 
 
 ## Coverage improvement
 
