@@ -29,9 +29,10 @@ public class EqualsTest extends TestBase {
     }
 
     @Test
-    public void shouldArraysBeNotEqual(){
+    public void assertFalseWhenArraysNotEqual(){
         assertFalse(new ArrayEquals(new int[] {1, 2}).matches(new boolean[] {true, false}));
     }
+    
 
     @Test
     public void shouldDescribeWithExtraTypeInfo() throws Exception {
