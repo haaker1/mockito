@@ -35,20 +35,20 @@ From this, we picked out the first 4 functions to count manually:
 
 | Member         | function                         | lizard CCN | jacoco CCN | CCN manual1 | CCN manual2 |
 |----------------|----------------------------------|------------|------------|-------------|-------------|
-| Alex           | SerializableMethod::equals       | 14         | 25         | 4           |             |
-| Anne           | ArrayEquals::matches             | 21         | 21         |             | 11 (Alex)   |
+| Alex           | SerializableMethod::equals       | 14         | 25         | 4           | 4(Anne)     |
+| Anne           | ArrayEquals::matches             | 21         | 21         | 11          | 11 (Alex)   |
 | Hugo           | EqualsBuilder::append            | 17         | 18         |             |             |
 | Juan           |                                  |            |            |             |             |
 
 
-Both lizard and JaCoCo disagree with regards to CCN, which means they measure it differently. Therefore, it is natural that our own counts disagree, perhaps because of how bitwise operators are treated, etc..
+Both lizard and JaCoCo disagree with regards to CCN in some cases, which means they measure it differently. Therefore, it is natural that our own counts disagree, perhaps because of how bitwise operators are treated, etc..
 
 3. What is the purpose of the functions?
 
 | function                         | purpose       |
 |----------------------------------|---------------|
 | SerializableMethod::equals       | Check if the SerializableMethod object is equal to another object. |
-| ArrayEquals::matches             |       |
+| ArrayEquals::matches             | Check if a given object is an array, and is equal to another object that is an array of the same type  |
 | EqualsBuilder::append            |       |
 |                                  |       |
 
@@ -128,9 +128,11 @@ Number of test cases added: two per team member (P) or at least four (P+).
 | Member         | TC1    | TC2    | TC3    | TC4    |
 |----------------|--------|--------|--------|--------|
 | Alex           | `git diff a4fa4ce^..a4fa4ce`       | `git diff 787f032^..787f032`       | `git diff 8e7796c^..8e7796c`       | `git diff 68919fb^..68919fb`       |
-| Anne           |        |        |        |        |
+| Anne           | `git diff a10d43c^..a98781b`       | `git diff 792aa0a^..792aa0a`       |        |        |
 | Hugo           |        |        |        |        |
 | Juan           |        |        |        |        |
+
+
 
 Requirements to increase coverage:
 * SerializableMethod::equals - 
