@@ -82,24 +82,24 @@ Our tool checks if a branch has been reached. It supports constructs such as if/
 
 1. How detailed is your coverage measurement?
 
-The coverage tool outputs the coverage measurement as a percentage of branches visited. In addition, it outputs which branches have been visited and which have not as identified by the branch ID. 
+The coverage tool outputs the coverage measurement as a percentage of branches visited. In addition, it outputs which branches have been visited and which have not as identified by the branch ID. The tool does not count ternaries, but it does take exceptions into account since it counts the if- or catch-blocks leading up to exceptions being thrown. 
 
 2. What are the limitations of your own tool?
 
-There are some limitations of the tool. For example, in if-statements such as `if(a || b)`, it does not measure which of `a` or `b` was true, only if the inside of the if-statement was reached. In such cases there are two ways to reach the if-statement, but we cannot know which way we took. Functionally they are the same branch since it does not matter for the outcome of the if/else statement which of the variables was true. However, it could lead to limitations in testing and make it harder to spot bugs since the coverage tool does not tell us if we have tested both ways to reach the if-statement. 
+There are some limitations of the tool. For example, in if-statements such as `if(a || b)`, it does not measure which of `a` or `b` was true, only if the inside of the if-statement was reached. In such cases there are two ways to reach the if-statement, but we cannot know which way we took. Functionally they are the same branch since it does not matter for the outcome of the if/else statement which of the variables was true. However, it could lead to limitations in testing and make it harder to spot bugs since the coverage tool does not tell us if we have tested both ways to reach the if-statement. To test this, we would have to split up such 'combined' conditionals into several different if-statements. Changing the code would require the instrumentation of the tool to change, to include counting of the new branches that may be created.
 
 3. Are the results of your tool consistent with existing coverage tools?
 
-There were some differences in results between our coverage tool and jacoco. For `wrap` and `mockClass` our coverage tool measured higher branch coverage than jacoco, whereas it measured lower coverage for `InlineDelegateByteBuddyMockMaker` and `adjustModuleGraph`. The table below shows the coverage in percentage, and the branches that were taken, identified by our branch ID.
+There were some differences in results between our coverage tool and jacoco. For `wrap` and `mockClass` our coverage tool measured higher branch coverage than jacoco, whereas it measured lower coverage for `InlineDelegateByteBuddyMockMaker` and `adjustModuleGraph`. One reason for the differences is that the two tools use different ways of counting. The jacoco tool is more detailed and counts cases such as `if(a || b)` as four different branches (a b, a !b, !a b, !a !b), whereas our tool only counts it as two branches. In addition, jacoco seems to include the coverage of lambda functions and other inner functions, which our tool does not. 
 
-| function                         | jacoco coverage | DIY coverage | jacoco branches | DIY branches                    |
-|----------------------------------|-----------------|--------------|-----------------|---------------------------------|                
-| InlineDelegateByteBuddyMockMaker | 50%             | 22.2%        |                 | 0, 8                            |
-| wrap                             | 78%             | 87.5%        |                 | 0, 1, 2, 3, 4, 5, 7             |
-| adjustModuleGraph                | 28%             | 14.3%        |                 | 0, 1                            |
-| mockClass                        | 63%             | 78.4%        |                 | 0-9, 11-17, 21-24, 28-30, 32-36 |
+The table below shows the coverage in percentage.
 
-
+| function                         | jacoco coverage | DIY coverage |
+|----------------------------------|-----------------|--------------|              
+| InlineDelegateByteBuddyMockMaker | 50%             | 22.2%        |  
+| wrap                             | 78%             | 87.5%        |              
+| adjustModuleGraph                | 28%             | 14.3%        |            
+| mockClass                        | 63%             | 78.4%        | 
 
 
 ## Coverage improvement
