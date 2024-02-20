@@ -90,14 +90,17 @@ There are some limitations of the tool. For example, in if-statements such as `i
 
 3. Are the results of your tool consistent with existing coverage tools?
 
-There were some differences in results between our coverage tool and jacoco. 
+There were some differences in results between our coverage tool and jacoco. For `wrap` and `mockClass` our coverage tool measured higher branch coverage than jacoco, whereas it measured lower coverage for `InlineDelegateByteBuddyMockMaker` and `adjustModuleGraph`. The table below shows the coverage in percentage, and the branches that were taken, identified by our branch ID.
 
-| function                         | jacoco coverage | DIY coverage | 
-|----------------------------------|-----------------|--------------|
-| InlineDelegateByteBuddyMockMaker | 50%             | 8            | 
-| wrap                             | 78%             | 8            | 
-| adjustModuleGraph                | 28%             | 15           | 
-| mockClass                        | 63%             | 35           | 
+| function                         | jacoco coverage | DIY coverage | jacoco branches | DIY branches                    |
+|----------------------------------|-----------------|--------------|-----------------|---------------------------------|                
+| InlineDelegateByteBuddyMockMaker | 50%             | 22.2%        |                 | 0, 8                            |
+| wrap                             | 78%             | 87.5%        |                 | 0, 1, 2, 3, 4, 5, 7             |
+| adjustModuleGraph                | 28%             | 14.3%        |                 | 0, 1                            |
+| mockClass                        | 63%             | 78.4%        |                 | 0-9, 11-17, 21-24, 28-30, 32-36 |
+
+
+
 
 ## Coverage improvement
 
