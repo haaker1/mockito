@@ -113,7 +113,7 @@ The table below shows the coverage in percentage.
 | EqualsBuilder::append            | 94%             | 100%         |
 |                                  |                 |              |
 
-Report of old coverage: [link]
+Report of old coverage: [./jacocoHtml - before](https://github.com/haaker1/mockito/tree/issue/6-report/jacocoHtml%20-%20before)
 
 Number of test cases added: two per team member (P) or at least four (P+).
 
