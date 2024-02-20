@@ -32,6 +32,11 @@ public class EqualsTest extends TestBase {
     public void assertFalseWhenArraysNotEqual(){
         assertFalse(new ArrayEquals(new int[] {1, 2}).matches(new boolean[] {true, false}));
     }
+
+    @Test
+    public void assertTrueWhenActualArrayIsNull(){
+        assertFalse(new ArrayEquals(new double[] {2.7}).matches(null));
+    }
     
 
     @Test
