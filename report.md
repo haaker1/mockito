@@ -31,19 +31,12 @@ From this, we picked out the first 4 functions to count manually:
 | function                         | lizard CCN | jacoco CCN | CCN manual1 | CCN manual2 |
 |----------------------------------|------------|------------|-------------|-------------|
 | InlineDelegateByteBuddyMockMaker | 24         | 8          | 15          | 8           |
-| wrap                             | 27         | 8          | 27          | 24          |
+| wrap                             | 27         | 8          | 27          | 8           |
 | adjustModuleGraph                | 13         | 15         | 13          | 10          |
 | mockClass                        | 34         | 35         | 34          | 39          |
 
-1. What are your results for five complex functions?
-   * Did all methods (tools vs. manual count) get the same result?
-   * Are the results clear?
 
-The first function, InlineDelegateByteBuddyMockMaker, was also calculated by JaCoCo, where it gave a CCN of 8, different from the lizard calculation. 
-
-2. Are the functions just complex, or also long?
-
-Both long and complex, however there are some other functions that are complex but not as long (ReturnValueFor in ReturnsEmptyValues class with CC=23 and NLOC=48, and matches in ArrayEquals class with CC=21 and NLOC=25).
+All of the different methods of counting the complexity generated different results. For example, `InlineDelegateByteBuddyMockMaker` got 24 CCN by lizard, but only 8 by jacoco. The manual counts also differed a bit. Both the `InlineDelegateByteBuddyMockMaker` and `wrap` methods contain several methods, both lambdas and regular, inside of them. The first manual count includes these functions in the count, but the second manual counter did not. Most likely lizard includes these in the count, but jacoco does not. Another reason for the different counts may be if exceptions are counted, and if so if they are counted as another different branch or 'decision point', or if they are counted as an exit point. The first manual counter did not count thrown exceptions, but the second manual counter counted them as exit points. Therefore, the results for the complexity of the four functions are a bit unclear. Since the first manual count is similar to lizard, that tool is most likely not taking exceptions into account. It is not clear whether or not Jacoco takes exceptions into account. The second manual counter did not get the same count as jacoco for `adjustModuleGraph`, which is a function without lambdas or other inner functions, but with exceptions. The four chosen functions are both long and complex. However there are some other functions that are complex but not as long such as `matches` with CCN of 21 but only 25 lines. The documentation is lacking for all of the functions, and does not hold any information about the possible outcomes of the functions. 
 
 3. What is the purpose of the functions?
 
@@ -54,13 +47,8 @@ Both long and complex, however there are some other functions that are complex b
 | adjustModuleGraph                | The function is used to adjust a module graph of a source module so that a mock can be created                                                             |
 | mockClass                        | The purpose of the function is to create a mock class                                                                                                      |
 
-5. Are exceptions taken into account in the given measurements?
 
-Exceptions are not taken into account in the measurements for the tools, but are shown for manually calculated measurements. There, exceptions are thought of as an exit point, which lowers the CC.
 
-6. Is the documentation clear w.r.t. all the possible outcomes?
-
-The documentation is lacking for all of the functions...
 
 ## Refactoring
 
