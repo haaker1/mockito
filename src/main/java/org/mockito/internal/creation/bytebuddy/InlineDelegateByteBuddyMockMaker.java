@@ -6,7 +6,6 @@ package org.mockito.internal.creation.bytebuddy;
 
 import net.bytebuddy.agent.ByteBuddyAgent;
 
-import org.mockito.Coverage;
 import org.mockito.MockedConstruction;
 import org.mockito.creation.instance.InstantiationException;
 import org.mockito.creation.instance.Instantiator;
@@ -225,24 +224,18 @@ class InlineDelegateByteBuddyMockMaker
     private final ThreadLocal<Object> currentSpied = new ThreadLocal<>();
 
     InlineDelegateByteBuddyMockMaker() {
-        Coverage.setTotalBranches("InlineDelegateByteBuddyMockMaker", 9);
-        Coverage.reached("InlineDelegateByteBuddyMockMaker", 0);
         if (INITIALIZATION_ERROR != null) {
-            Coverage.reached("InlineDelegateByteBuddyMockMaker", 1);
             String detail;
             if (PlatformUtils.isAndroidPlatform() || PlatformUtils.isProbablyTermuxEnvironment()) {
-                Coverage.reached("InlineDelegateByteBuddyMockMaker", 2);
                 detail =
                         "It appears as if you are trying to run this mock maker on Android which does not support the instrumentation API.";
             } else {
-                Coverage.reached("InlineDelegateByteBuddyMockMaker", 3);
                 try {
                     if (INITIALIZATION_ERROR instanceof NoClassDefFoundError
                             && INITIALIZATION_ERROR.getMessage() != null
                             && INITIALIZATION_ERROR
                                     .getMessage()
                                     .startsWith("net/bytebuddy/agent/")) {
-                        Coverage.reached("InlineDelegateByteBuddyMockMaker", 4);
                         detail =
                                 join(
                                         "It seems like you are running Mockito with an incomplete or inconsistent class path. Byte Buddy Agent could not be loaded.",
@@ -253,16 +246,13 @@ class InlineDelegateByteBuddyMockMaker
                                     .getMethod("getSystemJavaCompiler")
                                     .invoke(null)
                             == null) {
-                        Coverage.reached("InlineDelegateByteBuddyMockMaker", 5);
                         detail =
                                 "It appears as if you are running on a JRE. Either install a JDK or add JNA to the class path.";
                     } else {
-                        Coverage.reached("InlineDelegateByteBuddyMockMaker", 6);
                         detail =
                                 "It appears as if your JDK does not supply a working agent attachment mechanism.";
                     }
                 } catch (Throwable ignored) {
-                    Coverage.reached("InlineDelegateByteBuddyMockMaker", 7);
                     detail =
                             "It appears as if you are running an incomplete JVM installation that might not support all tooling APIs";
                 }
@@ -274,8 +264,6 @@ class InlineDelegateByteBuddyMockMaker
                             detail,
                             Platform.describe()),
                     INITIALIZATION_ERROR);
-        } else {
-            Coverage.reached("InlineDelegateByteBuddyMockMaker", 8);
         }
 
         ThreadLocal<Class<?>> currentConstruction = new ThreadLocal<>();

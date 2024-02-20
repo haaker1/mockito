@@ -14,7 +14,6 @@ import net.bytebuddy.implementation.StubMethod;
 import net.bytebuddy.utility.GraalImageCode;
 import net.bytebuddy.utility.RandomString;
 
-import org.mockito.Coverage;
 import org.mockito.Mockito;
 import org.mockito.codegen.InjectionBase;
 import org.mockito.exceptions.base.MockitoException;
@@ -170,19 +169,13 @@ abstract class ModuleHandler {
 
         @Override
         void adjustModuleGraph(Class<?> source, Class<?> target, boolean export, boolean read) {
-            Coverage.setTotalBranches("adjustModuleGraph", 14);
-            Coverage.reached("adjustModuleGraph", 0);
             boolean needsExport = export && !isExported(source, target);
             boolean needsRead = read && !canRead(source, target);
             if (!needsExport && !needsRead) {
-                Coverage.reached("adjustModuleGraph", 1);
                 return;
-            } else {
-                Coverage.reached("adjustModuleGraph", 2);
             }
             ClassLoader classLoader = source.getClassLoader();
             if (classLoader == null) {
-                Coverage.reached("adjustModuleGraph", 3);
                 throw new MockitoException(
                         join(
                                 "Cannot adjust module graph for modules in the bootstrap loader",
@@ -191,25 +184,20 @@ abstract class ModuleHandler {
                                         + " is declared by the bootstrap loader and cannot be adjusted",
                                 "Requires package export to " + target + ": " + needsExport,
                                 "Requires adjusted reading of " + target + ": " + needsRead));
-            } else {
-                Coverage.reached("adjustModuleGraph", 4);
             }
             boolean targetVisible = classLoader == target.getClassLoader();
             while (!targetVisible && classLoader != null) {
-                Coverage.reached("adjustModuleGraph", 5);
                 classLoader = classLoader.getParent();
                 targetVisible = classLoader == target.getClassLoader();
             }
             MethodCall targetLookup;
             Implementation.Composable implementation;
             if (targetVisible) {
-                Coverage.reached("adjustModuleGraph", 6);
                 targetLookup =
                         MethodCall.invoke(getModule)
                                 .onMethodCall(MethodCall.invoke(forName).with(target.getName()));
                 implementation = StubMethod.INSTANCE;
             } else {
-                Coverage.reached("adjustModuleGraph", 7);
                 Class<?> intermediate;
                 Field field;
                 try {
@@ -240,7 +228,6 @@ abstract class ModuleHandler {
                     field = intermediate.getField("mockitoType");
                     field.set(null, target);
                 } catch (Exception e) {
-                    Coverage.reached("adjustModuleGraph", 8);
                     throw new MockitoException(
                             join(
                                     "Could not create a carrier for making the Mockito type visible to "
@@ -259,25 +246,19 @@ abstract class ModuleHandler {
                     MethodCall.invoke(getModule)
                             .onMethodCall(MethodCall.invoke(forName).with(source.getName()));
             if (needsExport) {
-                Coverage.reached("adjustModuleGraph", 9);
                 implementation =
                         implementation.andThen(
                                 MethodCall.invoke(addExports)
                                         .onMethodCall(sourceLookup)
                                         .with(target.getPackage().getName())
                                         .withMethodCall(targetLookup));
-            } else {
-                Coverage.reached("adjustModuleGraph", 10);
             }
             if (needsRead) {
-                Coverage.reached("adjustModuleGraph", 11);
                 implementation =
                         implementation.andThen(
                                 MethodCall.invoke(addReads)
                                         .onMethodCall(sourceLookup)
                                         .withMethodCall(targetLookup));
-            } else {
-                Coverage.reached("adjustModuleGraph", 12);
             }
             try {
                 Class.forName(
@@ -302,7 +283,6 @@ abstract class ModuleHandler {
                         true,
                         source.getClassLoader());
             } catch (Exception e) {
-                Coverage.reached("adjustModuleGraph", 13);
                 throw new MockitoException(
                         join(
                                 "Could not force module adjustment of the module of " + source,
