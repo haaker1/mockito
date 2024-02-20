@@ -41,7 +41,6 @@ public class Coverage {
 
     /**
      * Write the current branch coverage to disk.
-     * @param function The function identifier.
      */
     public static void writeCoverage() {
         File f = new File("./build/coverage/coverage.txt");
@@ -71,11 +70,11 @@ public class Coverage {
             int totalBranches = getTotalBranches(function);
             int branches = branchesReached.get(function) != null ? branchesReached.get(function).size() : 0;
             str += String.format("Coverage for %s: %.1f%%\n", function, ((double) branches * 100) / totalBranches);
-            str += "Taken branchIDs:";
+            str += "Taken branchIDs (" + branches + "):";
             for (Integer branch : branchesReached.get(function)) {
                 str += " " + branch;
             }
-            str += "\nNon-taken branchIDs:";
+            str += "\nNon-taken branchIDs (" + (totalBranches-branches) + "):";
             for (int i = 0; i < totalBranches; ++i) {
                 if (branchesReached.get(function) != null) {
                     if (!branchesReached.get(function).contains(i))
