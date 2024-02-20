@@ -143,7 +143,7 @@ Requirements to increase coverage:
 | function (with new tests)        | jacoco coverage | DIY coverage |
 |----------------------------------|-----------------|--------------|
 | SerializableMethod::equals       | 61%             | 58.3%        |
-| ArrayEquals::matches             | 80%             |              |
+| ArrayEquals::matches             | 80%             | 100%         |
 | EqualsBuilder::append            |                 |              |
 |                                  |                 |              |
 
