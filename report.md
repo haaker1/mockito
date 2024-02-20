@@ -57,7 +57,7 @@ Both lizard and JaCoCo disagree with regards to CCN in some cases, which means t
 
 ## Refactoring
 
-*Plan for refactoring complex code:*
+**Plan for refactoring complex code:**
 
 * SerializableMethod::equals - 
 * ArrayEquals::matches - 
@@ -65,11 +65,11 @@ Both lizard and JaCoCo disagree with regards to CCN in some cases, which means t
 *  - 
 
 
-*Estimated impact of refactoring (lower CC, but other drawbacks?).*
+**Estimated impact of refactoring (lower CC, but other drawbacks?).**
 
 The CC will be lower, but there will be more functions, which can sometimes be a drawback if considering readability. Some functions are just inherently complex.
 
-*Carried out refactoring (optional, P+):*
+**Carried out refactoring (optional, P+):**
 
 | Member         | Refactor    |
 |----------------|--------|
