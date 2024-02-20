@@ -126,7 +126,7 @@ class SubclassBytecodeGenerator implements BytecodeGenerator {
 
     @Override
     public <T> Class<? extends T> mockClass(MockFeatures<T> features) {
-        Coverage.setTotalBranches("mockClass", 8);
+        Coverage.setTotalBranches("mockClass", 37);
         Coverage.reached("mockClass", 0);
         MultipleParentClassLoader.Builder loaderBuilder =
                 new MultipleParentClassLoader.Builder()
