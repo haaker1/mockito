@@ -31,7 +31,7 @@ The complexity measurement tool lizard was run on the code base to identify four
 | 25   | 21  | ArrayEquals::matches@17-41                                                 | @src/main/java/org/mockito/internal/matchers/ArrayEquals.java                                |
 | 48   | 23  | ReturnsEmptyValues::returnValueFor@106-158                                 | @src/main/java/org/mockito/internal/stubbing/defaultanswers/ReturnsEmptyValues.java          |
 
-From this, we picked out the first 4 functions to count manually: 
+From this, we picked out four functions to count manually: 
 
 | Member         | function                         | lizard CCN | jacoco CCN | CCN manual1 | CCN manual2 |
 |----------------|----------------------------------|------------|------------|-------------|-------------|
@@ -40,10 +40,15 @@ From this, we picked out the first 4 functions to count manually:
 | Hugo           | EqualsBuilder::append            | 17         | 18         |             |             |
 | Juan           |                                  |            |            |             |             |
 
+**Did everyone get the same result? Is there something that is unclear? If you have a tool, is its result the same as yours?**
 
-Both lizard and JaCoCo disagree with regards to CCN in some cases, which means they measure it differently. Therefore, it is natural that our own counts disagree, perhaps because of how bitwise operators are treated, etc..
+Both lizard and JaCoCo disagree with regards to CCN in some cases, which means they measure it differently. Therefore, it is natural that our own counts disagree, perhaps because of how bitwise operators are treated or how it reads the code. The manual CCN counts seem to disagree with the tools, but agree between each other. A possible reason for this is that there are different methods of counting cyclomatic complexity, and the tools use a different method from us. As a consequence, the results from the tools are a bit unclear.
 
-3. What is the purpose of the functions?
+**Are the functions just complex, or also long?**
+
+The length of the most complex functions differ. However, they seem to lean towards being medium to long. This makes sense, since a longer function will be able to fit more decision points such as if/else-statements inside of it.
+
+**What is the purpose of the functions?**
 
 | function                         | purpose       |
 |----------------------------------|---------------|
@@ -52,8 +57,11 @@ Both lizard and JaCoCo disagree with regards to CCN in some cases, which means t
 | EqualsBuilder::append            |       |
 |                                  |       |
 
+**Are exceptions taken into account in the given measurements?**
+The chosen functions lack exceptions which makes it unclear whether or not the tools take these into account.
 
-
+**Is the documentation clear w.r.t. all the possible outcomes?**
+The documentation is lacking for all of the functions, and does not hold any information about the possible outcomes of the functions. 
 
 ## Refactoring
 
