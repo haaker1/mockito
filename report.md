@@ -14,7 +14,7 @@ The could be built and run as documented in the project README. To build the pro
 
 ## Complexity
 
-The complexity measurement tool lizard was run on the code base to identify four large functions. The cyclomatic complexity of these functions was also counted by hand. We ran lizard using the command `lizard src/ -x"./src/tests/*" -l java -T nloc=100` and obtained the following results:
+The complexity measurement tool lizard was run on the code base to identify four large functions. The cyclomatic complexity of these functions was also counted by hand. We ran lizard using the command `lizard src/ -x"./src/tests/*" -l java -T cyclomatic_complexity=10` and obtained the following results:
 
 | NLOC | CCN | location                                                                   | file                                                                                         |
 |------|-----|----------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
@@ -35,7 +35,7 @@ From this, we picked out the first 4 functions to count manually:
 
 | Member         | function                         | lizard CCN | jacoco CCN | CCN manual1 | CCN manual2 |
 |----------------|----------------------------------|------------|------------|-------------|-------------|
-| Alex           | SerializableMethod::equals       | 14         | 25         | 4           | 4(Anne)     |
+| Alex           | SerializableMethod::equals       | 14         | 25         | 13          | 13 (Anne)     |
 | Anne           | ArrayEquals::matches             | 21         | 21         | 11          | 11 (Alex)   |
 | Hugo           | EqualsBuilder::append            | 17         | 18         |             |             |
 | Juan           |                                  |            |            |             |             |
@@ -57,19 +57,19 @@ Both lizard and JaCoCo disagree with regards to CCN in some cases, which means t
 
 ## Refactoring
 
-*Plan for refactoring complex code:*
+**Plan for refactoring complex code:**
 
-* SerializableMethod::equals - 
+* SerializableMethod::equals - The function has a lot of if-statements and different ways of figuring out if all necessary fields are equal between two objects. One initial thought is to split these up and handle different stages in different helper-functions. However, upon further inspection, it seems that there is a bit of dead code present; if-statements which are impossible to reach. For example, one branch is taken only if the return type of a function is null (which is not the same as void), which is impossible since every method needs a return type. Therefore, a refactoring plan is to remove the dead code and therefore reduce the complexity.
 * ArrayEquals::matches - 
 * EqualsBuilder::append - 
 *  - 
 
 
-*Estimated impact of refactoring (lower CC, but other drawbacks?).*
+**Estimated impact of refactoring (lower CC, but other drawbacks?).**
 
 The CC will be lower, but there will be more functions, which can sometimes be a drawback if considering readability. Some functions are just inherently complex.
 
-*Carried out refactoring (optional, P+):*
+**Carried out refactoring (optional, P+):**
 
 | Member         | Refactor    |
 |----------------|--------|
@@ -135,7 +135,7 @@ Number of test cases added: two per team member (P) or at least four (P+).
 
 
 Requirements to increase coverage:
-* SerializableMethod::equals - 
+* SerializableMethod::equals - It has a few checks which are never reached, for example whether the other object is null or if they are not of the same class, which could be added as test case. Also, depending on the methods that the function is comparing, they must also have the same method names and parameter types, which are not tested and could be added. 
 * ArrayEquals::matches - The current test suite does not cover cases where the wanted object is an int array and the actual given object is something else. It also does not cover cases where the actual given object is null.
 * EqualsBuilder::append -
 *  - 
