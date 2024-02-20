@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FieldInitializer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.util.reflection</a> &gt; <span class="el_source">FieldInitializer.java</span></div><h1>FieldInitializer.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.util.reflection;
+
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.internal.configuration.plugins.Plugins;
+import org.mockito.internal.util.MockUtil;
+import org.mockito.plugins.MemberAccessor;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+
+import static java.lang.reflect.Modifier.isStatic;
+
+/**
+ * Initialize a field with type instance if a default constructor can be found.
+ *
+ * &lt;p&gt;
+ * If the given field is already initialized, then &lt;strong&gt;the actual instance is returned&lt;/strong&gt;.
+ * This initializer doesn't work with inner classes, local classes, interfaces or abstract types.
+ * &lt;/p&gt;
+ *
+ */
+public class FieldInitializer {
+
+    private final Object fieldOwner;
+    private final Field field;
+    private final ConstructorInstantiator instantiator;
+
+    /**
+     * Prepare initializer with the given field on the given instance.
+     *
+     * &lt;p&gt;
+     * This constructor fail fast if the field type cannot be handled.
+     * &lt;/p&gt;
+     *
+     * @param fieldOwner Instance of the test.
+     * @param field Field to be initialize.
+     */
+    public FieldInitializer(Object fieldOwner, Field field) {
+<span class="fc" id="L49">        this(fieldOwner, field, new NoArgConstructorInstantiator(fieldOwner, field));</span>
+<span class="fc" id="L50">    }</span>
+
+    /**
+     * Prepare initializer with the given field on the given instance.
+     *
+     * &lt;p&gt;
+     * This constructor fail fast if the field type cannot be handled.
+     * &lt;/p&gt;
+     *
+     * @param fieldOwner Instance of the test.
+     * @param field Field to be initialize.
+     * @param argResolver Constructor parameters resolver
+     */
+    public FieldInitializer(
+            Object fieldOwner, Field field, ConstructorArgumentResolver argResolver) {
+<span class="fc" id="L65">        this(</span>
+                fieldOwner,
+                field,
+                new ParameterizedConstructorInstantiator(fieldOwner, field, argResolver));
+<span class="fc" id="L69">    }</span>
+
+<span class="fc" id="L71">    private FieldInitializer(Object fieldOwner, Field field, ConstructorInstantiator instantiator) {</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        if (new FieldReader(fieldOwner, field).isNull()) {</span>
+<span class="fc" id="L73">            checkNotLocal(field);</span>
+<span class="fc" id="L74">            checkNotInner(field);</span>
+<span class="fc" id="L75">            checkNotInterface(field);</span>
+<span class="fc" id="L76">            checkNotEnum(field);</span>
+<span class="fc" id="L77">            checkNotAbstract(field);</span>
+        }
+<span class="fc" id="L79">        this.fieldOwner = fieldOwner;</span>
+<span class="fc" id="L80">        this.field = field;</span>
+<span class="fc" id="L81">        this.instantiator = instantiator;</span>
+<span class="fc" id="L82">    }</span>
+
+    /**
+     * Initialize field if not initialized and return the actual instance.
+     *
+     * @return Actual field instance.
+     */
+    public FieldInitializationReport initialize() {
+        try {
+<span class="fc" id="L91">            return acquireFieldInstance();</span>
+<span class="nc" id="L92">        } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L93">            throw new MockitoException(</span>
+                    &quot;Problems initializing field '&quot;
+<span class="nc" id="L95">                            + field.getName()</span>
+                            + &quot;' of type '&quot;
+<span class="nc" id="L97">                            + field.getType().getSimpleName()</span>
+                            + &quot;'&quot;,
+                    e);
+        }
+    }
+
+    private void checkNotLocal(Field field) {
+<span class="fc bfc" id="L104" title="All 2 branches covered.">        if (field.getType().isLocalClass()) {</span>
+<span class="fc" id="L105">            throw new MockitoException(</span>
+<span class="fc" id="L106">                    &quot;the type '&quot; + field.getType().getSimpleName() + &quot;' is a local class.&quot;);</span>
+        }
+<span class="fc" id="L108">    }</span>
+
+    private void checkNotInner(Field field) {
+<span class="fc" id="L111">        Class&lt;?&gt; type = field.getType();</span>
+<span class="fc bfc" id="L112" title="All 4 branches covered.">        if (type.isMemberClass() &amp;&amp; !isStatic(type.getModifiers())) {</span>
+<span class="fc" id="L113">            throw new MockitoException(</span>
+<span class="fc" id="L114">                    &quot;the type '&quot; + type.getSimpleName() + &quot;' is an inner non static class.&quot;);</span>
+        }
+<span class="fc" id="L116">    }</span>
+
+    private void checkNotInterface(Field field) {
+<span class="fc bfc" id="L119" title="All 2 branches covered.">        if (field.getType().isInterface()) {</span>
+<span class="fc" id="L120">            throw new MockitoException(</span>
+<span class="fc" id="L121">                    &quot;the type '&quot; + field.getType().getSimpleName() + &quot;' is an interface.&quot;);</span>
+        }
+<span class="fc" id="L123">    }</span>
+
+    private void checkNotAbstract(Field field) {
+<span class="fc bfc" id="L126" title="All 2 branches covered.">        if (Modifier.isAbstract(field.getType().getModifiers())) {</span>
+<span class="fc" id="L127">            throw new MockitoException(</span>
+<span class="fc" id="L128">                    &quot;the type '&quot; + field.getType().getSimpleName() + &quot;' is an abstract class.&quot;);</span>
+        }
+<span class="fc" id="L130">    }</span>
+
+    private void checkNotEnum(Field field) {
+<span class="fc bfc" id="L133" title="All 2 branches covered.">        if (field.getType().isEnum()) {</span>
+<span class="fc" id="L134">            throw new MockitoException(</span>
+<span class="fc" id="L135">                    &quot;the type '&quot; + field.getType().getSimpleName() + &quot;' is an enum.&quot;);</span>
+        }
+<span class="fc" id="L137">    }</span>
+
+    private FieldInitializationReport acquireFieldInstance() throws IllegalAccessException {
+<span class="fc" id="L140">        final MemberAccessor accessor = Plugins.getMemberAccessor();</span>
+<span class="fc" id="L141">        Object fieldInstance = accessor.get(field, fieldOwner);</span>
+<span class="fc bfc" id="L142" title="All 2 branches covered.">        if (fieldInstance != null) {</span>
+<span class="fc" id="L143">            return new FieldInitializationReport(fieldInstance, false, false);</span>
+        }
+
+<span class="fc" id="L146">        return instantiator.instantiate();</span>
+    }
+
+    /**
+     * Represents the strategy used to resolve actual instances
+     * to be given to a constructor given the argument types.
+     */
+    public interface ConstructorArgumentResolver {
+
+        /**
+         * Try to resolve instances from types.
+         *
+         * &lt;p&gt;
+         * Checks on the real argument type or on the correct argument number
+         * will happen during the field initialization {@link FieldInitializer#initialize()}.
+         * I.e the only responsibility of this method, is to provide instances &lt;strong&gt;if possible&lt;/strong&gt;.
+         * &lt;/p&gt;
+         *
+         * @param argTypes Constructor argument types, should not be null.
+         * @return The argument instances to be given to the constructor, should not be null.
+         */
+        Object[] resolveTypeInstances(Class&lt;?&gt;... argTypes);
+    }
+
+    private interface ConstructorInstantiator {
+        FieldInitializationReport instantiate();
+    }
+
+    /**
+     * Constructor instantiating strategy for no-arg constructor.
+     *
+     * &lt;p&gt;
+     * If a no-arg constructor can be found then the instance is created using
+     * this constructor.
+     * Otherwise a technical MockitoException is thrown.
+     * &lt;/p&gt;
+     */
+    static class NoArgConstructorInstantiator implements ConstructorInstantiator {
+        private final Object testClass;
+        private final Field field;
+
+        /**
+         * Internal, checks are done by FieldInitializer.
+         * Fields are assumed to be accessible.
+         */
+<span class="fc" id="L191">        NoArgConstructorInstantiator(Object testClass, Field field) {</span>
+<span class="fc" id="L192">            this.testClass = testClass;</span>
+<span class="fc" id="L193">            this.field = field;</span>
+<span class="fc" id="L194">        }</span>
+
+        @Override
+        public FieldInitializationReport instantiate() {
+<span class="fc" id="L198">            final MemberAccessor invoker = Plugins.getMemberAccessor();</span>
+            try {
+<span class="fc" id="L200">                Constructor&lt;?&gt; constructor = field.getType().getDeclaredConstructor();</span>
+
+<span class="fc" id="L202">                final Object[] noArg = new Object[0];</span>
+<span class="fc" id="L203">                Object newFieldInstance = invoker.newInstance(constructor, noArg);</span>
+<span class="fc" id="L204">                invoker.set(field, testClass, newFieldInstance);</span>
+
+<span class="fc" id="L206">                return new FieldInitializationReport(invoker.get(field, testClass), true, false);</span>
+<span class="fc" id="L207">            } catch (NoSuchMethodException e) {</span>
+<span class="fc" id="L208">                throw new MockitoException(</span>
+                        &quot;the type '&quot;
+<span class="fc" id="L210">                                + field.getType().getSimpleName()</span>
+                                + &quot;' has no default constructor&quot;,
+                        e);
+<span class="fc" id="L213">            } catch (InvocationTargetException e) {</span>
+<span class="fc" id="L214">                throw new MockitoException(</span>
+                        &quot;the default constructor of type '&quot;
+<span class="fc" id="L216">                                + field.getType().getSimpleName()</span>
+                                + &quot;' has raised an exception (see the stack trace for cause): &quot;
+<span class="fc" id="L218">                                + e.getTargetException(),</span>
+                        e);
+<span class="nc" id="L220">            } catch (InstantiationException e) {</span>
+<span class="nc" id="L221">                throw new MockitoException(</span>
+                        &quot;InstantiationException (see the stack trace for cause): &quot; + e, e);
+<span class="nc" id="L223">            } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L224">                throw new MockitoException(</span>
+                        &quot;IllegalAccessException (see the stack trace for cause): &quot; + e, e);
+            }
+        }
+    }
+
+    /**
+     * Constructor instantiating strategy for parameterized constructors.
+     *
+     * &lt;p&gt;
+     * Choose the constructor with the highest number of parameters, then
+     * call the ConstructorArgResolver to get actual argument instances.
+     * If the argResolver fail, then a technical MockitoException is thrown is thrown.
+     * Otherwise the instance is created with the resolved arguments.
+     * &lt;/p&gt;
+     */
+    static class ParameterizedConstructorInstantiator implements ConstructorInstantiator {
+        private final Object testClass;
+        private final Field field;
+        private final ConstructorArgumentResolver argResolver;
+<span class="fc" id="L244">        private final Comparator&lt;Constructor&lt;?&gt;&gt; byParameterNumber =</span>
+<span class="fc" id="L245">                new Comparator&lt;Constructor&lt;?&gt;&gt;() {</span>
+                    @Override
+                    public int compare(Constructor&lt;?&gt; constructorA, Constructor&lt;?&gt; constructorB) {
+<span class="fc" id="L248">                        int argLengths =</span>
+<span class="fc" id="L249">                                constructorB.getParameterTypes().length</span>
+<span class="fc" id="L250">                                        - constructorA.getParameterTypes().length;</span>
+<span class="fc bfc" id="L251" title="All 2 branches covered.">                        if (argLengths == 0) {</span>
+<span class="fc" id="L252">                            int constructorAMockableParamsSize = countMockableParams(constructorA);</span>
+<span class="fc" id="L253">                            int constructorBMockableParamsSize = countMockableParams(constructorB);</span>
+<span class="fc" id="L254">                            return constructorBMockableParamsSize - constructorAMockableParamsSize;</span>
+                        }
+<span class="fc" id="L256">                        return argLengths;</span>
+                    }
+
+                    private int countMockableParams(Constructor&lt;?&gt; constructor) {
+<span class="fc" id="L260">                        int constructorMockableParamsSize = 0;</span>
+<span class="fc bfc" id="L261" title="All 2 branches covered.">                        for (Class&lt;?&gt; aClass : constructor.getParameterTypes()) {</span>
+                            // The argResolver already knows the concrete types it can provide.
+                            // Instead of checking for mockability, I think it would be better to
+                            // ask the argResolver whether it can resolve this type.
+                            // Anyway, I keep it for now to avoid breaking any existing code.
+<span class="fc bfc" id="L266" title="All 2 branches covered.">                            if (MockUtil.typeMockabilityOf(aClass, null).mockable()) {</span>
+<span class="fc" id="L267">                                constructorMockableParamsSize++;</span>
+                            }
+                        }
+<span class="fc" id="L270">                        return constructorMockableParamsSize;</span>
+                    }
+                };
+
+        /**
+         * Internal, checks are done by FieldInitializer.
+         * Fields are assumed to be accessible.
+         */
+        ParameterizedConstructorInstantiator(
+<span class="fc" id="L279">                Object testClass, Field field, ConstructorArgumentResolver argumentResolver) {</span>
+<span class="fc" id="L280">            this.testClass = testClass;</span>
+<span class="fc" id="L281">            this.field = field;</span>
+<span class="fc" id="L282">            this.argResolver = argumentResolver;</span>
+<span class="fc" id="L283">        }</span>
+
+        @Override
+        public FieldInitializationReport instantiate() {
+<span class="fc" id="L287">            final MemberAccessor accessor = Plugins.getMemberAccessor();</span>
+<span class="fc" id="L288">            Constructor&lt;?&gt; constructor = biggestConstructor(field.getType());</span>
+<span class="fc" id="L289">            final Object[] args = argResolver.resolveTypeInstances(constructor.getParameterTypes());</span>
+            try {
+<span class="fc" id="L291">                Object newFieldInstance = accessor.newInstance(constructor, args);</span>
+<span class="fc" id="L292">                accessor.set(field, testClass, newFieldInstance);</span>
+
+<span class="fc" id="L294">                return new FieldInitializationReport(accessor.get(field, testClass), false, true);</span>
+<span class="fc" id="L295">            } catch (IllegalArgumentException e) {</span>
+<span class="fc" id="L296">                throw new MockitoException(</span>
+                        &quot;internal error : argResolver provided incorrect types for constructor &quot;
+                                + constructor
+                                + &quot; of type &quot;
+<span class="fc" id="L300">                                + field.getType().getSimpleName(),</span>
+                        e);
+<span class="fc" id="L302">            } catch (InvocationTargetException e) {</span>
+<span class="fc" id="L303">                throw new MockitoException(</span>
+                        &quot;the constructor of type '&quot;
+<span class="fc" id="L305">                                + field.getType().getSimpleName()</span>
+                                + &quot;' has raised an exception (see the stack trace for cause): &quot;
+<span class="fc" id="L307">                                + e.getTargetException(),</span>
+                        e);
+<span class="nc" id="L309">            } catch (InstantiationException e) {</span>
+<span class="nc" id="L310">                throw new MockitoException(</span>
+                        &quot;InstantiationException (see the stack trace for cause): &quot; + e, e);
+<span class="nc" id="L312">            } catch (IllegalAccessException e) {</span>
+<span class="nc" id="L313">                throw new MockitoException(</span>
+                        &quot;IllegalAccessException (see the stack trace for cause): &quot; + e, e);
+            }
+        }
+
+        private void checkParameterized(Constructor&lt;?&gt; constructor, Field field) {
+<span class="fc bfc" id="L319" title="All 2 branches covered.">            if (constructor.getParameterTypes().length == 0) {</span>
+<span class="fc" id="L320">                throw new MockitoException(</span>
+                        &quot;the field &quot;
+<span class="fc" id="L322">                                + field.getName()</span>
+                                + &quot; of type &quot;
+<span class="fc" id="L324">                                + field.getType()</span>
+                                + &quot; has no parameterized constructor&quot;);
+            }
+<span class="fc" id="L327">        }</span>
+
+        private Constructor&lt;?&gt; biggestConstructor(Class&lt;?&gt; clazz) {
+<span class="fc" id="L330">            final List&lt;? extends Constructor&lt;?&gt;&gt; constructors =</span>
+<span class="fc" id="L331">                    Arrays.asList(clazz.getDeclaredConstructors());</span>
+<span class="fc" id="L332">            Collections.sort(constructors, byParameterNumber);</span>
+
+<span class="fc" id="L334">            Constructor&lt;?&gt; constructor = constructors.get(0);</span>
+<span class="fc" id="L335">            checkParameterized(constructor, field);</span>
+<span class="fc" id="L336">            return constructor;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

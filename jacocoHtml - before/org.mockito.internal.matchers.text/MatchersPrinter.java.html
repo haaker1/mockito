@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MatchersPrinter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.matchers.text</a> &gt; <span class="el_source">MatchersPrinter.java</span></div><h1>MatchersPrinter.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.matchers.text;
+
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+
+import org.mockito.ArgumentMatcher;
+import org.mockito.internal.matchers.ContainsExtraTypeInfo;
+import org.mockito.internal.reporting.PrintSettings;
+
+@SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L16">public class MatchersPrinter {</span>
+
+    public String getArgumentsLine(List&lt;ArgumentMatcher&gt; matchers, PrintSettings printSettings) {
+<span class="fc" id="L19">        Iterator args = applyPrintSettings(matchers, printSettings);</span>
+<span class="fc" id="L20">        return ValuePrinter.printValues(&quot;(&quot;, &quot;, &quot;, &quot;);&quot;, args);</span>
+    }
+
+    public String getArgumentsBlock(List&lt;ArgumentMatcher&gt; matchers, PrintSettings printSettings) {
+<span class="fc" id="L24">        Iterator args = applyPrintSettings(matchers, printSettings);</span>
+<span class="fc" id="L25">        return ValuePrinter.printValues(&quot;(\n    &quot;, &quot;,\n    &quot;, &quot;\n);&quot;, args);</span>
+    }
+
+    private Iterator&lt;FormattedText&gt; applyPrintSettings(
+            List&lt;ArgumentMatcher&gt; matchers, PrintSettings printSettings) {
+<span class="fc" id="L30">        List&lt;FormattedText&gt; out = new LinkedList&lt;&gt;();</span>
+<span class="fc" id="L31">        int i = 0;</span>
+<span class="fc bfc" id="L32" title="All 2 branches covered.">        for (final ArgumentMatcher matcher : matchers) {</span>
+<span class="fc bfc" id="L33" title="All 2 branches covered.">            if (matcher instanceof ContainsExtraTypeInfo) {</span>
+<span class="fc" id="L34">                ContainsExtraTypeInfo typeInfoMatcher = (ContainsExtraTypeInfo) matcher;</span>
+<span class="fc" id="L35">                Object wanted = typeInfoMatcher.getWanted();</span>
+                String simpleNameOfArgument =
+<span class="fc bfc" id="L37" title="All 2 branches covered.">                        wanted != null ? wanted.getClass().getSimpleName() : &quot;&quot;;</span>
+                String fullyQualifiedClassName =
+<span class="fc bfc" id="L39" title="All 2 branches covered.">                        wanted != null ? wanted.getClass().getCanonicalName() : &quot;&quot;;</span>
+
+<span class="fc bfc" id="L41" title="All 2 branches covered.">                if (printSettings.extraTypeInfoFor(i)) {</span>
+<span class="fc" id="L42">                    out.add(</span>
+                            new FormattedText(
+<span class="fc" id="L44">                                    typeInfoMatcher.toStringWithType(simpleNameOfArgument)));</span>
+<span class="fc bfc" id="L45" title="All 2 branches covered.">                } else if (printSettings.fullyQualifiedNameFor(simpleNameOfArgument)) {</span>
+<span class="fc" id="L46">                    out.add(</span>
+                            new FormattedText(
+<span class="fc" id="L48">                                    typeInfoMatcher.toStringWithType(fullyQualifiedClassName)));</span>
+                } else {
+<span class="fc" id="L50">                    out.add(new FormattedText(MatcherToString.toString(matcher)));</span>
+                }
+<span class="fc" id="L52">            } else {</span>
+<span class="fc" id="L53">                out.add(new FormattedText(MatcherToString.toString(matcher)));</span>
+            }
+<span class="fc" id="L55">            i++;</span>
+<span class="fc" id="L56">        }</span>
+<span class="fc" id="L57">        return out.iterator();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

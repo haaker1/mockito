@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ArgumentMatcherStorageImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.progress</a> &gt; <span class="el_source">ArgumentMatcherStorageImpl.java</span></div><h1>ArgumentMatcherStorageImpl.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.progress;
+
+import static java.util.Collections.emptyList;
+
+import static org.mockito.internal.exceptions.Reporter.incorrectUseOfAdditionalMatchers;
+import static org.mockito.internal.exceptions.Reporter.misplacedArgumentMatcher;
+import static org.mockito.internal.exceptions.Reporter.reportNoSubMatchersFound;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Stack;
+import org.mockito.ArgumentMatcher;
+import org.mockito.internal.matchers.And;
+import org.mockito.internal.matchers.LocalizedMatcher;
+import org.mockito.internal.matchers.Not;
+import org.mockito.internal.matchers.Or;
+
+<span class="fc" id="L22">public class ArgumentMatcherStorageImpl implements ArgumentMatcherStorage {</span>
+
+    private static final int TWO_SUB_MATCHERS = 2;
+    private static final int ONE_SUB_MATCHER = 1;
+<span class="fc" id="L26">    private final Stack&lt;LocalizedMatcher&gt; matcherStack = new Stack&lt;&gt;();</span>
+
+    @Override
+    public void reportMatcher(ArgumentMatcher&lt;?&gt; matcher) {
+<span class="fc" id="L30">        matcherStack.push(new LocalizedMatcher(matcher));</span>
+<span class="fc" id="L31">    }</span>
+
+    @Override
+    public List&lt;LocalizedMatcher&gt; pullLocalizedMatchers() {
+<span class="fc bfc" id="L35" title="All 2 branches covered.">        if (matcherStack.isEmpty()) {</span>
+<span class="fc" id="L36">            return emptyList();</span>
+        }
+
+<span class="fc" id="L39">        return resetStack();</span>
+    }
+
+    public void reportAnd() {
+<span class="fc" id="L43">        assertStateFor(&quot;And(?)&quot;, TWO_SUB_MATCHERS);</span>
+
+<span class="fc" id="L45">        ArgumentMatcher&lt;?&gt; m1 = popMatcher();</span>
+<span class="fc" id="L46">        ArgumentMatcher&lt;?&gt; m2 = popMatcher();</span>
+
+<span class="fc" id="L48">        reportMatcher(new And(m1, m2));</span>
+<span class="fc" id="L49">    }</span>
+
+    @Override
+    public void reportOr() {
+<span class="fc" id="L53">        assertStateFor(&quot;Or(?)&quot;, TWO_SUB_MATCHERS);</span>
+
+<span class="fc" id="L55">        ArgumentMatcher&lt;?&gt; m1 = popMatcher();</span>
+<span class="fc" id="L56">        ArgumentMatcher&lt;?&gt; m2 = popMatcher();</span>
+
+<span class="fc" id="L58">        reportMatcher(new Or(m1, m2));</span>
+<span class="fc" id="L59">    }</span>
+
+    @Override
+    public void reportNot() {
+<span class="fc" id="L63">        assertStateFor(&quot;Not(?)&quot;, ONE_SUB_MATCHER);</span>
+
+<span class="fc" id="L65">        ArgumentMatcher&lt;?&gt; m = popMatcher();</span>
+
+<span class="fc" id="L67">        reportMatcher(new Not(m));</span>
+<span class="fc" id="L68">    }</span>
+
+    @Override
+    public void validateState() {
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        if (!matcherStack.isEmpty()) {</span>
+<span class="fc" id="L73">            List&lt;LocalizedMatcher&gt; lastMatchers = resetStack();</span>
+<span class="fc" id="L74">            throw misplacedArgumentMatcher(lastMatchers);</span>
+        }
+<span class="fc" id="L76">    }</span>
+
+    @Override
+    public void reset() {
+<span class="fc" id="L80">        matcherStack.clear();</span>
+<span class="fc" id="L81">    }</span>
+
+    private void assertStateFor(String additionalMatcherName, int subMatchersCount) {
+<span class="fc bfc" id="L84" title="All 2 branches covered.">        if (matcherStack.isEmpty()) {</span>
+<span class="fc" id="L85">            throw reportNoSubMatchersFound(additionalMatcherName);</span>
+        }
+<span class="fc bfc" id="L87" title="All 2 branches covered.">        if (matcherStack.size() &lt; subMatchersCount) {</span>
+<span class="fc" id="L88">            List&lt;LocalizedMatcher&gt; lastMatchers = resetStack();</span>
+<span class="fc" id="L89">            throw incorrectUseOfAdditionalMatchers(</span>
+                    additionalMatcherName, subMatchersCount, lastMatchers);
+        }
+<span class="fc" id="L92">    }</span>
+
+    private ArgumentMatcher&lt;?&gt; popMatcher() {
+<span class="fc" id="L95">        return matcherStack.pop().getMatcher();</span>
+    }
+
+    private List&lt;LocalizedMatcher&gt; resetStack() {
+<span class="fc" id="L99">        ArrayList&lt;LocalizedMatcher&gt; lastMatchers = new ArrayList&lt;&gt;(matcherStack);</span>
+<span class="fc" id="L100">        reset();</span>
+<span class="fc" id="L101">        return lastMatchers;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

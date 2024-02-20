@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ArgumentMatchingTool.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.verification.argumentmatching</a> &gt; <span class="el_source">ArgumentMatchingTool.java</span></div><h1>ArgumentMatchingTool.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.verification.argumentmatching;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.mockito.ArgumentMatcher;
+import org.mockito.internal.matchers.ContainsExtraTypeInfo;
+
+@SuppressWarnings(&quot;rawtypes&quot;)
+public class ArgumentMatchingTool {
+
+    private ArgumentMatchingTool() {}
+
+    /**
+     * Suspiciously not matching arguments are those that don't match, the toString() representation is the same but types are different.
+     */
+    public static Integer[] getSuspiciouslyNotMatchingArgsIndexes(
+            List&lt;ArgumentMatcher&gt; matchers, Object[] arguments) {
+<span class="fc bfc" id="L30" title="All 2 branches covered.">        if (matchers.size() != arguments.length) {</span>
+<span class="fc" id="L31">            return new Integer[0];</span>
+        }
+
+<span class="fc" id="L34">        List&lt;Integer&gt; suspicious = new LinkedList&lt;&gt;();</span>
+<span class="fc" id="L35">        int i = 0;</span>
+<span class="fc bfc" id="L36" title="All 2 branches covered.">        for (ArgumentMatcher m : matchers) {</span>
+<span class="fc bfc" id="L37" title="All 2 branches covered.">            if (m instanceof ContainsExtraTypeInfo</span>
+<span class="fc bfc" id="L38" title="All 2 branches covered.">                    &amp;&amp; !safelyMatches(m, arguments[i])</span>
+<span class="fc bfc" id="L39" title="All 2 branches covered.">                    &amp;&amp; toStringEquals(m, arguments[i])</span>
+<span class="fc bfc" id="L40" title="All 2 branches covered.">                    &amp;&amp; !((ContainsExtraTypeInfo) m).typeMatches(arguments[i])) {</span>
+<span class="fc" id="L41">                suspicious.add(i);</span>
+            }
+<span class="fc" id="L43">            i++;</span>
+<span class="fc" id="L44">        }</span>
+<span class="fc" id="L45">        return suspicious.toArray(new Integer[0]);</span>
+    }
+
+    /**
+     * Returns indexes of arguments not matching the provided matchers.
+     */
+    public static List&lt;Integer&gt; getNotMatchingArgsIndexes(
+            List&lt;ArgumentMatcher&gt; matchers, Object[] arguments) {
+<span class="fc bfc" id="L53" title="All 2 branches covered.">        if (matchers.size() != arguments.length) {</span>
+<span class="fc" id="L54">            return Collections.emptyList();</span>
+        }
+
+<span class="fc" id="L57">        List&lt;Integer&gt; nonMatching = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L58">        int i = 0;</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        for (ArgumentMatcher m : matchers) {</span>
+<span class="fc bfc" id="L60" title="All 2 branches covered.">            if (!safelyMatches(m, arguments[i])) {</span>
+<span class="fc" id="L61">                nonMatching.add(i);</span>
+            }
+
+<span class="fc" id="L64">            i++;</span>
+<span class="fc" id="L65">        }</span>
+
+<span class="fc" id="L67">        return nonMatching;</span>
+    }
+
+    private static boolean safelyMatches(ArgumentMatcher m, Object arg) {
+        try {
+<span class="fc" id="L72">            return m.matches(arg);</span>
+<span class="fc" id="L73">        } catch (Throwable t) {</span>
+<span class="fc" id="L74">            return false;</span>
+        }
+    }
+
+    private static boolean toStringEquals(ArgumentMatcher m, Object arg) {
+<span class="fc" id="L79">        return m.toString().equals(String.valueOf(arg));</span>
+    }
+
+    /**
+     * Suspiciously not matching arguments are those that don't match, and the classes have same simple name.
+     */
+    public static Set&lt;String&gt; getNotMatchingArgsWithSameName(
+            List&lt;ArgumentMatcher&gt; matchers, Object[] arguments) {
+<span class="fc" id="L87">        Map&lt;String, Set&lt;String&gt;&gt; classesHavingSameName = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        for (ArgumentMatcher m : matchers) {</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">            if (m instanceof ContainsExtraTypeInfo) {</span>
+<span class="fc" id="L90">                Object wanted = ((ContainsExtraTypeInfo) m).getWanted();</span>
+<span class="fc bfc" id="L91" title="All 2 branches covered.">                if (wanted == null) {</span>
+<span class="fc" id="L92">                    continue;</span>
+                }
+<span class="fc" id="L94">                Class wantedClass = wanted.getClass();</span>
+<span class="fc" id="L95">                classesHavingSameName</span>
+<span class="fc" id="L96">                        .computeIfAbsent(wantedClass.getSimpleName(), className -&gt; new HashSet&lt;&gt;())</span>
+<span class="fc" id="L97">                        .add(wantedClass.getCanonicalName());</span>
+            }
+<span class="fc" id="L99">        }</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">        for (Object argument : arguments) {</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">            if (argument == null) {</span>
+<span class="fc" id="L102">                continue;</span>
+            }
+<span class="fc" id="L104">            Class wantedClass = argument.getClass();</span>
+<span class="fc" id="L105">            classesHavingSameName</span>
+<span class="fc" id="L106">                    .computeIfAbsent(wantedClass.getSimpleName(), className -&gt; new HashSet&lt;&gt;())</span>
+<span class="fc" id="L107">                    .add(wantedClass.getCanonicalName());</span>
+        }
+<span class="fc" id="L109">        return classesHavingSameName.entrySet().stream()</span>
+<span class="fc bfc" id="L110" title="All 2 branches covered.">                .filter(classEntry -&gt; classEntry.getValue().size() &gt; 1)</span>
+<span class="fc" id="L111">                .map(classEntry -&gt; classEntry.getKey())</span>
+<span class="fc" id="L112">                .collect(Collectors.toSet());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

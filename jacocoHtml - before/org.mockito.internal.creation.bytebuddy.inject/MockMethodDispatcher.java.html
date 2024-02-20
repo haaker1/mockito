@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockMethodDispatcher.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.creation.bytebuddy.inject</a> &gt; <span class="el_source">MockMethodDispatcher.java</span></div><h1>MockMethodDispatcher.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.creation.bytebuddy.inject;
+
+import java.lang.reflect.Method;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+<span class="nc" id="L12">public abstract class MockMethodDispatcher {</span>
+
+    static {
+<span class="nc" id="L15">        ClassLoader classLoader = MockMethodDispatcher.class.getClassLoader();</span>
+<span class="nc bnc" id="L16" title="All 2 branches missed.">        if (classLoader != null) {</span>
+            // Do not use Mockito classes in here as this is executed on the boot loader.
+<span class="nc" id="L18">            throw new IllegalStateException(</span>
+<span class="nc" id="L19">                    MockMethodDispatcher.class.getName()</span>
+                            + &quot; is not loaded by the bootstrap class loader but by an instance of &quot;
+<span class="nc" id="L21">                            + classLoader.getClass().getName()</span>
+                            + &quot;.\n\nThis causes the inline mock maker to not work as expected. &quot;
+                            + &quot;Please contact the maintainer of this class loader implementation &quot;
+                            + &quot;to assure that this class is never loaded by another class loader. &quot;
+                            + &quot;The bootstrap class loader must always be queried first for this &quot;
+                            + &quot;class for Mockito's inline mock maker to function correctly.&quot;);
+        }
+    }
+
+<span class="nc" id="L30">    private static final ConcurrentMap&lt;String, MockMethodDispatcher&gt; DISPATCHERS =</span>
+            new ConcurrentHashMap&lt;&gt;();
+
+    public static MockMethodDispatcher get(String identifier, Object mock) {
+<span class="nc bnc" id="L34" title="All 2 branches missed.">        if (mock == DISPATCHERS) {</span>
+            // Avoid endless loop if ConcurrentHashMap was redefined to check for being a mock.
+<span class="nc" id="L36">            return null;</span>
+        } else {
+<span class="nc" id="L38">            return DISPATCHERS.get(identifier);</span>
+        }
+    }
+
+    public static MockMethodDispatcher getStatic(String identifier, Class&lt;?&gt; type) {
+<span class="nc bnc" id="L43" title="All 4 branches missed.">        if (MockMethodDispatcher.class.isAssignableFrom(type) || type == ConcurrentHashMap.class) {</span>
+            // Avoid endless loop for lookups of self.
+<span class="nc" id="L45">            return null;</span>
+        } else {
+<span class="nc" id="L47">            return DISPATCHERS.get(identifier);</span>
+        }
+    }
+
+    public static void set(String identifier, MockMethodDispatcher dispatcher) {
+<span class="nc" id="L52">        DISPATCHERS.putIfAbsent(identifier, dispatcher);</span>
+<span class="nc" id="L53">    }</span>
+
+    @SuppressWarnings(&quot;unused&quot;)
+    public static boolean isConstructorMock(String identifier, Class&lt;?&gt; type) {
+<span class="nc" id="L57">        return DISPATCHERS.get(identifier).isConstructorMock(type);</span>
+    }
+
+    public abstract boolean isConstructorMock(Class&lt;?&gt; type);
+
+    @SuppressWarnings(&quot;unused&quot;)
+    public static Object handleConstruction(
+            String identifier,
+            Class&lt;?&gt; type,
+            Object object,
+            Object[] arguments,
+            String[] parameterTypeNames) {
+<span class="nc" id="L69">        return DISPATCHERS</span>
+<span class="nc" id="L70">                .get(identifier)</span>
+<span class="nc" id="L71">                .handleConstruction(type, object, arguments, parameterTypeNames);</span>
+    }
+
+    public abstract Callable&lt;?&gt; handle(Object instance, Method origin, Object[] arguments)
+            throws Throwable;
+
+    public abstract Callable&lt;?&gt; handleStatic(Class&lt;?&gt; type, Method origin, Object[] arguments)
+            throws Throwable;
+
+    public abstract Object handleConstruction(
+            Class&lt;?&gt; type, Object object, Object[] arguments, String[] parameterTypeNames);
+
+    public abstract boolean isMock(Object instance);
+
+    public abstract boolean isMocked(Object instance);
+
+    public abstract boolean isMockedStatic(Class&lt;?&gt; type);
+
+    public abstract boolean isOverridden(Object instance, Method origin);
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

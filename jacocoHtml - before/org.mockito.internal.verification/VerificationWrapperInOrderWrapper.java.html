@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VerificationWrapperInOrderWrapper.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.verification</a> &gt; <span class="el_source">VerificationWrapperInOrderWrapper.java</span></div><h1>VerificationWrapperInOrderWrapper.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.verification;
+
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.internal.InOrderImpl;
+import org.mockito.internal.verification.api.VerificationData;
+import org.mockito.internal.verification.api.VerificationInOrderMode;
+import org.mockito.verification.VerificationMode;
+
+public class VerificationWrapperInOrderWrapper implements VerificationMode {
+    private final VerificationMode delegate;
+
+    public VerificationWrapperInOrderWrapper(
+<span class="fc" id="L17">            VerificationWrapper&lt;?&gt; verificationWrapper, InOrderImpl inOrder) {</span>
+<span class="fc" id="L18">        VerificationMode verificationMode = verificationWrapper.wrappedVerification;</span>
+
+<span class="fc" id="L20">        VerificationMode inOrderWrappedVerificationMode =</span>
+<span class="fc" id="L21">                wrapInOrder(verificationWrapper, verificationMode, inOrder);</span>
+
+<span class="fc" id="L23">        delegate =</span>
+<span class="fc" id="L24">                verificationWrapper.copySelfWithNewVerificationMode(inOrderWrappedVerificationMode);</span>
+<span class="fc" id="L25">    }</span>
+
+    @Override
+    public void verify(VerificationData data) {
+<span class="fc" id="L29">        delegate.verify(data);</span>
+<span class="fc" id="L30">    }</span>
+
+    private VerificationMode wrapInOrder(
+            VerificationWrapper&lt;?&gt; verificationWrapper,
+            VerificationMode verificationMode,
+            InOrderImpl inOrder) {
+<span class="fc bfc" id="L36" title="All 2 branches covered.">        if (verificationMode instanceof VerificationInOrderMode) {</span>
+<span class="fc" id="L37">            final VerificationInOrderMode verificationInOrderMode =</span>
+                    (VerificationInOrderMode) verificationMode;
+<span class="fc" id="L39">            return new InOrderWrapper(verificationInOrderMode, inOrder);</span>
+        }
+
+<span class="fc bfc" id="L42" title="All 2 branches covered.">        if (verificationMode instanceof VerificationOverTimeImpl) {</span>
+<span class="fc" id="L43">            final VerificationOverTimeImpl verificationOverTime =</span>
+                    (VerificationOverTimeImpl) verificationMode;
+<span class="fc bfc" id="L45" title="All 2 branches covered.">            if (verificationOverTime.isReturnOnSuccess()) {</span>
+<span class="fc" id="L46">                return new VerificationOverTimeImpl(</span>
+<span class="fc" id="L47">                        verificationOverTime.getPollingPeriodMillis(),</span>
+<span class="fc" id="L48">                        verificationOverTime.getTimer().duration(),</span>
+<span class="fc" id="L49">                        wrapInOrder(</span>
+<span class="fc" id="L50">                                verificationWrapper, verificationOverTime.getDelegate(), inOrder),</span>
+<span class="fc" id="L51">                        verificationOverTime.isReturnOnSuccess());</span>
+            }
+        }
+
+        // TODO ugly exception message!!!
+<span class="fc" id="L56">        throw new MockitoException(</span>
+<span class="fc" id="L57">                verificationMode.getClass().getSimpleName()</span>
+                        + &quot; is not implemented to work with InOrder wrapped inside a &quot;
+<span class="fc" id="L59">                        + verificationWrapper.getClass().getSimpleName());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

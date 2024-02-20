@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultStackTraceCleaner.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.exceptions.stacktrace</a> &gt; <span class="el_source">DefaultStackTraceCleaner.java</span></div><h1>DefaultStackTraceCleaner.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.exceptions.stacktrace;
+
+import org.mockito.exceptions.stacktrace.StackTraceCleaner;
+
+/**
+ * This predicate is used to filter &quot;good&quot; {@link StackTraceElement}. Good
+ */
+<span class="fc" id="L12">public class DefaultStackTraceCleaner implements StackTraceCleaner {</span>
+
+    @Override
+    public boolean isIn(StackTraceElement e) {
+<span class="fc" id="L16">        return isIn(e.getClassName());</span>
+    }
+
+    @Override
+    public boolean isIn(StackFrameMetadata e) {
+<span class="fc" id="L21">        return isIn(e.getClassName());</span>
+    }
+
+    private boolean isIn(String className) {
+<span class="fc bfc" id="L25" title="All 4 branches covered.">        if (isFromMockitoRunner(className) || isFromMockitoRule(className)) {</span>
+<span class="fc" id="L26">            return true;</span>
+<span class="fc bfc" id="L27" title="All 2 branches covered.">        } else if (isMockDispatcher(className)</span>
+<span class="fc bfc" id="L28" title="All 2 branches covered.">                || isFromMockito(className)</span>
+<span class="fc bfc" id="L29" title="All 2 branches covered.">                || isMethodHandle(className)) {</span>
+<span class="fc" id="L30">            return false;</span>
+        } else {
+<span class="fc" id="L32">            return true;</span>
+        }
+    }
+
+    /* Some mock makers (like inline) use java.lang.invoke.MethodHandle to dispatch calls */
+    private static boolean isMethodHandle(String className) {
+<span class="fc" id="L38">        return className.startsWith(&quot;java.lang.invoke.MethodHandle&quot;);</span>
+    }
+
+    private static boolean isMockDispatcher(String className) {
+<span class="fc bfc" id="L42" title="All 2 branches covered.">        return (className.contains(&quot;$$EnhancerByMockitoWithCGLIB$$&quot;)</span>
+<span class="fc bfc" id="L43" title="All 2 branches covered.">                || className.contains(&quot;$MockitoMock$&quot;));</span>
+    }
+
+    private static boolean isFromMockito(String className) {
+<span class="fc" id="L47">        return className.startsWith(&quot;org.mockito.&quot;);</span>
+    }
+
+    private static boolean isFromMockitoRule(String className) {
+<span class="fc" id="L51">        return className.startsWith(&quot;org.mockito.internal.junit.JUnitRule&quot;);</span>
+    }
+
+    private static boolean isFromMockitoRunner(String className) {
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        return className.startsWith(&quot;org.mockito.internal.runners.&quot;)</span>
+<span class="fc bfc" id="L56" title="All 2 branches covered.">                || className.startsWith(&quot;org.mockito.runners.&quot;)</span>
+<span class="fc bfc" id="L57" title="All 2 branches covered.">                || className.startsWith(&quot;org.mockito.junit.&quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

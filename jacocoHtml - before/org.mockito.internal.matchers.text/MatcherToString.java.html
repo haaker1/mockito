@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MatcherToString.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.matchers.text</a> &gt; <span class="el_source">MatcherToString.java</span></div><h1>MatcherToString.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.matchers.text;
+
+import static org.mockito.internal.util.ObjectMethodsGuru.isToStringMethod;
+import static org.mockito.internal.util.StringUtil.decamelizeMatcherName;
+
+import java.lang.reflect.Method;
+
+import org.mockito.ArgumentMatcher;
+
+/** Provides better toString() text for matcher that don't have toString() method declared. */
+final class MatcherToString {
+
+    /**
+     * Attempts to provide more descriptive toString() for given matcher.
+     * Searches matcher class hierarchy for toString() method. If it is found it will be used.
+     * If no toString() is defined for the matcher hierarchy,
+     * uses decamelized class name instead of default Object.toString().
+     * This way we can promote meaningful names for custom matchers.
+     *
+     * @param matcher
+     * @return
+     */
+    static String toString(ArgumentMatcher&lt;?&gt; matcher) {
+<span class="fc" id="L28">        Class&lt;?&gt; cls = matcher.getClass();</span>
+<span class="fc bfc" id="L29" title="All 2 branches covered.">        while (cls != Object.class) {</span>
+<span class="fc" id="L30">            Method[] methods = cls.getDeclaredMethods();</span>
+<span class="fc bfc" id="L31" title="All 2 branches covered.">            for (Method m : methods) {</span>
+<span class="fc bfc" id="L32" title="All 2 branches covered.">                if (isToStringMethod(m)) {</span>
+<span class="fc" id="L33">                    return matcher.toString();</span>
+                }
+            }
+<span class="fc" id="L36">            cls = cls.getSuperclass();</span>
+<span class="fc" id="L37">        }</span>
+
+        String matcherName;
+<span class="fc" id="L40">        Class&lt;?&gt; matcherClass = matcher.getClass();</span>
+        // Lambdas have non-empty getSimpleName() (despite being synthetic)
+        // but that name is not useful for user
+<span class="fc bfc" id="L43" title="All 2 branches covered.">        if (matcherClass.isSynthetic()) {</span>
+<span class="fc" id="L44">            matcherName = &quot;&quot;;</span>
+        } else {
+<span class="fc" id="L46">            matcherName = matcherClass.getSimpleName();</span>
+        }
+
+<span class="fc" id="L49">        return decamelizeMatcherName(matcherName);</span>
+    }
+
+    private MatcherToString() {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

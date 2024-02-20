@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockitoHamcrest.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.hamcrest</a> &gt; <span class="el_source">MockitoHamcrest.java</span></div><h1>MockitoHamcrest.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.hamcrest;
+
+import static org.mockito.internal.hamcrest.MatcherGenericTypeExtractor.genericTypeOfMatcher;
+import static org.mockito.internal.progress.ThreadSafeMockingProgress.mockingProgress;
+import static org.mockito.internal.util.Primitives.defaultValue;
+
+import org.hamcrest.Matcher;
+import org.mockito.ArgumentMatcher;
+import org.mockito.internal.hamcrest.HamcrestArgumentMatcher;
+
+/**
+ * Allows matching arguments with hamcrest matchers.
+ * &lt;b&gt;Requires&lt;/b&gt; &lt;a href=&quot;http://hamcrest.org/JavaHamcrest/&quot;&gt;hamcrest&lt;/a&gt; on classpath,
+ * Mockito &lt;b&gt;does not&lt;/b&gt; depend on hamcrest!
+ * Note the &lt;b&gt;NullPointerException&lt;/b&gt; auto-unboxing caveat described below.
+ * &lt;p/&gt;
+ * Before implementing or reusing an existing hamcrest matcher please read
+ * how to deal with sophisticated argument matching in {@link ArgumentMatcher}.
+ * &lt;p/&gt;
+ * Mockito 2.1.0 was decoupled from Hamcrest to avoid version incompatibilities
+ * that have impacted our users in past. Mockito offers a dedicated API to match arguments
+ * via {@link ArgumentMatcher}.
+ * Hamcrest integration is provided so that users can take advantage of existing Hamcrest matchers.
+ * &lt;p/&gt;
+ * Example:
+ * &lt;pre&gt;
+ *     import static org.mockito.hamcrest.MockitoHamcrest.argThat;
+ *
+ *     //stubbing
+ *     when(mock.giveMe(argThat(new MyHamcrestMatcher())));
+ *
+ *     //verification
+ *     verify(mock).giveMe(argThat(new MyHamcrestMatcher()));
+ * &lt;/pre&gt;
+ * &lt;b&gt;NullPointerException&lt;/b&gt; auto-unboxing caveat.
+ * In rare cases when matching primitive parameter types you &lt;b&gt;*must*&lt;/b&gt; use relevant intThat(), floatThat(), etc. method.
+ * This way you will avoid &lt;code&gt;NullPointerException&lt;/code&gt; during auto-unboxing.
+ * Due to how java works we don't really have a clean way of detecting this scenario and protecting the user from this problem.
+ * Hopefully, the javadoc describes the problem and solution well.
+ * If you have an idea how to fix the problem, let us know via the mailing list or the issue tracker.
+ * &lt;p/&gt;
+ * By default, a matcher passed to a varargs parameter will match against the first element in the varargs array.
+ * To match against the raw varargs array pass the type of the varargs parameter to {@link MockitoHamcrest#argThat(Matcher, Class)}
+ * &lt;p/&gt;
+ * For example, to match any number of {@code String} values:
+ * &lt;pre&gt;
+ *     import static org.hamcrest.CoreMatchers.isA;
+ *     import static org.mockito.hamcrest.MockitoHamcrest.argThat;
+ *
+ *     // Given:
+ *     void varargMethod(String... args);
+ *
+ *     //stubbing
+ *     when(mock.varargMethod(argThat(isA(String[].class), String[].class));
+ *
+ *     //verification
+ *     verify(mock).giveMe(argThat(isA(String[].class), String[].class));
+ * &lt;/pre&gt;
+ *
+ * @since 2.1.0
+ */
+public final class MockitoHamcrest {
+
+    /**
+     * Allows matching arguments with hamcrest matchers.
+     * &lt;p/&gt;
+     * See examples in javadoc for {@link MockitoHamcrest} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;null&lt;/code&gt; or default value for primitive (0, false, etc.)
+     * @since 2.1.0
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public static &lt;T&gt; T argThat(Matcher&lt;T&gt; matcher) {
+<span class="fc" id="L79">        reportMatcher(matcher);</span>
+<span class="fc" id="L80">        return (T) defaultValue(genericTypeOfMatcher(matcher.getClass()));</span>
+    }
+
+    /**
+     * Allows matching arguments with hamcrest matchers.
+     * &lt;p/&gt;
+     * This variant can be used to pass an explicit {@code type},
+     * which can be useful to provide a matcher that matches against all
+     * elements in a varargs parameter.
+     * &lt;p/&gt;
+     * See examples in javadoc for {@link MockitoHamcrest} class
+     *
+     * @param matcher decides whether argument matches
+     * @param type the type the matcher matches.
+     * @return &lt;code&gt;null&lt;/code&gt; or default value for primitive (0, false, etc.)
+     * @since 5.0.0
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public static &lt;T&gt; T argThat(Matcher&lt;T&gt; matcher, Class&lt;T&gt; type) {
+<span class="fc" id="L99">        reportMatcher(matcher, type);</span>
+<span class="fc" id="L100">        return (T) defaultValue(genericTypeOfMatcher(matcher.getClass()));</span>
+    }
+
+    /**
+     * Enables integrating hamcrest matchers that match primitive &lt;code&gt;char&lt;/code&gt; arguments.
+     * Note that {@link #argThat} will not work with primitive &lt;code&gt;char&lt;/code&gt; matchers due to &lt;code&gt;NullPointerException&lt;/code&gt; auto-unboxing caveat.
+     * &lt;p/&gt;
+     * See examples in javadoc for {@link MockitoHamcrest} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static char charThat(Matcher&lt;Character&gt; matcher) {
+<span class="fc" id="L113">        reportMatcher(matcher);</span>
+<span class="fc" id="L114">        return 0;</span>
+    }
+
+    /**
+     * Enables integrating hamcrest matchers that match primitive &lt;code&gt;boolean&lt;/code&gt; arguments.
+     * Note that {@link #argThat} will not work with primitive &lt;code&gt;boolean&lt;/code&gt; matchers due to &lt;code&gt;NullPointerException&lt;/code&gt; auto-unboxing caveat.
+     * &lt;p/&gt;
+     * See examples in javadoc for {@link MockitoHamcrest} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;false&lt;/code&gt;.
+     */
+    public static boolean booleanThat(Matcher&lt;Boolean&gt; matcher) {
+<span class="fc" id="L127">        reportMatcher(matcher);</span>
+<span class="fc" id="L128">        return false;</span>
+    }
+
+    /**
+     * Enables integrating hamcrest matchers that match primitive &lt;code&gt;byte&lt;/code&gt; arguments.
+     * Note that {@link #argThat} will not work with primitive &lt;code&gt;byte&lt;/code&gt; matchers due to &lt;code&gt;NullPointerException&lt;/code&gt; auto-unboxing caveat.
+     * &lt;p/&gt;
+     * * See examples in javadoc for {@link MockitoHamcrest} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static byte byteThat(Matcher&lt;Byte&gt; matcher) {
+<span class="fc" id="L141">        reportMatcher(matcher);</span>
+<span class="fc" id="L142">        return 0;</span>
+    }
+
+    /**
+     * Enables integrating hamcrest matchers that match primitive &lt;code&gt;short&lt;/code&gt; arguments.
+     * Note that {@link #argThat} will not work with primitive &lt;code&gt;short&lt;/code&gt; matchers due to &lt;code&gt;NullPointerException&lt;/code&gt; auto-unboxing caveat.
+     * &lt;p/&gt;
+     * * See examples in javadoc for {@link MockitoHamcrest} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static short shortThat(Matcher&lt;Short&gt; matcher) {
+<span class="nc" id="L155">        reportMatcher(matcher);</span>
+<span class="nc" id="L156">        return 0;</span>
+    }
+
+    /**
+     * Enables integrating hamcrest matchers that match primitive &lt;code&gt;int&lt;/code&gt; arguments.
+     * Note that {@link #argThat} will not work with primitive &lt;code&gt;int&lt;/code&gt; matchers due to &lt;code&gt;NullPointerException&lt;/code&gt; auto-unboxing caveat.
+     * &lt;p/&gt;
+     * * See examples in javadoc for {@link MockitoHamcrest} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static int intThat(Matcher&lt;Integer&gt; matcher) {
+<span class="fc" id="L169">        reportMatcher(matcher);</span>
+<span class="fc" id="L170">        return 0;</span>
+    }
+
+    /**
+     * Enables integrating hamcrest matchers that match primitive &lt;code&gt;long&lt;/code&gt; arguments.
+     * Note that {@link #argThat} will not work with primitive &lt;code&gt;long&lt;/code&gt; matchers due to &lt;code&gt;NullPointerException&lt;/code&gt; auto-unboxing caveat.
+     * &lt;p/&gt;
+     * * See examples in javadoc for {@link MockitoHamcrest} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static long longThat(Matcher&lt;Long&gt; matcher) {
+<span class="fc" id="L183">        reportMatcher(matcher);</span>
+<span class="fc" id="L184">        return 0;</span>
+    }
+
+    /**
+     * Enables integrating hamcrest matchers that match primitive &lt;code&gt;float&lt;/code&gt; arguments.
+     * Note that {@link #argThat} will not work with primitive &lt;code&gt;float&lt;/code&gt; matchers due to &lt;code&gt;NullPointerException&lt;/code&gt; auto-unboxing caveat.
+     * &lt;p/&gt;
+     * * See examples in javadoc for {@link MockitoHamcrest} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static float floatThat(Matcher&lt;Float&gt; matcher) {
+<span class="fc" id="L197">        reportMatcher(matcher);</span>
+<span class="fc" id="L198">        return 0;</span>
+    }
+
+    /**
+     * Enables integrating hamcrest matchers that match primitive &lt;code&gt;double&lt;/code&gt; arguments.
+     * Note that {@link #argThat} will not work with primitive &lt;code&gt;double&lt;/code&gt; matchers due to &lt;code&gt;NullPointerException&lt;/code&gt; auto-unboxing caveat.
+     * &lt;p/&gt;
+     * * See examples in javadoc for {@link MockitoHamcrest} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static double doubleThat(Matcher&lt;Double&gt; matcher) {
+<span class="fc" id="L211">        reportMatcher(matcher);</span>
+<span class="fc" id="L212">        return 0;</span>
+    }
+
+    private static &lt;T&gt; void reportMatcher(Matcher&lt;T&gt; matcher) {
+<span class="fc" id="L216">        reportMatcher(new HamcrestArgumentMatcher&lt;T&gt;(matcher));</span>
+<span class="fc" id="L217">    }</span>
+
+    private static &lt;T&gt; void reportMatcher(Matcher&lt;T&gt; matcher, Class&lt;T&gt; type) {
+<span class="fc" id="L220">        reportMatcher(new HamcrestArgumentMatcher&lt;T&gt;(matcher, type));</span>
+<span class="fc" id="L221">    }</span>
+
+    private static &lt;T&gt; void reportMatcher(final HamcrestArgumentMatcher&lt;T&gt; matcher) {
+<span class="fc" id="L224">        mockingProgress().getArgumentMatcherStorage().reportMatcher(matcher);</span>
+<span class="fc" id="L225">    }</span>
+
+    private MockitoHamcrest() {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

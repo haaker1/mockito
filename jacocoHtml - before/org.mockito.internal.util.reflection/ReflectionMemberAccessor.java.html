@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReflectionMemberAccessor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.util.reflection</a> &gt; <span class="el_source">ReflectionMemberAccessor.java</span></div><h1>ReflectionMemberAccessor.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.util.reflection;
+
+import java.lang.reflect.AccessibleObject;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import org.mockito.plugins.MemberAccessor;
+
+<span class="fc" id="L15">public class ReflectionMemberAccessor implements MemberAccessor {</span>
+
+    @Override
+    public Object newInstance(Constructor&lt;?&gt; constructor, Object... arguments)
+            throws InstantiationException, InvocationTargetException, IllegalAccessException {
+<span class="fc" id="L20">        return newInstance(constructor, ConstructionDispatcher::newInstance, arguments);</span>
+    }
+
+    @Override
+    public Object newInstance(
+            Constructor&lt;?&gt; constructor, OnConstruction onConstruction, Object... arguments)
+            throws InstantiationException, InvocationTargetException, IllegalAccessException {
+<span class="fc" id="L27">        silentSetAccessible(constructor, true);</span>
+        try {
+<span class="fc" id="L29">            return onConstruction.invoke(() -&gt; constructor.newInstance(arguments));</span>
+<span class="fc" id="L30">        } catch (InvocationTargetException</span>
+                | IllegalAccessException
+                | InstantiationException
+                | IllegalArgumentException e) {
+<span class="fc" id="L34">            throw e;</span>
+<span class="nc" id="L35">        } catch (RuntimeException e) {</span>
+<span class="nc" id="L36">            throw new IllegalStateException(</span>
+<span class="nc" id="L37">                    &quot;Failed to invoke &quot; + constructor + &quot; with &quot; + Arrays.toString(arguments), e);</span>
+        } finally {
+<span class="fc" id="L39">            silentSetAccessible(constructor, false);</span>
+        }
+    }
+
+    @Override
+    public Object invoke(Method method, Object target, Object... arguments)
+            throws InvocationTargetException, IllegalAccessException {
+<span class="fc" id="L46">        silentSetAccessible(method, true);</span>
+        try {
+<span class="fc" id="L48">            return method.invoke(target, arguments);</span>
+<span class="fc" id="L49">        } catch (InvocationTargetException | IllegalAccessException | IllegalArgumentException e) {</span>
+<span class="fc" id="L50">            throw e;</span>
+<span class="nc" id="L51">        } catch (RuntimeException e) {</span>
+<span class="nc" id="L52">            throw new IllegalStateException(&quot;Could not invoke &quot; + method + &quot; on &quot; + target, e);</span>
+        } finally {
+<span class="fc" id="L54">            silentSetAccessible(method, false);</span>
+        }
+    }
+
+    @Override
+    public Object get(Field field, Object target) throws IllegalAccessException {
+<span class="fc" id="L60">        silentSetAccessible(field, true);</span>
+        try {
+<span class="fc" id="L62">            return field.get(target);</span>
+<span class="nc" id="L63">        } catch (IllegalAccessException | IllegalArgumentException e) {</span>
+<span class="nc" id="L64">            throw e;</span>
+<span class="nc" id="L65">        } catch (RuntimeException e) {</span>
+<span class="nc" id="L66">            throw new IllegalStateException(&quot;Could not read &quot; + field + &quot; from &quot; + target, e);</span>
+        } finally {
+<span class="fc" id="L68">            silentSetAccessible(field, false);</span>
+        }
+    }
+
+    @Override
+    public void set(Field field, Object target, Object value) throws IllegalAccessException {
+<span class="fc" id="L74">        silentSetAccessible(field, true);</span>
+        try {
+<span class="fc" id="L76">            field.set(target, value);</span>
+<span class="nc" id="L77">        } catch (IllegalAccessException | IllegalArgumentException e) {</span>
+<span class="nc" id="L78">            throw e;</span>
+<span class="nc" id="L79">        } catch (RuntimeException e) {</span>
+<span class="nc" id="L80">            throw new IllegalStateException(&quot;Could not write &quot; + field + &quot; to &quot; + target, e);</span>
+        } finally {
+<span class="fc" id="L82">            silentSetAccessible(field, false);</span>
+        }
+<span class="fc" id="L84">    }</span>
+
+    private static void silentSetAccessible(AccessibleObject object, boolean value) {
+        try {
+<span class="fc" id="L88">            object.setAccessible(value);</span>
+<span class="nc" id="L89">        } catch (RuntimeException ignored) {</span>
+<span class="fc" id="L90">        }</span>
+<span class="fc" id="L91">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

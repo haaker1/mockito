@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ObjenesisInstantiator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.creation.instance</a> &gt; <span class="el_source">ObjenesisInstantiator.java</span></div><h1>ObjenesisInstantiator.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.creation.instance;
+
+import org.mockito.creation.instance.Instantiator;
+import org.mockito.internal.configuration.GlobalConfiguration;
+import org.objenesis.ObjenesisStd;
+
+<span class="fc" id="L11">class ObjenesisInstantiator implements Instantiator {</span>
+
+    // TODO: in order to provide decent exception message when objenesis is not found,
+    // have a constructor in this class that tries to instantiate ObjenesisStd and if it fails then
+    // show decent exception that dependency is missing
+    // TODO: for the same reason catch and give better feedback when hamcrest core is not found.
+<span class="fc" id="L17">    private final ObjenesisStd objenesis =</span>
+<span class="fc" id="L18">            new ObjenesisStd(new GlobalConfiguration().enableClassCache());</span>
+
+    @Override
+    public &lt;T&gt; T newInstance(Class&lt;T&gt; cls) {
+<span class="fc" id="L22">        return objenesis.newInstance(cls);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

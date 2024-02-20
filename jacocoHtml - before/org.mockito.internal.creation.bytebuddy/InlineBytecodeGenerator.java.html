@@ -1,0 +1,509 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InlineBytecodeGenerator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.creation.bytebuddy</a> &gt; <span class="el_source">InlineBytecodeGenerator.java</span></div><h1>InlineBytecodeGenerator.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.creation.bytebuddy;
+
+import net.bytebuddy.ByteBuddy;
+import net.bytebuddy.ClassFileVersion;
+import net.bytebuddy.asm.Advice;
+import net.bytebuddy.asm.AsmVisitorWrapper;
+import net.bytebuddy.description.field.FieldDescription;
+import net.bytebuddy.description.field.FieldList;
+import net.bytebuddy.description.method.MethodDescription;
+import net.bytebuddy.description.method.MethodList;
+import net.bytebuddy.description.method.ParameterDescription;
+import net.bytebuddy.description.type.TypeDescription;
+import net.bytebuddy.dynamic.ClassFileLocator;
+import net.bytebuddy.dynamic.scaffold.MethodGraph;
+import net.bytebuddy.dynamic.scaffold.TypeValidation;
+import net.bytebuddy.implementation.Implementation;
+import net.bytebuddy.jar.asm.ClassVisitor;
+import net.bytebuddy.jar.asm.MethodVisitor;
+import net.bytebuddy.matcher.ElementMatchers;
+import net.bytebuddy.pool.TypePool;
+import net.bytebuddy.utility.OpenedClassReader;
+import net.bytebuddy.utility.RandomString;
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.internal.SuppressSignatureCheck;
+import org.mockito.internal.creation.bytebuddy.inject.MockMethodDispatcher;
+import org.mockito.internal.util.concurrent.DetachedThreadLocal;
+import org.mockito.internal.util.concurrent.WeakConcurrentMap;
+import org.mockito.internal.util.concurrent.WeakConcurrentSet;
+import org.mockito.mock.SerializableMode;
+
+import java.lang.instrument.ClassFileTransformer;
+import java.lang.instrument.Instrumentation;
+import java.lang.instrument.UnmodifiableClassException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.security.ProtectionDomain;
+import java.util.*;
+import java.util.function.Predicate;
+
+import static net.bytebuddy.implementation.MethodDelegation.withDefaultConfiguration;
+import static net.bytebuddy.implementation.bind.annotation.TargetMethodAnnotationDrivenBinder.ParameterBinder.ForFixedValue.OfConstant.of;
+import static net.bytebuddy.matcher.ElementMatchers.*;
+import static org.mockito.internal.util.StringUtil.join;
+
+@SuppressSignatureCheck
+public class InlineBytecodeGenerator implements BytecodeGenerator, ClassFileTransformer {
+
+    private static final String PRELOAD = &quot;org.mockito.inline.preload&quot;;
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L55">    static final Set&lt;Class&lt;?&gt;&gt; EXCLUDES =</span>
+            new HashSet&lt;Class&lt;?&gt;&gt;(
+<span class="fc" id="L57">                    Arrays.asList(</span>
+                            Class.class,
+                            Boolean.class,
+                            Byte.class,
+                            Short.class,
+                            Character.class,
+                            Integer.class,
+                            Long.class,
+                            Float.class,
+                            Double.class,
+                            String.class));
+
+    private final Instrumentation instrumentation;
+
+    private final ByteBuddy byteBuddy;
+
+    private final WeakConcurrentSet&lt;Class&lt;?&gt;&gt; mocked, flatMocked;
+
+    private final BytecodeGenerator subclassEngine;
+
+    private final AsmVisitorWrapper mockTransformer;
+
+    private final Method getModule, canRead, redefineModule;
+
+    private volatile Throwable lastException;
+
+    public InlineBytecodeGenerator(
+            Instrumentation instrumentation,
+            WeakConcurrentMap&lt;Object, MockMethodInterceptor&gt; mocks,
+            DetachedThreadLocal&lt;Map&lt;Class&lt;?&gt;, MockMethodInterceptor&gt;&gt; mockedStatics,
+            Predicate&lt;Class&lt;?&gt;&gt; isMockConstruction,
+<span class="fc" id="L88">            ConstructionCallback onConstruction) {</span>
+<span class="fc" id="L89">        preload();</span>
+<span class="fc" id="L90">        this.instrumentation = instrumentation;</span>
+<span class="fc" id="L91">        byteBuddy =</span>
+                new ByteBuddy()
+<span class="fc" id="L93">                        .with(TypeValidation.DISABLED)</span>
+<span class="fc" id="L94">                        .with(Implementation.Context.Disabled.Factory.INSTANCE)</span>
+<span class="fc" id="L95">                        .with(MethodGraph.Compiler.ForDeclaredMethods.INSTANCE)</span>
+<span class="fc" id="L96">                        .ignore(isSynthetic().and(not(isConstructor())).or(isDefaultFinalizer()));</span>
+<span class="fc" id="L97">        mocked = new WeakConcurrentSet&lt;&gt;(WeakConcurrentSet.Cleaner.MANUAL);</span>
+<span class="fc" id="L98">        flatMocked = new WeakConcurrentSet&lt;&gt;(WeakConcurrentSet.Cleaner.MANUAL);</span>
+<span class="fc" id="L99">        String identifier = RandomString.make();</span>
+<span class="fc" id="L100">        subclassEngine =</span>
+                new TypeCachingBytecodeGenerator(
+                        new SubclassBytecodeGenerator(
+<span class="fc" id="L103">                                withDefaultConfiguration()</span>
+<span class="fc" id="L104">                                        .withBinders(</span>
+<span class="fc" id="L105">                                                of(MockMethodAdvice.Identifier.class, identifier))</span>
+<span class="fc" id="L106">                                        .to(MockMethodAdvice.ForReadObject.class),</span>
+<span class="fc" id="L107">                                isAbstract().or(isNative()).or(isToString())),</span>
+                        false);
+<span class="fc" id="L109">        mockTransformer =</span>
+                new AsmVisitorWrapper.ForDeclaredMethods()
+<span class="fc" id="L111">                        .method(</span>
+<span class="fc" id="L112">                                isVirtual()</span>
+<span class="fc" id="L113">                                        .and(</span>
+<span class="fc" id="L114">                                                not(</span>
+<span class="fc" id="L115">                                                        isBridge()</span>
+<span class="fc" id="L116">                                                                .or(isHashCode())</span>
+<span class="fc" id="L117">                                                                .or(isEquals())</span>
+<span class="fc" id="L118">                                                                .or(isDefaultFinalizer())))</span>
+<span class="fc" id="L119">                                        .and(</span>
+<span class="fc" id="L120">                                                not(isDeclaredBy(nameStartsWith(&quot;java.&quot;))</span>
+<span class="fc" id="L121">                                                                .&lt;MethodDescription&gt;and(</span>
+<span class="fc" id="L122">                                                                        isPackagePrivate()))</span>
+<span class="fc" id="L123">                                                        .and(</span>
+<span class="fc" id="L124">                                                                not(</span>
+                                                                        BytecodeGenerator
+<span class="fc" id="L126">                                                                                .isGroovyMethod(</span>
+                                                                                        true)))),
+<span class="fc" id="L128">                                Advice.withCustomMapping()</span>
+<span class="fc" id="L129">                                        .bind(MockMethodAdvice.Identifier.class, identifier)</span>
+<span class="fc" id="L130">                                        .to(MockMethodAdvice.class))</span>
+<span class="fc" id="L131">                        .method(</span>
+<span class="fc" id="L132">                                isStatic().and(not(BytecodeGenerator.isGroovyMethod(true))),</span>
+<span class="fc" id="L133">                                Advice.withCustomMapping()</span>
+<span class="fc" id="L134">                                        .bind(MockMethodAdvice.Identifier.class, identifier)</span>
+<span class="fc" id="L135">                                        .to(MockMethodAdvice.ForStatic.class))</span>
+<span class="fc" id="L136">                        .constructor(any(), new MockMethodAdvice.ConstructorShortcut(identifier))</span>
+<span class="fc" id="L137">                        .method(</span>
+<span class="fc" id="L138">                                isHashCode(),</span>
+<span class="fc" id="L139">                                Advice.withCustomMapping()</span>
+<span class="fc" id="L140">                                        .bind(MockMethodAdvice.Identifier.class, identifier)</span>
+<span class="fc" id="L141">                                        .to(MockMethodAdvice.ForHashCode.class))</span>
+<span class="fc" id="L142">                        .method(</span>
+<span class="fc" id="L143">                                isEquals(),</span>
+<span class="fc" id="L144">                                Advice.withCustomMapping()</span>
+<span class="fc" id="L145">                                        .bind(MockMethodAdvice.Identifier.class, identifier)</span>
+<span class="fc" id="L146">                                        .to(MockMethodAdvice.ForEquals.class));</span>
+        Method getModule, canRead, redefineModule;
+        try {
+<span class="fc" id="L149">            getModule = Class.class.getMethod(&quot;getModule&quot;);</span>
+<span class="fc" id="L150">            canRead = getModule.getReturnType().getMethod(&quot;canRead&quot;, getModule.getReturnType());</span>
+<span class="fc" id="L151">            redefineModule =</span>
+<span class="fc" id="L152">                    Instrumentation.class.getMethod(</span>
+                            &quot;redefineModule&quot;,
+<span class="fc" id="L154">                            getModule.getReturnType(),</span>
+                            Set.class,
+                            Map.class,
+                            Map.class,
+                            Set.class,
+                            Map.class);
+<span class="nc" id="L160">        } catch (Exception ignored) {</span>
+<span class="nc" id="L161">            getModule = null;</span>
+<span class="nc" id="L162">            canRead = null;</span>
+<span class="nc" id="L163">            redefineModule = null;</span>
+<span class="fc" id="L164">        }</span>
+<span class="fc" id="L165">        this.getModule = getModule;</span>
+<span class="fc" id="L166">        this.canRead = canRead;</span>
+<span class="fc" id="L167">        this.redefineModule = redefineModule;</span>
+<span class="fc" id="L168">        MockMethodDispatcher.set(</span>
+                identifier,
+                new MockMethodAdvice(
+                        mocks, mockedStatics, identifier, isMockConstruction, onConstruction));
+<span class="fc" id="L172">        instrumentation.addTransformer(this, true);</span>
+<span class="fc" id="L173">    }</span>
+
+    /**
+     * Mockito allows to mock about any type, including such types that we are relying on ourselves. This can cause a circularity:
+     * In order to check if an instance is a mock we need to look up if this instance is registered in the {@code mocked} set. But to look
+     * up this instance, we need to create key instances that rely on weak reference properties. Loading the later classes will happen before
+     * the key instances are completed what will cause Mockito to check if those key instances are themselves mocks what causes a loop which
+     * results in a circularity error. This is not normally a problem as we explicitly check if the instance that we investigate is one of
+     * our instance of which we hold a reference by reference equality what does not cause any code execution. But it seems like the load
+     * order plays a role here with unloaded types being loaded before we even get to check the mock instance property. To avoid this, we are
+     * making sure that crucuial JVM types are loaded before we create the first inline mock. Unfortunately, these types dependant on a JVM's
+     * implementation and we can only maintain types that we know of from well-known JVM implementations such as HotSpot and extend this list
+     * once we learn of further problematic types for future Java versions. To allow users to whitelist their own types, we do not also offer
+     * a property that allows running problematic tests before a new Mockito version can be released and that allows us to ask users to
+     * easily validate that whitelisting actually solves a problem as circularities could also be caused by other problems.
+     */
+    private static void preload() {
+<span class="fc" id="L190">        String preloads = System.getProperty(PRELOAD);</span>
+<span class="pc bpc" id="L191" title="1 of 2 branches missed.">        if (preloads == null) {</span>
+<span class="fc" id="L192">            preloads =</span>
+                    &quot;java.lang.WeakPairMap,java.lang.WeakPairMap$Pair,java.lang.WeakPairMap$Pair$Weak&quot;;
+        }
+<span class="fc bfc" id="L195" title="All 2 branches covered.">        for (String preload : preloads.split(&quot;,&quot;)) {</span>
+            try {
+<span class="fc" id="L197">                Class.forName(preload, false, null);</span>
+<span class="nc" id="L198">            } catch (ClassNotFoundException ignored) {</span>
+<span class="fc" id="L199">            }</span>
+        }
+<span class="fc" id="L201">    }</span>
+
+    @Override
+    public &lt;T&gt; Class&lt;? extends T&gt; mockClass(MockFeatures&lt;T&gt; features) {
+<span class="fc" id="L205">        boolean subclassingRequired =</span>
+<span class="fc bfc" id="L206" title="All 6 branches covered.">                !features.interfaces.isEmpty()</span>
+                        || features.serializableMode != SerializableMode.NONE
+                        || features.stripAnnotations
+<span class="fc bfc" id="L209" title="All 2 branches covered.">                        || Modifier.isAbstract(features.mockedType.getModifiers());</span>
+
+<span class="fc" id="L211">        checkSupportedCombination(subclassingRequired, features);</span>
+
+<span class="fc" id="L213">        Set&lt;Class&lt;?&gt;&gt; types = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L214">        types.add(features.mockedType);</span>
+<span class="fc" id="L215">        types.addAll(features.interfaces);</span>
+
+<span class="fc" id="L217">        synchronized (this) {</span>
+<span class="fc" id="L218">            triggerRetransformation(types, false);</span>
+<span class="fc" id="L219">        }</span>
+
+<span class="fc bfc" id="L221" title="All 2 branches covered.">        return subclassingRequired ? subclassEngine.mockClass(features) : features.mockedType;</span>
+    }
+
+    @Override
+    public synchronized void mockClassStatic(Class&lt;?&gt; type) {
+<span class="fc" id="L226">        triggerRetransformation(Collections.singleton(type), true);</span>
+<span class="fc" id="L227">    }</span>
+
+    @Override
+    public synchronized void mockClassConstruction(Class&lt;?&gt; type) {
+<span class="fc" id="L231">        triggerRetransformation(Collections.singleton(type), false);</span>
+<span class="fc" id="L232">    }</span>
+
+    private static void assureInitialization(Class&lt;?&gt; type) {
+        try {
+<span class="fc" id="L236">            Class.forName(type.getName(), true, type.getClassLoader());</span>
+<span class="nc" id="L237">        } catch (ExceptionInInitializerError e) {</span>
+<span class="nc" id="L238">            throw new MockitoException(</span>
+                    &quot;Cannot instrument &quot;
+                            + type
+                            + &quot; because it or one of its supertypes could not be initialized&quot;,
+<span class="nc" id="L242">                    e.getException());</span>
+<span class="fc" id="L243">        } catch (Throwable ignored) {</span>
+<span class="fc" id="L244">        }</span>
+<span class="fc" id="L245">    }</span>
+
+    private &lt;T&gt; void triggerRetransformation(Set&lt;Class&lt;?&gt;&gt; types, boolean flat) {
+<span class="fc" id="L248">        Set&lt;Class&lt;?&gt;&gt; targets = new HashSet&lt;Class&lt;?&gt;&gt;();</span>
+
+        try {
+<span class="fc bfc" id="L251" title="All 2 branches covered.">            for (Class&lt;?&gt; type : types) {</span>
+<span class="fc bfc" id="L252" title="All 2 branches covered.">                if (flat) {</span>
+<span class="fc bfc" id="L253" title="All 4 branches covered.">                    if (!mocked.contains(type) &amp;&amp; flatMocked.add(type)) {</span>
+<span class="fc" id="L254">                        assureInitialization(type);</span>
+<span class="fc" id="L255">                        targets.add(type);</span>
+                    }
+                } else {
+                    do {
+<span class="fc bfc" id="L259" title="All 2 branches covered.">                        if (mocked.add(type)) {</span>
+<span class="fc bfc" id="L260" title="All 2 branches covered.">                            if (!flatMocked.remove(type)) {</span>
+<span class="fc" id="L261">                                assureInitialization(type);</span>
+<span class="fc" id="L262">                                targets.add(type);</span>
+                            }
+<span class="fc" id="L264">                            addInterfaces(targets, type.getInterfaces());</span>
+                        }
+<span class="fc" id="L266">                        type = type.getSuperclass();</span>
+<span class="fc bfc" id="L267" title="All 2 branches covered.">                    } while (type != null);</span>
+                }
+<span class="fc" id="L269">            }</span>
+<span class="nc" id="L270">        } catch (Throwable t) {</span>
+<span class="nc bnc" id="L271" title="All 2 branches missed.">            for (Class&lt;?&gt; target : targets) {</span>
+<span class="nc" id="L272">                mocked.remove(target);</span>
+<span class="nc" id="L273">                flatMocked.remove(target);</span>
+<span class="nc" id="L274">            }</span>
+<span class="nc" id="L275">            throw t;</span>
+<span class="fc" id="L276">        }</span>
+
+<span class="fc bfc" id="L278" title="All 2 branches covered.">        if (!targets.isEmpty()) {</span>
+            try {
+<span class="fc" id="L280">                assureCanReadMockito(targets);</span>
+<span class="fc" id="L281">                instrumentation.retransformClasses(targets.toArray(new Class&lt;?&gt;[targets.size()]));</span>
+<span class="fc" id="L282">                Throwable throwable = lastException;</span>
+<span class="pc bpc" id="L283" title="1 of 2 branches missed.">                if (throwable != null) {</span>
+<span class="nc" id="L284">                    throw new IllegalStateException(</span>
+<span class="nc" id="L285">                            join(</span>
+                                    &quot;Byte Buddy could not instrument all classes within the mock's type hierarchy&quot;,
+                                    &quot;&quot;,
+                                    &quot;This problem should never occur for javac-compiled classes. This problem has been observed for classes that are:&quot;,
+                                    &quot; - Compiled by older versions of scalac&quot;,
+                                    &quot; - Classes that are part of the Android distribution&quot;),
+                            throwable);
+                }
+<span class="fc" id="L293">            } catch (Exception exception) {</span>
+<span class="fc bfc" id="L294" title="All 2 branches covered.">                for (Class&lt;?&gt; failed : targets) {</span>
+<span class="fc" id="L295">                    mocked.remove(failed);</span>
+<span class="fc" id="L296">                    flatMocked.remove(failed);</span>
+<span class="fc" id="L297">                }</span>
+<span class="fc" id="L298">                throw new MockitoException(&quot;Could not modify all classes &quot; + targets, exception);</span>
+            } finally {
+<span class="fc" id="L300">                lastException = null;</span>
+            }
+        }
+
+<span class="fc" id="L304">        mocked.expungeStaleEntries();</span>
+<span class="fc" id="L305">        flatMocked.expungeStaleEntries();</span>
+<span class="fc" id="L306">    }</span>
+
+    private void assureCanReadMockito(Set&lt;Class&lt;?&gt;&gt; types) {
+<span class="pc bpc" id="L309" title="1 of 2 branches missed.">        if (redefineModule == null) {</span>
+<span class="nc" id="L310">            return;</span>
+        }
+<span class="fc" id="L312">        Set&lt;Object&gt; modules = new HashSet&lt;Object&gt;();</span>
+        try {
+<span class="fc" id="L314">            Object target =</span>
+<span class="fc" id="L315">                    getModule.invoke(</span>
+<span class="fc" id="L316">                            Class.forName(</span>
+                                    &quot;org.mockito.internal.creation.bytebuddy.inject.MockMethodDispatcher&quot;,
+                                    false,
+                                    null));
+<span class="fc bfc" id="L320" title="All 2 branches covered.">            for (Class&lt;?&gt; type : types) {</span>
+<span class="fc" id="L321">                Object module = getModule.invoke(type);</span>
+<span class="fc bfc" id="L322" title="All 4 branches covered.">                if (!modules.contains(module) &amp;&amp; !(Boolean) canRead.invoke(module, target)) {</span>
+<span class="fc" id="L323">                    modules.add(module);</span>
+                }
+<span class="fc" id="L325">            }</span>
+<span class="fc bfc" id="L326" title="All 2 branches covered.">            for (Object module : modules) {</span>
+<span class="fc" id="L327">                redefineModule.invoke(</span>
+                        instrumentation,
+                        module,
+<span class="fc" id="L330">                        Collections.singleton(target),</span>
+<span class="fc" id="L331">                        Collections.emptyMap(),</span>
+<span class="fc" id="L332">                        Collections.emptyMap(),</span>
+<span class="fc" id="L333">                        Collections.emptySet(),</span>
+<span class="fc" id="L334">                        Collections.emptyMap());</span>
+<span class="fc" id="L335">            }</span>
+<span class="nc" id="L336">        } catch (Exception e) {</span>
+<span class="nc" id="L337">            throw new IllegalStateException(</span>
+<span class="nc" id="L338">                    join(</span>
+                            &quot;Could not adjust module graph to make the mock instance dispatcher visible to some classes&quot;,
+                            &quot;&quot;,
+                            &quot;At least one of those modules: &quot;
+                                    + modules
+                                    + &quot; is not reading the unnamed module of the bootstrap loader&quot;,
+                            &quot;Without such a read edge, the classes that are redefined to become mocks cannot access the mock dispatcher.&quot;,
+                            &quot;To circumvent this, Mockito attempted to add a read edge to this module what failed for an unexpected reason&quot;),
+                    e);
+<span class="fc" id="L347">        }</span>
+<span class="fc" id="L348">    }</span>
+
+    private &lt;T&gt; void checkSupportedCombination(
+            boolean subclassingRequired, MockFeatures&lt;T&gt; features) {
+<span class="fc bfc" id="L352" title="All 2 branches covered.">        if (subclassingRequired</span>
+<span class="fc bfc" id="L353" title="All 2 branches covered.">                &amp;&amp; !features.mockedType.isArray()</span>
+<span class="fc bfc" id="L354" title="All 2 branches covered.">                &amp;&amp; !features.mockedType.isPrimitive()</span>
+<span class="fc bfc" id="L355" title="All 2 branches covered.">                &amp;&amp; (Modifier.isFinal(features.mockedType.getModifiers())</span>
+<span class="fc bfc" id="L356" title="All 2 branches covered.">                        || TypeSupport.INSTANCE.isSealed(features.mockedType)</span>
+<span class="pc bpc" id="L357" title="1 of 2 branches missed.">                        || features.interfaces.stream().anyMatch(TypeSupport.INSTANCE::isSealed))) {</span>
+<span class="fc" id="L358">            throw new MockitoException(</span>
+<span class="fc" id="L359">                    &quot;Unsupported settings with this type '&quot; + features.mockedType.getName() + &quot;'&quot;);</span>
+        }
+<span class="fc" id="L361">    }</span>
+
+    private void addInterfaces(Set&lt;Class&lt;?&gt;&gt; types, Class&lt;?&gt;[] interfaces) {
+<span class="fc bfc" id="L364" title="All 2 branches covered.">        for (Class&lt;?&gt; type : interfaces) {</span>
+<span class="fc bfc" id="L365" title="All 2 branches covered.">            if (mocked.add(type)) {</span>
+<span class="pc bpc" id="L366" title="1 of 2 branches missed.">                if (!flatMocked.remove(type)) {</span>
+<span class="fc" id="L367">                    assureInitialization(type);</span>
+<span class="fc" id="L368">                    types.add(type);</span>
+                }
+<span class="fc" id="L370">                addInterfaces(types, type.getInterfaces());</span>
+            }
+        }
+<span class="fc" id="L373">    }</span>
+
+    @Override
+    public byte[] transform(
+            ClassLoader loader,
+            String className,
+            Class&lt;?&gt; classBeingRedefined,
+            ProtectionDomain protectionDomain,
+            byte[] classfileBuffer) {
+<span class="fc bfc" id="L382" title="All 2 branches covered.">        if (classBeingRedefined == null</span>
+<span class="fc bfc" id="L383" title="All 2 branches covered.">                || !mocked.contains(classBeingRedefined)</span>
+<span class="fc bfc" id="L384" title="All 2 branches covered.">                        &amp;&amp; !flatMocked.contains(classBeingRedefined)</span>
+<span class="fc bfc" id="L385" title="All 2 branches covered.">                || EXCLUDES.contains(classBeingRedefined)) {</span>
+<span class="fc" id="L386">            return null;</span>
+        } else {
+            try {
+<span class="fc" id="L389">                return byteBuddy</span>
+<span class="fc" id="L390">                        .redefine(</span>
+                                classBeingRedefined,
+                                //        new ClassFileLocator.Compound(
+<span class="fc" id="L393">                                ClassFileLocator.Simple.of(</span>
+<span class="fc" id="L394">                                        classBeingRedefined.getName(), classfileBuffer)</span>
+                                //            ,ClassFileLocator.ForClassLoader.ofSystemLoader()
+                                //        )
+                                )
+                        // Note: The VM erases parameter meta data from the provided class file
+                        // (bug). We just add this information manually.
+<span class="fc" id="L400">                        .visit(new ParameterWritingVisitorWrapper(classBeingRedefined))</span>
+<span class="fc" id="L401">                        .visit(mockTransformer)</span>
+<span class="fc" id="L402">                        .make()</span>
+<span class="fc" id="L403">                        .getBytes();</span>
+<span class="nc" id="L404">            } catch (Throwable throwable) {</span>
+<span class="nc" id="L405">                lastException = throwable;</span>
+<span class="nc" id="L406">                return null;</span>
+            }
+        }
+    }
+
+    @Override
+    public synchronized void clearAllCaches() {
+<span class="fc" id="L413">        Set&lt;Class&lt;?&gt;&gt; types = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L414">        mocked.forEach(types::add);</span>
+<span class="pc bpc" id="L415" title="1 of 2 branches missed.">        if (types.isEmpty()) {</span>
+<span class="nc" id="L416">            return;</span>
+        }
+<span class="fc" id="L418">        mocked.clear();</span>
+<span class="fc" id="L419">        flatMocked.clear();</span>
+<span class="fc" id="L420">        subclassEngine.clearAllCaches();</span>
+        try {
+<span class="fc" id="L422">            instrumentation.retransformClasses(types.toArray(new Class&lt;?&gt;[0]));</span>
+<span class="nc" id="L423">        } catch (UnmodifiableClassException e) {</span>
+<span class="nc" id="L424">            throw new MockitoException(</span>
+<span class="nc" id="L425">                    join(</span>
+                            &quot;Failed to reset mocks.&quot;,
+                            &quot;&quot;,
+                            &quot;This should not influence the working of Mockito.&quot;,
+                            &quot;But if the reset intends to remove mocking code to improve performance, it is still impacted.&quot;),
+                    e);
+<span class="fc" id="L431">        }</span>
+<span class="fc" id="L432">    }</span>
+
+    private static class ParameterWritingVisitorWrapper extends AsmVisitorWrapper.AbstractBase {
+
+        private final Class&lt;?&gt; type;
+
+<span class="fc" id="L438">        private ParameterWritingVisitorWrapper(Class&lt;?&gt; type) {</span>
+<span class="fc" id="L439">            this.type = type;</span>
+<span class="fc" id="L440">        }</span>
+
+        @Override
+        public ClassVisitor wrap(
+                TypeDescription instrumentedType,
+                ClassVisitor classVisitor,
+                Implementation.Context implementationContext,
+                TypePool typePool,
+                FieldList&lt;FieldDescription.InDefinedShape&gt; fields,
+                MethodList&lt;?&gt; methods,
+                int writerFlags,
+                int readerFlags) {
+<span class="fc bfc" id="L452" title="All 2 branches covered.">            return implementationContext.getClassFileVersion().isAtLeast(ClassFileVersion.JAVA_V8)</span>
+<span class="fc" id="L453">                    ? new ParameterAddingClassVisitor(</span>
+                            classVisitor, new TypeDescription.ForLoadedType(type))
+<span class="fc" id="L455">                    : classVisitor;</span>
+        }
+
+        private static class ParameterAddingClassVisitor extends ClassVisitor {
+
+            private final TypeDescription typeDescription;
+
+            private ParameterAddingClassVisitor(ClassVisitor cv, TypeDescription typeDescription) {
+<span class="fc" id="L463">                super(OpenedClassReader.ASM_API, cv);</span>
+<span class="fc" id="L464">                this.typeDescription = typeDescription;</span>
+<span class="fc" id="L465">            }</span>
+
+            @Override
+            public MethodVisitor visitMethod(
+                    int access, String name, String desc, String signature, String[] exceptions) {
+<span class="fc" id="L470">                MethodVisitor methodVisitor =</span>
+<span class="fc" id="L471">                        super.visitMethod(access, name, desc, signature, exceptions);</span>
+<span class="fc" id="L472">                MethodList&lt;?&gt; methodList =</span>
+                        typeDescription
+<span class="fc" id="L474">                                .getDeclaredMethods()</span>
+<span class="fc" id="L475">                                .filter(</span>
+<span class="fc bfc" id="L476" title="All 2 branches covered.">                                        (name.equals(MethodDescription.CONSTRUCTOR_INTERNAL_NAME)</span>
+<span class="fc" id="L477">                                                        ? isConstructor()</span>
+<span class="fc" id="L478">                                                        : ElementMatchers.&lt;MethodDescription&gt;named(</span>
+                                                                name))
+<span class="fc" id="L480">                                                .and(hasDescriptor(desc)));</span>
+<span class="fc bfc" id="L481" title="All 2 branches covered.">                if (methodList.size() == 1</span>
+<span class="fc bfc" id="L482" title="All 2 branches covered.">                        &amp;&amp; methodList.getOnly().getParameters().hasExplicitMetaData()) {</span>
+                    for (ParameterDescription parameterDescription :
+<span class="fc bfc" id="L484" title="All 2 branches covered.">                            methodList.getOnly().getParameters()) {</span>
+<span class="fc" id="L485">                        methodVisitor.visitParameter(</span>
+<span class="fc" id="L486">                                parameterDescription.getName(),</span>
+<span class="fc" id="L487">                                parameterDescription.getModifiers());</span>
+<span class="fc" id="L488">                    }</span>
+<span class="fc" id="L489">                    return new MethodParameterStrippingMethodVisitor(methodVisitor);</span>
+                } else {
+<span class="fc" id="L491">                    return methodVisitor;</span>
+                }
+            }
+        }
+
+        private static class MethodParameterStrippingMethodVisitor extends MethodVisitor {
+
+            public MethodParameterStrippingMethodVisitor(MethodVisitor mv) {
+<span class="fc" id="L499">                super(OpenedClassReader.ASM_API, mv);</span>
+<span class="fc" id="L500">            }</span>
+
+            @Override
+            public void visitParameter(String name, int access) {
+                // suppress to avoid additional writing of the parameter if retained.
+<span class="fc" id="L505">            }</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

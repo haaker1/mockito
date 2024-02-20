@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Description.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.verification</a> &gt; <span class="el_source">Description.java</span></div><h1>Description.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.verification;
+
+import org.mockito.exceptions.base.MockitoAssertionError;
+import org.mockito.internal.verification.api.VerificationData;
+import org.mockito.verification.VerificationMode;
+
+/**
+ * Description verification mode wraps an existing verification mode and prepends
+ * a custom message to the assertion error if verification fails.
+ * @author Geoff.Schoeman
+ * @since 2.1.0
+ */
+public class Description implements VerificationMode {
+
+    private final VerificationMode verification;
+    private final String description;
+
+    /**
+     * Constructs a verification mode which wraps the given verification mode.
+     * @param verification The implementation to use for verification
+     * @param description The failure message to prepend if verification fails
+     */
+<span class="fc" id="L27">    public Description(VerificationMode verification, String description) {</span>
+<span class="fc" id="L28">        this.verification = verification;</span>
+<span class="fc" id="L29">        this.description = description;</span>
+<span class="fc" id="L30">    }</span>
+
+    /**
+     * Performs verification using the wrapped verification mode implementation.
+     * Prepends the custom failure message if verification fails.
+     * @param data the data to be verified
+     */
+    @Override
+    public void verify(VerificationData data) {
+        try {
+<span class="nc" id="L40">            verification.verify(data);</span>
+
+<span class="fc" id="L42">        } catch (AssertionError e) {</span>
+<span class="fc" id="L43">            throw new MockitoAssertionError(e, description);</span>
+<span class="nc" id="L44">        }</span>
+<span class="nc" id="L45">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

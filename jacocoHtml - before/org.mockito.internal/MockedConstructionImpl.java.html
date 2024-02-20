@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockedConstructionImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal</a> &gt; <span class="el_source">MockedConstructionImpl.java</span></div><h1>MockedConstructionImpl.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal;
+
+import static org.mockito.internal.util.StringUtil.join;
+
+import java.util.Collections;
+import java.util.List;
+
+import org.mockito.MockedConstruction;
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.internal.debugging.LocationFactory;
+import org.mockito.invocation.Location;
+import org.mockito.plugins.MockMaker;
+
+public final class MockedConstructionImpl&lt;T&gt; implements MockedConstruction&lt;T&gt; {
+
+    private final MockMaker.ConstructionMockControl&lt;T&gt; control;
+
+    private boolean closed;
+
+<span class="fc" id="L24">    private final Location location = LocationFactory.create();</span>
+
+<span class="fc" id="L26">    protected MockedConstructionImpl(MockMaker.ConstructionMockControl&lt;T&gt; control) {</span>
+<span class="fc" id="L27">        this.control = control;</span>
+<span class="fc" id="L28">    }</span>
+
+    @Override
+    public List&lt;T&gt; constructed() {
+<span class="fc" id="L32">        return Collections.unmodifiableList(control.getMocks());</span>
+    }
+
+    @Override
+    public boolean isClosed() {
+<span class="nc" id="L37">        return closed;</span>
+    }
+
+    @Override
+    public void close() {
+<span class="fc" id="L42">        assertNotClosed();</span>
+
+<span class="fc" id="L44">        closed = true;</span>
+<span class="fc" id="L45">        control.disable();</span>
+<span class="fc" id="L46">    }</span>
+
+    @Override
+    public void closeOnDemand() {
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        if (!closed) {</span>
+<span class="fc" id="L51">            close();</span>
+        }
+<span class="fc" id="L53">    }</span>
+
+    private void assertNotClosed() {
+<span class="pc bpc" id="L56" title="1 of 2 branches missed.">        if (closed) {</span>
+<span class="nc" id="L57">            throw new MockitoException(</span>
+<span class="nc" id="L58">                    join(</span>
+                            &quot;The static mock created at&quot;,
+<span class="nc" id="L60">                            location.toString(),</span>
+                            &quot;is already resolved and cannot longer be used&quot;));
+        }
+<span class="fc" id="L63">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

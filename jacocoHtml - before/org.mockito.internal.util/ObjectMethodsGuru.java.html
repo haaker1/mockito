@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ObjectMethodsGuru.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.util</a> &gt; <span class="el_source">ObjectMethodsGuru.java</span></div><h1>ObjectMethodsGuru.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.util;
+
+import java.lang.reflect.Method;
+
+import org.mockito.internal.creation.DelegatingMethod;
+import org.mockito.internal.invocation.MockitoMethod;
+
+public class ObjectMethodsGuru {
+
+    private ObjectMethodsGuru() {}
+
+    public static boolean isToStringMethod(Method method) {
+<span class="fc" id="L17">        MockitoMethod m = new DelegatingMethod(method);</span>
+<span class="fc bfc" id="L18" title="All 2 branches covered.">        return m.getReturnType() == String.class</span>
+<span class="fc bfc" id="L19" title="All 2 branches covered.">                &amp;&amp; m.getParameterTypes().length == 0</span>
+<span class="fc bfc" id="L20" title="All 2 branches covered.">                &amp;&amp; &quot;toString&quot;.equals(m.getName());</span>
+    }
+
+    public static boolean isCompareToMethod(Method method) {
+<span class="fc bfc" id="L24" title="All 2 branches covered.">        return Comparable.class.isAssignableFrom(method.getDeclaringClass())</span>
+<span class="fc bfc" id="L25" title="All 2 branches covered.">                &amp;&amp; &quot;compareTo&quot;.equals(method.getName())</span>
+<span class="fc bfc" id="L26" title="All 2 branches covered.">                &amp;&amp; method.getParameterTypes().length == 1</span>
+<span class="fc bfc" id="L27" title="All 2 branches covered.">                &amp;&amp; method.getParameterTypes()[0] == method.getDeclaringClass();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

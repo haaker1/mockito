@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CaptorAnnotationProcessor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.configuration</a> &gt; <span class="el_source">CaptorAnnotationProcessor.java</span></div><h1>CaptorAnnotationProcessor.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.configuration;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Parameter;
+
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.internal.util.reflection.GenericMaster;
+
+/**
+ * Instantiate {@link ArgumentCaptor} a field annotated by &amp;#64;Captor.
+ */
+<span class="fc" id="L18">public class CaptorAnnotationProcessor implements FieldAnnotationProcessor&lt;Captor&gt; {</span>
+    @Override
+    public Object process(Captor annotation, Field field) {
+<span class="fc" id="L21">        Class&lt;?&gt; type = field.getType();</span>
+<span class="fc bfc" id="L22" title="All 2 branches covered.">        if (!ArgumentCaptor.class.isAssignableFrom(type)) {</span>
+<span class="fc" id="L23">            throw new MockitoException(</span>
+                    &quot;@Captor field must be of the type ArgumentCaptor.\n&quot;
+                            + &quot;Field: '&quot;
+<span class="fc" id="L26">                            + field.getName()</span>
+                            + &quot;' has wrong type\n&quot;
+                            + &quot;For info how to use @Captor annotations see examples in javadoc for MockitoAnnotations class.&quot;);
+        }
+<span class="fc" id="L30">        Class&lt;?&gt; cls = new GenericMaster().getGenericType(field);</span>
+<span class="fc" id="L31">        return ArgumentCaptor.forClass(cls);</span>
+    }
+
+    public static Object process(Parameter parameter) {
+<span class="fc" id="L35">        Class&lt;?&gt; type = parameter.getType();</span>
+<span class="pc bpc" id="L36" title="1 of 2 branches missed.">        if (!ArgumentCaptor.class.isAssignableFrom(type)) {</span>
+<span class="nc" id="L37">            throw new MockitoException(</span>
+                    &quot;@Captor field must be of the type ArgumentCaptor.\n&quot;
+                            + &quot;Field: '&quot;
+<span class="nc" id="L40">                            + parameter.getName()</span>
+                            + &quot;' has wrong type\n&quot;
+                            + &quot;For info how to use @Captor annotations see examples in javadoc for MockitoAnnotations class.&quot;);
+        }
+<span class="fc" id="L44">        Class&lt;?&gt; cls = new GenericMaster().getGenericType(parameter);</span>
+<span class="fc" id="L45">        return ArgumentCaptor.forClass(cls);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

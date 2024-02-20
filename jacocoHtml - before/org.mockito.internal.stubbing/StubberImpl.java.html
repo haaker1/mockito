@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StubberImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.stubbing</a> &gt; <span class="el_source">StubberImpl.java</span></div><h1>StubberImpl.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.stubbing;
+
+import static org.mockito.internal.exceptions.Reporter.notAMockPassedToWhenMethod;
+import static org.mockito.internal.exceptions.Reporter.notAnException;
+import static org.mockito.internal.exceptions.Reporter.nullPassedToWhenMethod;
+import static org.mockito.internal.progress.ThreadSafeMockingProgress.mockingProgress;
+import static org.mockito.internal.stubbing.answers.DoesNothing.doesNothing;
+import static org.mockito.internal.util.MockUtil.isMock;
+
+import java.util.LinkedList;
+import java.util.List;
+
+import org.mockito.internal.stubbing.answers.CallsRealMethods;
+import org.mockito.internal.stubbing.answers.Returns;
+import org.mockito.internal.stubbing.answers.ThrowsException;
+import org.mockito.internal.stubbing.answers.ThrowsExceptionForClassType;
+import org.mockito.internal.util.MockUtil;
+import org.mockito.quality.Strictness;
+import org.mockito.stubbing.Answer;
+import org.mockito.stubbing.Stubber;
+
+public class StubberImpl implements Stubber {
+
+    private final Strictness strictness;
+
+<span class="fc" id="L30">    public StubberImpl(Strictness strictness) {</span>
+<span class="fc" id="L31">        this.strictness = strictness;</span>
+<span class="fc" id="L32">    }</span>
+
+<span class="fc" id="L34">    private final List&lt;Answer&lt;?&gt;&gt; answers = new LinkedList&lt;&gt;();</span>
+
+    @Override
+    public &lt;T&gt; T when(T mock) {
+<span class="fc bfc" id="L38" title="All 2 branches covered.">        if (mock == null) {</span>
+<span class="fc" id="L39">            mockingProgress().reset();</span>
+<span class="fc" id="L40">            throw nullPassedToWhenMethod();</span>
+        }
+
+<span class="fc bfc" id="L43" title="All 2 branches covered.">        if (!isMock(mock)) {</span>
+<span class="fc" id="L44">            mockingProgress().reset();</span>
+<span class="fc" id="L45">            throw notAMockPassedToWhenMethod();</span>
+        }
+
+<span class="fc" id="L48">        MockUtil.getInvocationContainer(mock).setAnswersForStubbing(answers, strictness);</span>
+
+<span class="fc" id="L50">        return mock;</span>
+    }
+
+    @Override
+    public Stubber doReturn(Object toBeReturned) {
+<span class="fc" id="L55">        return doReturnValues(toBeReturned);</span>
+    }
+
+    @Override
+    public Stubber doReturn(Object toBeReturned, Object... nextToBeReturned) {
+<span class="fc" id="L60">        return doReturnValues(toBeReturned).doReturnValues(nextToBeReturned);</span>
+    }
+
+    private StubberImpl doReturnValues(Object... toBeReturned) {
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        if (toBeReturned == null) {</span>
+<span class="fc" id="L65">            answers.add(new Returns(null));</span>
+<span class="fc" id="L66">            return this;</span>
+        }
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        for (Object r : toBeReturned) {</span>
+<span class="fc" id="L69">            answers.add(new Returns(r));</span>
+        }
+<span class="fc" id="L71">        return this;</span>
+    }
+
+    @Override
+    public Stubber doThrow(Throwable... toBeThrown) {
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">        if (toBeThrown == null) {</span>
+<span class="nc" id="L77">            answers.add(new ThrowsException(null));</span>
+<span class="nc" id="L78">            return this;</span>
+        }
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        for (Throwable throwable : toBeThrown) {</span>
+<span class="fc" id="L81">            answers.add(new ThrowsException(throwable));</span>
+        }
+<span class="fc" id="L83">        return this;</span>
+    }
+
+    @Override
+    public Stubber doThrow(Class&lt;? extends Throwable&gt; toBeThrown) {
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        if (toBeThrown == null) {</span>
+<span class="fc" id="L89">            mockingProgress().reset();</span>
+<span class="fc" id="L90">            throw notAnException();</span>
+        }
+<span class="fc" id="L92">        return doAnswer(new ThrowsExceptionForClassType(toBeThrown));</span>
+    }
+
+    @Override
+    public Stubber doThrow(
+            Class&lt;? extends Throwable&gt; toBeThrown, Class&lt;? extends Throwable&gt;... nextToBeThrown) {
+<span class="fc" id="L98">        Stubber stubber = doThrow(toBeThrown);</span>
+
+<span class="fc bfc" id="L100" title="All 2 branches covered.">        if (nextToBeThrown == null) {</span>
+<span class="fc" id="L101">            mockingProgress().reset();</span>
+<span class="fc" id="L102">            throw notAnException();</span>
+        }
+
+<span class="fc bfc" id="L105" title="All 2 branches covered.">        for (Class&lt;? extends Throwable&gt; next : nextToBeThrown) {</span>
+<span class="fc" id="L106">            stubber = stubber.doThrow(next);</span>
+        }
+<span class="fc" id="L108">        return stubber;</span>
+    }
+
+    @Override
+    public Stubber doNothing() {
+<span class="fc" id="L113">        answers.add(doesNothing());</span>
+<span class="fc" id="L114">        return this;</span>
+    }
+
+    @Override
+    public Stubber doAnswer(Answer answer) {
+<span class="fc" id="L119">        answers.add(answer);</span>
+<span class="fc" id="L120">        return this;</span>
+    }
+
+    @Override
+    public Stubber doCallRealMethod() {
+<span class="fc" id="L125">        answers.add(new CallsRealMethods());</span>
+<span class="fc" id="L126">        return this;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

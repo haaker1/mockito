@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AndroidByteBuddyMockMaker.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.android.internal.creation</a> &gt; <span class="el_source">AndroidByteBuddyMockMaker.java</span></div><h1>AndroidByteBuddyMockMaker.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.android.internal.creation;
+
+import org.mockito.internal.configuration.plugins.Plugins;
+import org.mockito.internal.creation.bytebuddy.SubclassByteBuddyMockMaker;
+import org.mockito.internal.util.Platform;
+import org.mockito.invocation.MockHandler;
+import org.mockito.mock.MockCreationSettings;
+import org.mockito.plugins.MockMaker;
+
+import static org.mockito.internal.util.StringUtil.join;
+
+public class AndroidByteBuddyMockMaker implements MockMaker {
+
+    private final MockMaker delegate;
+
+<span class="nc" id="L20">    public AndroidByteBuddyMockMaker() {</span>
+<span class="nc bnc" id="L21" title="All 4 branches missed.">        if (Platform.isAndroid() || Platform.isAndroidMockMakerRequired()) {</span>
+<span class="nc" id="L22">            delegate = new SubclassByteBuddyMockMaker(new AndroidLoadingStrategy());</span>
+        } else {
+<span class="nc" id="L24">            Plugins.getMockitoLogger()</span>
+<span class="nc" id="L25">                    .log(</span>
+<span class="nc" id="L26">                            join(</span>
+                                    &quot;IMPORTANT NOTE FROM MOCKITO:&quot;,
+                                    &quot;&quot;,
+                                    &quot;You included the 'mockito-android' dependency in a non-Android environment.&quot;,
+                                    &quot;The Android mock maker was disabled. You should only include the latter in your 'androidTestCompile' configuration&quot;,
+                                    &quot;If disabling was a mistake, you can set the 'org.mockito.mock.android' property to 'true' to override this detection.&quot;,
+                                    &quot;&quot;,
+                                    &quot;Visit https://javadoc.io/page/org.mockito/mockito-core/latest/org/mockito/Mockito.html#0.1 for more information&quot;));
+<span class="nc" id="L34">            delegate = new SubclassByteBuddyMockMaker();</span>
+        }
+<span class="nc" id="L36">    }</span>
+
+    @Override
+    public &lt;T&gt; T createMock(MockCreationSettings&lt;T&gt; settings, MockHandler handler) {
+<span class="nc" id="L40">        return delegate.createMock(settings, handler);</span>
+    }
+
+    @Override
+    public MockHandler getHandler(Object mock) {
+<span class="nc" id="L45">        return delegate.getHandler(mock);</span>
+    }
+
+    @Override
+    public void resetMock(Object mock, MockHandler newHandler, MockCreationSettings settings) {
+<span class="nc" id="L50">        delegate.resetMock(mock, newHandler, settings);</span>
+<span class="nc" id="L51">    }</span>
+
+    @Override
+    public TypeMockability isTypeMockable(Class&lt;?&gt; type) {
+<span class="nc" id="L55">        return delegate.isTypeMockable(type);</span>
+    }
+
+    @Override
+    public void clearAllCaches() {
+<span class="nc" id="L60">        delegate.clearAllCaches();</span>
+<span class="nc" id="L61">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

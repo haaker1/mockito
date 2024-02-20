@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NumberOfInvocationsChecker.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.verification.checkers</a> &gt; <span class="el_source">NumberOfInvocationsChecker.java</span></div><h1>NumberOfInvocationsChecker.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.verification.checkers;
+
+import static org.mockito.internal.exceptions.Reporter.neverWantedButInvoked;
+import static org.mockito.internal.exceptions.Reporter.tooFewActualInvocations;
+import static org.mockito.internal.exceptions.Reporter.tooFewActualInvocationsInOrder;
+import static org.mockito.internal.exceptions.Reporter.tooManyActualInvocations;
+import static org.mockito.internal.exceptions.Reporter.tooManyActualInvocationsInOrder;
+import static org.mockito.internal.invocation.InvocationMarker.markVerified;
+import static org.mockito.internal.invocation.InvocationMarker.markVerifiedInOrder;
+import static org.mockito.internal.invocation.InvocationsFinder.findFirstMatchingUnverifiedInvocation;
+import static org.mockito.internal.invocation.InvocationsFinder.findInvocations;
+import static org.mockito.internal.invocation.InvocationsFinder.findMatchingChunk;
+import static org.mockito.internal.invocation.InvocationsFinder.getAllLocations;
+
+import java.util.Arrays;
+import java.util.List;
+
+import org.mockito.internal.reporting.Discrepancy;
+import org.mockito.internal.verification.api.InOrderContext;
+import org.mockito.invocation.Invocation;
+import org.mockito.invocation.Location;
+import org.mockito.invocation.MatchableInvocation;
+
+public class NumberOfInvocationsChecker {
+
+    private NumberOfInvocationsChecker() {}
+
+    public static void checkNumberOfInvocations(
+            List&lt;Invocation&gt; invocations, MatchableInvocation wanted, int wantedCount) {
+<span class="fc" id="L34">        List&lt;Invocation&gt; actualInvocations = findInvocations(invocations, wanted);</span>
+
+<span class="fc" id="L36">        int actualCount = actualInvocations.size();</span>
+<span class="fc bfc" id="L37" title="All 2 branches covered.">        if (wantedCount &gt; actualCount) {</span>
+<span class="fc" id="L38">            List&lt;Location&gt; allLocations = getAllLocations(actualInvocations);</span>
+<span class="fc" id="L39">            throw tooFewActualInvocations(</span>
+                    new Discrepancy(wantedCount, actualCount), wanted, allLocations);
+        }
+<span class="fc bfc" id="L42" title="All 4 branches covered.">        if (wantedCount == 0 &amp;&amp; actualCount &gt; 0) {</span>
+<span class="fc" id="L43">            throw neverWantedButInvoked(wanted, actualInvocations);</span>
+        }
+<span class="fc bfc" id="L45" title="All 2 branches covered.">        if (wantedCount &lt; actualCount) {</span>
+<span class="fc" id="L46">            throw tooManyActualInvocations(</span>
+<span class="fc" id="L47">                    wantedCount, actualCount, wanted, getAllLocations(actualInvocations));</span>
+        }
+
+<span class="fc" id="L50">        markVerified(actualInvocations, wanted);</span>
+<span class="fc" id="L51">    }</span>
+
+    public static void checkNumberOfInvocations(
+            List&lt;Invocation&gt; invocations,
+            MatchableInvocation wanted,
+            int wantedCount,
+            InOrderContext context) {
+<span class="fc" id="L58">        List&lt;Invocation&gt; chunk = findMatchingChunk(invocations, wanted, wantedCount, context);</span>
+
+<span class="fc" id="L60">        int actualCount = chunk.size();</span>
+
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (wantedCount &gt; actualCount) {</span>
+<span class="fc" id="L63">            List&lt;Location&gt; allLocations = getAllLocations(chunk);</span>
+<span class="fc" id="L64">            throw tooFewActualInvocationsInOrder(</span>
+                    new Discrepancy(wantedCount, actualCount), wanted, allLocations);
+        }
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        if (wantedCount &lt; actualCount) {</span>
+<span class="fc" id="L68">            throw tooManyActualInvocationsInOrder(</span>
+<span class="fc" id="L69">                    wantedCount, actualCount, wanted, getAllLocations(chunk));</span>
+        }
+
+<span class="fc" id="L72">        markVerifiedInOrder(chunk, wanted, context);</span>
+<span class="fc" id="L73">    }</span>
+
+    public static void checkNumberOfInvocationsNonGreedy(
+            List&lt;Invocation&gt; invocations,
+            MatchableInvocation wanted,
+            int wantedCount,
+            InOrderContext context) {
+<span class="fc" id="L80">        int actualCount = 0;</span>
+<span class="fc" id="L81">        Location lastLocation = null;</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">        while (actualCount &lt; wantedCount) {</span>
+<span class="fc" id="L83">            Invocation next = findFirstMatchingUnverifiedInvocation(invocations, wanted, context);</span>
+<span class="fc bfc" id="L84" title="All 2 branches covered.">            if (next == null) {</span>
+<span class="fc" id="L85">                throw tooFewActualInvocationsInOrder(</span>
+                        new Discrepancy(wantedCount, actualCount),
+                        wanted,
+<span class="fc" id="L88">                        Arrays.asList(lastLocation));</span>
+            }
+<span class="fc" id="L90">            markVerified(next, wanted);</span>
+<span class="fc" id="L91">            context.markVerified(next);</span>
+<span class="fc" id="L92">            lastLocation = next.getLocation();</span>
+<span class="fc" id="L93">            actualCount++;</span>
+<span class="fc" id="L94">        }</span>
+<span class="fc" id="L95">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

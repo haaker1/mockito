@@ -1,0 +1,1075 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ArgumentMatchers.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito</a> &gt; <span class="el_source">ArgumentMatchers.java</span></div><h1>ArgumentMatchers.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito;
+
+import static org.mockito.internal.progress.ThreadSafeMockingProgress.mockingProgress;
+import static org.mockito.internal.util.Primitives.defaultValue;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.regex.Pattern;
+
+import org.mockito.internal.matchers.Any;
+import org.mockito.internal.matchers.Contains;
+import org.mockito.internal.matchers.EndsWith;
+import org.mockito.internal.matchers.Equals;
+import org.mockito.internal.matchers.InstanceOf;
+import org.mockito.internal.matchers.Matches;
+import org.mockito.internal.matchers.NotNull;
+import org.mockito.internal.matchers.Null;
+import org.mockito.internal.matchers.Same;
+import org.mockito.internal.matchers.StartsWith;
+import org.mockito.internal.matchers.apachecommons.ReflectionEquals;
+import org.mockito.internal.util.Primitives;
+
+/**
+ * Allow flexible verification or stubbing. See also {@link AdditionalMatchers}.
+ *
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ * //stubbing using anyInt() argument matcher
+ * when(mockedList.get(anyInt())).thenReturn(&quot;element&quot;);
+ *
+ * //following prints &quot;element&quot;
+ * System.out.println(mockedList.get(999));
+ *
+ * //you can also verify using argument matcher
+ * verify(mockedList).get(anyInt());
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * &lt;p&gt;
+ * Since Mockito &lt;code&gt;any(Class)&lt;/code&gt; and &lt;code&gt;anyInt&lt;/code&gt; family matchers perform a type check, thus they won't
+ * match &lt;code&gt;null&lt;/code&gt; arguments. Instead use the &lt;code&gt;isNull&lt;/code&gt; matcher.
+ *
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ * // stubbing using anyBoolean() argument matcher
+ * when(mock.dryRun(anyBoolean())).thenReturn(&quot;state&quot;);
+ *
+ * // below the stub won't match, and won't return &quot;state&quot;
+ * mock.dryRun(null);
+ *
+ * // either change the stub
+ * when(mock.dryRun(isNull())).thenReturn(&quot;state&quot;);
+ * mock.dryRun(null); // ok
+ *
+ * // or fix the code ;)
+ * when(mock.dryRun(anyBoolean())).thenReturn(&quot;state&quot;);
+ * mock.dryRun(true); // ok
+ *
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * The same apply for verification.
+ * &lt;/p&gt;
+ *
+ *
+ * Scroll down to see all methods - full list of matchers.
+ *
+ * &lt;p&gt;
+ * &lt;b&gt;Warning:&lt;/b&gt;&lt;br/&gt;
+ *
+ * If you are using argument matchers, &lt;b&gt;all arguments&lt;/b&gt; have to be provided by matchers.
+ *
+ * E.g: (example shows verification but the same applies to stubbing):
+ * &lt;/p&gt;
+ *
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ * verify(mock).someMethod(anyInt(), anyString(), &lt;b&gt;eq(&quot;third argument&quot;)&lt;/b&gt;);
+ * //above is correct - eq() is also an argument matcher
+ *
+ * verify(mock).someMethod(anyInt(), anyString(), &lt;b&gt;&quot;third argument&quot;&lt;/b&gt;);
+ * //above is incorrect - exception will be thrown because third argument is given without argument matcher.
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * &lt;p&gt;
+ * Matcher methods like &lt;code&gt;any()&lt;/code&gt;, &lt;code&gt;eq()&lt;/code&gt; &lt;b&gt;do not&lt;/b&gt; return matchers.
+ * Internally, they record a matcher on a stack and return a dummy value (usually null).
+ * This implementation is due to static type safety imposed by java compiler.
+ * The consequence is that you cannot use &lt;code&gt;any()&lt;/code&gt;, &lt;code&gt;eq()&lt;/code&gt; methods outside of verified/stubbed method.
+ * &lt;/p&gt;
+ *
+ * &lt;h1&gt;Additional matchers&lt;/h1&gt;
+ * &lt;p&gt;
+ * The class {@link AdditionalMatchers} offers rarely used matchers, although they can be useful, when
+ * it is useful to combine multiple matchers or when it is useful to negate a matcher necessary.
+ * &lt;/p&gt;
+ *
+ * &lt;h1&gt;Custom Argument ArgumentMatchers&lt;/h1&gt;
+ * &lt;p&gt;
+ * It is important to understand the use cases and available options for dealing with non-trivial arguments
+ * &lt;b&gt;before&lt;/b&gt; implementing custom argument matchers. This way, you can select the best possible approach
+ * for given scenario and produce highest quality test (clean and maintainable).
+ * Please read on in the javadoc for {@link ArgumentMatcher} to learn about approaches and see the examples.
+ * &lt;/p&gt;
+ *
+ * @see AdditionalMatchers
+ */
+@CheckReturnValue
+@SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L115">public class ArgumentMatchers {</span>
+
+    /**
+     * Matches &lt;strong&gt;anything&lt;/strong&gt;, including nulls.
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * &lt;strong&gt;Notes : &lt;/strong&gt;&lt;br/&gt;
+     * &lt;ul&gt;
+     *     &lt;li&gt;For primitive types use {@link #anyChar()} family or {@link #isA(Class)} or {@link #any(Class)}.&lt;/li&gt;
+     *     &lt;li&gt;Since Mockito 2.1.0 {@link #any(Class)} is not anymore an alias of this method.&lt;/li&gt;
+     *     &lt;li&gt;Since Mockito 5.0.0 this no longer matches varargs. Use {@link #any(Class)} instead.&lt;/li&gt;
+     * &lt;/ul&gt;
+     * &lt;/p&gt;
+     *
+     * @return &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @see #any(Class)
+     * @see #anyChar()
+     * @see #anyInt()
+     * @see #anyBoolean()
+     */
+    public static &lt;T&gt; T any() {
+<span class="fc" id="L141">        reportMatcher(Any.ANY);</span>
+<span class="fc" id="L142">        return null;</span>
+    }
+
+    /**
+     * Matches any object of given type, excluding nulls.
+     *
+     * &lt;p&gt;
+     * This matcher will perform a type check with the given type, thus excluding values.
+     * See examples in javadoc for {@link ArgumentMatchers} class.
+     *
+     * This is an alias of: {@link #isA(Class)}}
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * Since Mockito 2.1.0, only allow non-null instance of &lt;code&gt;&lt;/code&gt;, thus &lt;code&gt;null&lt;/code&gt; is not anymore a valid value.
+     * As reference are nullable, the suggested API to &lt;strong&gt;match&lt;/strong&gt; &lt;code&gt;null&lt;/code&gt;
+     * would be {@link #isNull()}. We felt this change would make test harnesses much safer than they were with Mockito
+     * 1.x.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;Notes : &lt;/strong&gt;&lt;br/&gt;
+     * &lt;ul&gt;
+     *     &lt;li&gt;For primitive types use {@link #anyChar()} family.&lt;/li&gt;
+     *     &lt;li&gt;Since Mockito 2.1.0 this method will perform a type check thus &lt;code&gt;null&lt;/code&gt; values are not authorized.&lt;/li&gt;
+     *     &lt;li&gt;Since Mockito 2.1.0 {@link #any()} is no longer an alias of this method.&lt;/li&gt;
+     *     &lt;li&gt;Since Mockito 5.0.0 this method can match varargs if the array type is specified, for example &lt;code&gt;any(String[].class)&lt;/code&gt;.&lt;/li&gt;
+     * &lt;/ul&gt;
+     * &lt;/p&gt;
+     *
+     * @param &lt;T&gt; The accepted type
+     * @param type the class of the accepted type.
+     * @return &lt;code&gt;null&lt;/code&gt;.
+     * @see #any()
+     * @see #isA(Class)
+     * @see #notNull()
+     * @see #isNull()
+     */
+    public static &lt;T&gt; T any(Class&lt;T&gt; type) {
+<span class="fc" id="L180">        reportMatcher(new InstanceOf(type, &quot;&lt;any &quot; + type.getCanonicalName() + &quot;&gt;&quot;));</span>
+<span class="fc" id="L181">        return defaultValue(type);</span>
+    }
+
+    /**
+     * &lt;code&gt;Object&lt;/code&gt; argument that implements the given class.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     *
+     * @param &lt;T&gt;  the accepted type.
+     * @param type the class of the accepted type.
+     * @return &lt;code&gt;null&lt;/code&gt;.
+     * @see #any(Class)
+     */
+    public static &lt;T&gt; T isA(Class&lt;T&gt; type) {
+<span class="fc" id="L195">        reportMatcher(new InstanceOf(type));</span>
+<span class="fc" id="L196">        return defaultValue(type);</span>
+    }
+
+    /**
+     * Any &lt;code&gt;boolean&lt;/code&gt; or &lt;strong&gt;non-null&lt;/strong&gt; &lt;code&gt;Boolean&lt;/code&gt;
+     *
+     * &lt;p&gt;
+     * Since Mockito 2.1.0, only allow valued &lt;code&gt;Boolean&lt;/code&gt;, thus &lt;code&gt;null&lt;/code&gt; is not anymore a valid value.
+     * As primitive wrappers are nullable, the suggested API to &lt;strong&gt;match&lt;/strong&gt; &lt;code&gt;null&lt;/code&gt; wrapper
+     * would be {@link #isNull()}. We felt this change would make test harnesses much safer than they were with Mockito
+     * 1.x.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class.
+     * &lt;/p&gt;
+     *
+     * @return &lt;code&gt;false&lt;/code&gt;.
+     * @see #isNull()
+     */
+    public static boolean anyBoolean() {
+<span class="fc" id="L217">        reportMatcher(new InstanceOf(Boolean.class, &quot;&lt;any boolean&gt;&quot;));</span>
+<span class="fc" id="L218">        return false;</span>
+    }
+
+    /**
+     * Any &lt;code&gt;byte&lt;/code&gt; or &lt;strong&gt;non-null&lt;/strong&gt; &lt;code&gt;Byte&lt;/code&gt;.
+     *
+     * &lt;p&gt;
+     * Since Mockito 2.1.0, only allow valued &lt;code&gt;Byte&lt;/code&gt;, thus &lt;code&gt;null&lt;/code&gt; is not anymore a valid value.
+     * As primitive wrappers are nullable, the suggested API to &lt;strong&gt;match&lt;/strong&gt; &lt;code&gt;null&lt;/code&gt; wrapper
+     * would be {@link #isNull()}. We felt this change would make test harnesses much safer than they were with Mockito
+     * 1.x.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class.
+     * &lt;/p&gt;
+     *
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     * @see #isNull()
+     */
+    public static byte anyByte() {
+<span class="fc" id="L239">        reportMatcher(new InstanceOf(Byte.class, &quot;&lt;any byte&gt;&quot;));</span>
+<span class="fc" id="L240">        return 0;</span>
+    }
+
+    /**
+     * Any &lt;code&gt;char&lt;/code&gt; or &lt;strong&gt;non-null&lt;/strong&gt; &lt;code&gt;Character&lt;/code&gt;.
+     *
+     * &lt;p&gt;
+     * Since Mockito 2.1.0, only allow valued &lt;code&gt;Character&lt;/code&gt;, thus &lt;code&gt;null&lt;/code&gt; is not anymore a valid value.
+     * As primitive wrappers are nullable, the suggested API to &lt;strong&gt;match&lt;/strong&gt; &lt;code&gt;null&lt;/code&gt; wrapper
+     * would be {@link #isNull()}. We felt this change would make test harnesses much safer than they were with Mockito
+     * 1.x.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class.
+     * &lt;/p&gt;
+     *
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     * @see #isNull()
+     */
+    public static char anyChar() {
+<span class="fc" id="L261">        reportMatcher(new InstanceOf(Character.class, &quot;&lt;any char&gt;&quot;));</span>
+<span class="fc" id="L262">        return 0;</span>
+    }
+
+    /**
+     * Any int or &lt;strong&gt;non-null&lt;/strong&gt; &lt;code&gt;Integer&lt;/code&gt;.
+     *
+     * &lt;p&gt;
+     * Since Mockito 2.1.0, only allow valued &lt;code&gt;Integer&lt;/code&gt;, thus &lt;code&gt;null&lt;/code&gt; is not anymore a valid value.
+     * As primitive wrappers are nullable, the suggested API to &lt;strong&gt;match&lt;/strong&gt; &lt;code&gt;null&lt;/code&gt; wrapper
+     * would be {@link #isNull()}. We felt this change would make test harnesses much safer than they were with Mockito
+     * 1.x.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class.
+     * &lt;/p&gt;
+     *
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     * @see #isNull()
+     */
+    public static int anyInt() {
+<span class="fc" id="L283">        reportMatcher(new InstanceOf(Integer.class, &quot;&lt;any integer&gt;&quot;));</span>
+<span class="fc" id="L284">        return 0;</span>
+    }
+
+    /**
+     * Any &lt;code&gt;long&lt;/code&gt; or &lt;strong&gt;non-null&lt;/strong&gt; &lt;code&gt;Long&lt;/code&gt;.
+     *
+     * &lt;p&gt;
+     * Since Mockito 2.1.0, only allow valued &lt;code&gt;Long&lt;/code&gt;, thus &lt;code&gt;null&lt;/code&gt; is not anymore a valid value.
+     * As primitive wrappers are nullable, the suggested API to &lt;strong&gt;match&lt;/strong&gt; &lt;code&gt;null&lt;/code&gt; wrapper
+     * would be {@link #isNull()}. We felt this change would make test harnesses much safer than they were with Mockito
+     * 1.x.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class.
+     * &lt;/p&gt;
+     *
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     * @see #isNull()
+     */
+    public static long anyLong() {
+<span class="fc" id="L305">        reportMatcher(new InstanceOf(Long.class, &quot;&lt;any long&gt;&quot;));</span>
+<span class="fc" id="L306">        return 0;</span>
+    }
+
+    /**
+     * Any &lt;code&gt;float&lt;/code&gt; or &lt;strong&gt;non-null&lt;/strong&gt; &lt;code&gt;Float&lt;/code&gt;.
+     *
+     * &lt;p&gt;
+     * Since Mockito 2.1.0, only allow valued &lt;code&gt;Float&lt;/code&gt;, thus &lt;code&gt;null&lt;/code&gt; is not anymore a valid value.
+     * As primitive wrappers are nullable, the suggested API to &lt;strong&gt;match&lt;/strong&gt; &lt;code&gt;null&lt;/code&gt; wrapper
+     * would be {@link #isNull()}. We felt this change would make test harnesses much safer than they were with Mockito
+     * 1.x.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class.
+     * &lt;/p&gt;
+     *
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     * @see #isNull()
+     */
+    public static float anyFloat() {
+<span class="fc" id="L327">        reportMatcher(new InstanceOf(Float.class, &quot;&lt;any float&gt;&quot;));</span>
+<span class="fc" id="L328">        return 0;</span>
+    }
+
+    /**
+     * Any &lt;code&gt;double&lt;/code&gt; or &lt;strong&gt;non-null&lt;/strong&gt; &lt;code&gt;Double&lt;/code&gt;.
+     *
+     * &lt;p&gt;
+     * Since Mockito 2.1.0, only allow valued &lt;code&gt;Double&lt;/code&gt;, thus &lt;code&gt;null&lt;/code&gt; is not anymore a valid value.
+     * As primitive wrappers are nullable, the suggested API to &lt;strong&gt;match&lt;/strong&gt; &lt;code&gt;null&lt;/code&gt; wrapper
+     * would be {@link #isNull()}. We felt this change would make test harnesses much safer than they were with Mockito
+     * 1.x.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class.
+     * &lt;/p&gt;
+     *
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     * @see #isNull()
+     */
+    public static double anyDouble() {
+<span class="fc" id="L349">        reportMatcher(new InstanceOf(Double.class, &quot;&lt;any double&gt;&quot;));</span>
+<span class="fc" id="L350">        return 0;</span>
+    }
+
+    /**
+     * Any &lt;code&gt;short&lt;/code&gt; or &lt;strong&gt;non-null&lt;/strong&gt; &lt;code&gt;Short&lt;/code&gt;.
+     *
+     * &lt;p&gt;
+     * Since Mockito 2.1.0, only allow valued &lt;code&gt;Short&lt;/code&gt;, thus &lt;code&gt;null&lt;/code&gt; is not anymore a valid value.
+     * As primitive wrappers are nullable, the suggested API to &lt;strong&gt;match&lt;/strong&gt; &lt;code&gt;null&lt;/code&gt; wrapper
+     * would be {@link #isNull()}. We felt this change would make test harnesses much safer than they were with Mockito
+     * 1.x.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class.
+     * &lt;/p&gt;
+     *
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     * @see #isNull()
+     */
+    public static short anyShort() {
+<span class="fc" id="L371">        reportMatcher(new InstanceOf(Short.class, &quot;&lt;any short&gt;&quot;));</span>
+<span class="fc" id="L372">        return 0;</span>
+    }
+
+    /**
+     * Any &lt;strong&gt;non-null&lt;/strong&gt; &lt;code&gt;String&lt;/code&gt;
+     *
+     * &lt;p&gt;
+     * Since Mockito 2.1.0, only allow non-null &lt;code&gt;String&lt;/code&gt;.
+     * As this is a nullable reference, the suggested API to &lt;strong&gt;match&lt;/strong&gt; &lt;code&gt;null&lt;/code&gt; wrapper
+     * would be {@link #isNull()}. We felt this change would make test harnesses much safer than they were with Mockito
+     * 1.x.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class.
+     * &lt;/p&gt;
+     *
+     * @return empty String (&quot;&quot;)
+     * @see #isNull()
+     */
+    public static String anyString() {
+<span class="fc" id="L393">        reportMatcher(new InstanceOf(String.class, &quot;&lt;any string&gt;&quot;));</span>
+<span class="fc" id="L394">        return &quot;&quot;;</span>
+    }
+
+    /**
+     * Any &lt;strong&gt;non-null&lt;/strong&gt; &lt;code&gt;List&lt;/code&gt;.
+     *
+     * &lt;p&gt;
+     * Since Mockito 2.1.0, only allow non-null &lt;code&gt;List&lt;/code&gt;.
+     * As this is a nullable reference, the suggested API to &lt;strong&gt;match&lt;/strong&gt; &lt;code&gt;null&lt;/code&gt; wrapper
+     * would be {@link #isNull()}. We felt this change would make test harnesses much safer than they were with Mockito
+     * 1.x.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class.
+     * &lt;/p&gt;
+     *
+     * @return empty List.
+     * @see #isNull()
+     */
+    public static &lt;T&gt; List&lt;T&gt; anyList() {
+<span class="fc" id="L415">        reportMatcher(new InstanceOf(List.class, &quot;&lt;any List&gt;&quot;));</span>
+<span class="fc" id="L416">        return new ArrayList&lt;T&gt;(0);</span>
+    }
+
+    /**
+     * Any &lt;strong&gt;non-null&lt;/strong&gt; &lt;code&gt;Set&lt;/code&gt;.
+     *
+     * &lt;p&gt;
+     * Since Mockito 2.1.0, only allow non-null &lt;code&gt;Set&lt;/code&gt;.
+     * As this is a nullable reference, the suggested API to &lt;strong&gt;match&lt;/strong&gt; &lt;code&gt;null&lt;/code&gt; wrapper
+     * would be {@link #isNull()}. We felt this change would make test harnesses much safer than they were with Mockito
+     * 1.x.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class.
+     * &lt;/p&gt;
+     *
+     * @return empty Set
+     * @see #isNull()
+     */
+    public static &lt;T&gt; Set&lt;T&gt; anySet() {
+<span class="fc" id="L437">        reportMatcher(new InstanceOf(Set.class, &quot;&lt;any set&gt;&quot;));</span>
+<span class="fc" id="L438">        return new HashSet&lt;T&gt;(0);</span>
+    }
+
+    /**
+     * Any &lt;strong&gt;non-null&lt;/strong&gt; &lt;code&gt;Map&lt;/code&gt;.
+     *
+     * &lt;p&gt;
+     * Since Mockito 2.1.0, only allow non-null &lt;code&gt;Map&lt;/code&gt;.
+     * As this is a nullable reference, the suggested API to &lt;strong&gt;match&lt;/strong&gt; &lt;code&gt;null&lt;/code&gt; wrapper
+     * would be {@link #isNull()}. We felt this change would make test harnesses much safer than they were with Mockito
+     * 1.x.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class.
+     * &lt;/p&gt;
+     *
+     * @return empty Map.
+     * @see #isNull()
+     */
+    public static &lt;K, V&gt; Map&lt;K, V&gt; anyMap() {
+<span class="fc" id="L459">        reportMatcher(new InstanceOf(Map.class, &quot;&lt;any map&gt;&quot;));</span>
+<span class="fc" id="L460">        return new HashMap&lt;K, V&gt;(0);</span>
+    }
+
+    /**
+     * Any &lt;strong&gt;non-null&lt;/strong&gt; &lt;code&gt;Collection&lt;/code&gt;.
+     *
+     * &lt;p&gt;
+     * Since Mockito 2.1.0, only allow non-null &lt;code&gt;Collection&lt;/code&gt;.
+     * As this is a nullable reference, the suggested API to &lt;strong&gt;match&lt;/strong&gt; &lt;code&gt;null&lt;/code&gt;
+     * would be {@link #isNull()}. We felt this change would make test harnesses much safer than they were with Mockito
+     * 1.x.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class.
+     * &lt;/p&gt;
+     *
+     * @return empty Collection.
+     * @see #isNull()
+     */
+    public static &lt;T&gt; Collection&lt;T&gt; anyCollection() {
+<span class="fc" id="L481">        reportMatcher(new InstanceOf(Collection.class, &quot;&lt;any collection&gt;&quot;));</span>
+<span class="fc" id="L482">        return new ArrayList&lt;T&gt;(0);</span>
+    }
+
+    /**
+     * Any &lt;strong&gt;non-null&lt;/strong&gt; &lt;code&gt;Iterable&lt;/code&gt;.
+     *
+     * &lt;p&gt;
+     * Since Mockito 2.1.0, only allow non-null &lt;code&gt;Iterable&lt;/code&gt;.
+     * As this is a nullable reference, the suggested API to &lt;strong&gt;match&lt;/strong&gt; &lt;code&gt;null&lt;/code&gt;
+     * would be {@link #isNull()}. We felt this change would make test harnesses much safer than they were with Mockito
+     * 1.x.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class.
+     * &lt;/p&gt;
+     *
+     * @return empty Iterable.
+     * @see #isNull()
+     * @since 2.1.0
+     */
+    public static &lt;T&gt; Iterable&lt;T&gt; anyIterable() {
+<span class="fc" id="L504">        reportMatcher(new InstanceOf(Iterable.class, &quot;&lt;any iterable&gt;&quot;));</span>
+<span class="fc" id="L505">        return new ArrayList&lt;T&gt;(0);</span>
+    }
+
+    /**
+     * &lt;code&gt;boolean&lt;/code&gt; argument that is equal to the given value.
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @param value the given value.
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static boolean eq(boolean value) {
+<span class="fc" id="L519">        reportMatcher(new Equals(value));</span>
+<span class="fc" id="L520">        return false;</span>
+    }
+
+    /**
+     * &lt;code&gt;byte&lt;/code&gt; argument that is equal to the given value.
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @param value the given value.
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static byte eq(byte value) {
+<span class="fc" id="L534">        reportMatcher(new Equals(value));</span>
+<span class="fc" id="L535">        return 0;</span>
+    }
+
+    /**
+     * &lt;code&gt;char&lt;/code&gt; argument that is equal to the given value.
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @param value the given value.
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static char eq(char value) {
+<span class="fc" id="L549">        reportMatcher(new Equals(value));</span>
+<span class="fc" id="L550">        return 0;</span>
+    }
+
+    /**
+     * &lt;code&gt;double&lt;/code&gt; argument that is equal to the given value.
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @param value the given value.
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static double eq(double value) {
+<span class="fc" id="L564">        reportMatcher(new Equals(value));</span>
+<span class="fc" id="L565">        return 0;</span>
+    }
+
+    /**
+     * &lt;code&gt;float&lt;/code&gt; argument that is equal to the given value.
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @param value the given value.
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static float eq(float value) {
+<span class="fc" id="L579">        reportMatcher(new Equals(value));</span>
+<span class="fc" id="L580">        return 0;</span>
+    }
+
+    /**
+     * &lt;code&gt;int&lt;/code&gt; argument that is equal to the given value.
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @param value the given value.
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static int eq(int value) {
+<span class="fc" id="L594">        reportMatcher(new Equals(value));</span>
+<span class="fc" id="L595">        return 0;</span>
+    }
+
+    /**
+     * &lt;code&gt;long&lt;/code&gt; argument that is equal to the given value.
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @param value the given value.
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static long eq(long value) {
+<span class="fc" id="L609">        reportMatcher(new Equals(value));</span>
+<span class="fc" id="L610">        return 0;</span>
+    }
+
+    /**
+     * &lt;code&gt;short&lt;/code&gt; argument that is equal to the given value.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     *
+     * @param value the given value.
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static short eq(short value) {
+<span class="fc" id="L622">        reportMatcher(new Equals(value));</span>
+<span class="fc" id="L623">        return 0;</span>
+    }
+
+    /**
+     * Object argument that is equal to the given value.
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @param value the given value.
+     * @return &lt;code&gt;null&lt;/code&gt;.
+     */
+    public static &lt;T&gt; T eq(T value) {
+<span class="fc" id="L637">        reportMatcher(new Equals(value));</span>
+<span class="fc bfc" id="L638" title="All 2 branches covered.">        if (value == null) return null;</span>
+<span class="fc" id="L639">        return (T) Primitives.defaultValue(value.getClass());</span>
+    }
+
+    /**
+     * Object argument that is reflection-equal to the given value with support for excluding
+     * selected fields from a class.
+     *
+     * &lt;p&gt;
+     * This matcher can be used when equals() is not implemented on compared objects.
+     * Matcher uses java reflection API to compare fields of wanted and actual object.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * Works similarly to &lt;code&gt;EqualsBuilder.reflectionEquals(this, other, excludeFields)&lt;/code&gt; from
+     * apache commons library.
+     * &lt;p&gt;
+     * &lt;b&gt;Warning&lt;/b&gt; The equality check is shallow!
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @param value         the given value.
+     * @param excludeFields fields to exclude, if field does not exist it is ignored.
+     * @return &lt;code&gt;null&lt;/code&gt;.
+     */
+    public static &lt;T&gt; T refEq(T value, String... excludeFields) {
+<span class="fc" id="L667">        reportMatcher(new ReflectionEquals(value, excludeFields));</span>
+<span class="fc" id="L668">        return null;</span>
+    }
+
+    /**
+     * Object argument that is the same as the given value.
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @param &lt;T&gt;   the type of the object, it is passed through to prevent casts.
+     * @param value the given value.
+     * @return &lt;code&gt;null&lt;/code&gt;.
+     */
+    public static &lt;T&gt; T same(T value) {
+<span class="fc" id="L683">        reportMatcher(new Same(value));</span>
+<span class="fc bfc" id="L684" title="All 2 branches covered.">        if (value == null) {</span>
+<span class="fc" id="L685">            return null;</span>
+        }
+<span class="fc" id="L687">        return (T) Primitives.defaultValue(value.getClass());</span>
+    }
+
+    /**
+     * &lt;code&gt;null&lt;/code&gt; argument.
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @return &lt;code&gt;null&lt;/code&gt;.
+     * @see #isNotNull()
+     */
+    public static &lt;T&gt; T isNull() {
+<span class="fc" id="L701">        reportMatcher(Null.NULL);</span>
+<span class="fc" id="L702">        return null;</span>
+    }
+
+    /**
+     * &lt;code&gt;null&lt;/code&gt; argument.
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @param type the type of the argument being matched.
+     * @return &lt;code&gt;null&lt;/code&gt;.
+     * @see #isNotNull(Class)
+     * @since 4.11.0
+     */
+    public static &lt;T&gt; T isNull(Class&lt;T&gt; type) {
+<span class="fc" id="L718">        reportMatcher(new Null&lt;&gt;(type));</span>
+<span class="fc" id="L719">        return null;</span>
+    }
+
+    /**
+     * Not &lt;code&gt;null&lt;/code&gt; argument.
+     *
+     * &lt;p&gt;
+     * Alias to {@link ArgumentMatchers#isNotNull()}
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @return &lt;code&gt;null&lt;/code&gt;.
+     */
+    public static &lt;T&gt; T notNull() {
+<span class="fc" id="L736">        reportMatcher(NotNull.NOT_NULL);</span>
+<span class="fc" id="L737">        return null;</span>
+    }
+
+    /**
+     * Not &lt;code&gt;null&lt;/code&gt; argument.
+     *
+     * &lt;p&gt;
+     * Alias to {@link ArgumentMatchers#isNotNull()}
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @param type the type of the argument being matched.
+     * @return &lt;code&gt;null&lt;/code&gt;.
+     * @since 4.11.0
+     */
+    public static &lt;T&gt; T notNull(Class&lt;T&gt; type) {
+<span class="fc" id="L756">        reportMatcher(new NotNull&lt;&gt;(type));</span>
+<span class="fc" id="L757">        return null;</span>
+    }
+
+    /**
+     * Not &lt;code&gt;null&lt;/code&gt; argument.
+     *
+     * &lt;p&gt;
+     * Alias to {@link ArgumentMatchers#notNull()}
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @return &lt;code&gt;null&lt;/code&gt;.
+     * @see #isNull()
+     */
+    public static &lt;T&gt; T isNotNull() {
+<span class="fc" id="L775">        return notNull();</span>
+    }
+
+    /**
+     * Not &lt;code&gt;null&lt;/code&gt; argument.
+     *
+     * &lt;p&gt;
+     * Alias to {@link ArgumentMatchers#notNull(Class)}
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @param type the type of the argument being matched.
+     * @return &lt;code&gt;null&lt;/code&gt;.
+     * @see #isNull()
+     * @since 4.11.0
+     */
+    public static &lt;T&gt; T isNotNull(Class&lt;T&gt; type) {
+<span class="fc" id="L795">        return notNull(type);</span>
+    }
+
+    /**
+     * Argument that is either &lt;code&gt;null&lt;/code&gt; or of the given type.
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     * &lt;/p&gt;
+     *
+     * @param clazz Type to avoid casting
+     * @return &lt;code&gt;null&lt;/code&gt;.
+     */
+    public static &lt;T&gt; T nullable(Class&lt;T&gt; clazz) {
+<span class="fc" id="L809">        AdditionalMatchers.or(isNull(), isA(clazz));</span>
+<span class="fc" id="L810">        return Primitives.defaultValue(clazz);</span>
+    }
+
+    /**
+     * &lt;code&gt;String&lt;/code&gt; argument that contains the given substring.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     *
+     * @param substring the substring.
+     * @return empty String (&quot;&quot;).
+     */
+    public static String contains(String substring) {
+<span class="fc" id="L822">        reportMatcher(new Contains(substring));</span>
+<span class="fc" id="L823">        return &quot;&quot;;</span>
+    }
+
+    /**
+     * &lt;code&gt;String&lt;/code&gt; argument that matches the given regular expression.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     *
+     * @param regex the regular expression.
+     * @return empty String (&quot;&quot;).
+     *
+     * @see AdditionalMatchers#not(boolean)
+     */
+    public static String matches(String regex) {
+<span class="fc" id="L837">        reportMatcher(new Matches(regex));</span>
+<span class="fc" id="L838">        return &quot;&quot;;</span>
+    }
+
+    /**
+     * &lt;code&gt;Pattern&lt;/code&gt; argument that matches the given regular expression.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     *
+     * @param pattern the regular expression pattern.
+     * @return empty String (&quot;&quot;).
+     *
+     * @see AdditionalMatchers#not(boolean)
+     */
+    public static String matches(Pattern pattern) {
+<span class="fc" id="L852">        reportMatcher(new Matches(pattern));</span>
+<span class="fc" id="L853">        return &quot;&quot;;</span>
+    }
+
+    /**
+     * &lt;code&gt;String&lt;/code&gt; argument that ends with the given suffix.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     *
+     * @param suffix the suffix.
+     * @return empty String (&quot;&quot;).
+     */
+    public static String endsWith(String suffix) {
+<span class="fc" id="L865">        reportMatcher(new EndsWith(suffix));</span>
+<span class="fc" id="L866">        return &quot;&quot;;</span>
+    }
+
+    /**
+     * &lt;code&gt;String&lt;/code&gt; argument that starts with the given prefix.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     *
+     * @param prefix the prefix.
+     * @return empty String (&quot;&quot;).
+     */
+    public static String startsWith(String prefix) {
+<span class="fc" id="L878">        reportMatcher(new StartsWith(prefix));</span>
+<span class="fc" id="L879">        return &quot;&quot;;</span>
+    }
+
+    /**
+     * Allows creating custom argument matchers.
+     *
+     * &lt;p&gt;
+     * This API has changed in 2.1.0, please read {@link ArgumentMatcher} for rationale and migration guide.
+     * &lt;b&gt;NullPointerException&lt;/b&gt; auto-unboxing caveat is described below.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * It is important to understand the use cases and available options for dealing with non-trivial arguments
+     * &lt;b&gt;before&lt;/b&gt; implementing custom argument matchers. This way, you can select the best possible approach
+     * for given scenario and produce highest quality test (clean and maintainable).
+     * Please read the documentation for {@link ArgumentMatcher} to learn about approaches and see the examples.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * &lt;b&gt;NullPointerException&lt;/b&gt; auto-unboxing caveat.
+     * In rare cases when matching primitive parameter types you &lt;b&gt;*must*&lt;/b&gt; use relevant intThat(), floatThat(), etc. method.
+     * This way you will avoid &lt;code&gt;NullPointerException&lt;/code&gt; during auto-unboxing.
+     * Due to how java works we don't really have a clean way of detecting this scenario and protecting the user from this problem.
+     * Hopefully, the javadoc describes the problem and solution well.
+     * If you have an idea how to fix the problem, let us know via the mailing list or the issue tracker.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatcher} class
+     * &lt;/p&gt;
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;null&lt;/code&gt;.
+     */
+    public static &lt;T&gt; T argThat(ArgumentMatcher&lt;T&gt; matcher) {
+<span class="fc" id="L914">        reportMatcher(matcher);</span>
+<span class="fc" id="L915">        return null;</span>
+    }
+
+    /**
+     * Allows creating custom argument matchers where matching is considered successful when the consumer given by parameter does not throw an exception.
+     * &lt;p&gt;
+     * Typically used with {@link Mockito#verify(Object)} to execute assertions on parameters passed to the verified method invocation.
+     *
+     * @param consumer executes assertions on the verified argument
+     * @return &lt;code&gt;null&lt;/code&gt;.
+     */
+    public static &lt;T&gt; T assertArg(Consumer&lt;T&gt; consumer) {
+<span class="nc" id="L927">        return argThat(</span>
+                argument -&gt; {
+<span class="nc" id="L929">                    consumer.accept(argument);</span>
+<span class="nc" id="L930">                    return true;</span>
+                });
+    }
+
+    /**
+     * Allows creating custom argument matchers where matching is considered successful when the consumer given by parameter does not throw an exception.
+     * Consumer is allowed to throw exception other than RuntimeException
+     * &lt;p&gt;
+     * Typically used with {@link Mockito#verify(Object)} to execute assertions on parameters passed to the verified method invocation.
+     *
+     * @param consumer executes assertions on the verified argument
+     * @return &lt;code&gt;null&lt;/code&gt;.
+     */
+    public static &lt;T&gt; T assertArg(ThrowingConsumer&lt;T&gt; consumer) {
+<span class="fc" id="L944">        return argThat(</span>
+                argument -&gt; {
+<span class="fc" id="L946">                    consumer.accept(argument);</span>
+<span class="fc" id="L947">                    return true;</span>
+                });
+    }
+
+    /**
+     * Allows creating custom &lt;code&gt;char&lt;/code&gt; argument matchers.
+     * &lt;p&gt;
+     * Note that {@link #argThat} will not work with primitive &lt;code&gt;char&lt;/code&gt; matchers due to &lt;code&gt;NullPointerException&lt;/code&gt; auto-unboxing caveat.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static char charThat(ArgumentMatcher&lt;Character&gt; matcher) {
+<span class="fc" id="L962">        reportMatcher(matcher);</span>
+<span class="fc" id="L963">        return 0;</span>
+    }
+
+    /**
+     * Allows creating custom &lt;code&gt;boolean&lt;/code&gt; argument matchers.
+     * &lt;p&gt;
+     * Note that {@link #argThat} will not work with primitive &lt;code&gt;boolean&lt;/code&gt; matchers due to &lt;code&gt;NullPointerException&lt;/code&gt; auto-unboxing caveat.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;false&lt;/code&gt;.
+     */
+    public static boolean booleanThat(ArgumentMatcher&lt;Boolean&gt; matcher) {
+<span class="fc" id="L977">        reportMatcher(matcher);</span>
+<span class="fc" id="L978">        return false;</span>
+    }
+
+    /**
+     * Allows creating custom &lt;code&gt;byte&lt;/code&gt; argument matchers.
+     * &lt;p&gt;
+     * Note that {@link #argThat} will not work with primitive &lt;code&gt;byte&lt;/code&gt; matchers due to &lt;code&gt;NullPointerException&lt;/code&gt; auto-unboxing caveat.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static byte byteThat(ArgumentMatcher&lt;Byte&gt; matcher) {
+<span class="fc" id="L992">        reportMatcher(matcher);</span>
+<span class="fc" id="L993">        return 0;</span>
+    }
+
+    /**
+     * Allows creating custom &lt;code&gt;short&lt;/code&gt; argument matchers.
+     * &lt;p&gt;
+     * Note that {@link #argThat} will not work with primitive &lt;code&gt;short&lt;/code&gt; matchers due to &lt;code&gt;NullPointerException&lt;/code&gt; auto-unboxing caveat.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static short shortThat(ArgumentMatcher&lt;Short&gt; matcher) {
+<span class="fc" id="L1007">        reportMatcher(matcher);</span>
+<span class="fc" id="L1008">        return 0;</span>
+    }
+
+    /**
+     * Allows creating custom &lt;code&gt;int&lt;/code&gt; argument matchers.
+     * &lt;p&gt;
+     * Note that {@link #argThat} will not work with primitive &lt;code&gt;int&lt;/code&gt; matchers due to &lt;code&gt;NullPointerException&lt;/code&gt; auto-unboxing caveat.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static int intThat(ArgumentMatcher&lt;Integer&gt; matcher) {
+<span class="fc" id="L1022">        reportMatcher(matcher);</span>
+<span class="fc" id="L1023">        return 0;</span>
+    }
+
+    /**
+     * Allows creating custom &lt;code&gt;long&lt;/code&gt; argument matchers.
+     * &lt;p&gt;
+     * Note that {@link #argThat} will not work with primitive &lt;code&gt;long&lt;/code&gt; matchers due to &lt;code&gt;NullPointerException&lt;/code&gt; auto-unboxing caveat.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static long longThat(ArgumentMatcher&lt;Long&gt; matcher) {
+<span class="fc" id="L1037">        reportMatcher(matcher);</span>
+<span class="fc" id="L1038">        return 0;</span>
+    }
+
+    /**
+     * Allows creating custom &lt;code&gt;float&lt;/code&gt; argument matchers.
+     * &lt;p&gt;
+     * Note that {@link #argThat} will not work with primitive &lt;code&gt;float&lt;/code&gt; matchers due to &lt;code&gt;NullPointerException&lt;/code&gt; auto-unboxing caveat.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static float floatThat(ArgumentMatcher&lt;Float&gt; matcher) {
+<span class="fc" id="L1052">        reportMatcher(matcher);</span>
+<span class="fc" id="L1053">        return 0;</span>
+    }
+
+    /**
+     * Allows creating custom &lt;code&gt;double&lt;/code&gt; argument matchers.
+     * &lt;p&gt;
+     * Note that {@link #argThat} will not work with primitive &lt;code&gt;double&lt;/code&gt; matchers due to &lt;code&gt;NullPointerException&lt;/code&gt; auto-unboxing caveat.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentMatchers} class
+     *
+     * @param matcher decides whether argument matches
+     * @return &lt;code&gt;0&lt;/code&gt;.
+     */
+    public static double doubleThat(ArgumentMatcher&lt;Double&gt; matcher) {
+<span class="fc" id="L1067">        reportMatcher(matcher);</span>
+<span class="fc" id="L1068">        return 0;</span>
+    }
+
+    private static void reportMatcher(ArgumentMatcher&lt;?&gt; matcher) {
+<span class="fc" id="L1072">        mockingProgress().getArgumentMatcherStorage().reportMatcher(matcher);</span>
+<span class="fc" id="L1073">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

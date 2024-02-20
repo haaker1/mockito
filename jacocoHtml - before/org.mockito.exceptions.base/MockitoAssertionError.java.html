@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockitoAssertionError.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.exceptions.base</a> &gt; <span class="el_source">MockitoAssertionError.java</span></div><h1>MockitoAssertionError.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.exceptions.base;
+
+import org.mockito.internal.exceptions.stacktrace.ConditionalStackTraceFilter;
+
+/**
+ * Base class for verification errors emitted by Mockito.
+ * Verification errors are triggered by &quot;verify&quot; methods,
+ * for example {@link org.mockito.Mockito#verify(Object)} or {@link org.mockito.Mockito#verifyNoMoreInteractions(Object...)}.
+ * All error classes that inherit from this class will have the stack trace filtered.
+ * Filtering removes Mockito internal stack trace elements to provide clean stack traces and improve productivity.
+ * &lt;p&gt;
+ * The stack trace is filtered from mockito calls if you are using {@link #getStackTrace()}.
+ * For debugging purpose though you can still access the full stacktrace using {@link #getUnfilteredStackTrace()}.
+ * However note that other calls related to the stackTrace will refer to the filter stacktrace.
+ * &lt;p&gt;
+ * Advanced users and framework integrators can control stack trace filtering behavior
+ * via {@link org.mockito.plugins.StackTraceCleanerProvider} classpath plugin.
+ */
+public class MockitoAssertionError extends AssertionError {
+
+    private static final long serialVersionUID = 1L;
+    private final StackTraceElement[] unfilteredStackTrace;
+
+    public MockitoAssertionError(String message) {
+<span class="fc" id="L29">        super(message);</span>
+
+<span class="fc" id="L31">        unfilteredStackTrace = getStackTrace();</span>
+
+<span class="fc" id="L33">        ConditionalStackTraceFilter filter = new ConditionalStackTraceFilter();</span>
+<span class="fc" id="L34">        filter.filter(this);</span>
+<span class="fc" id="L35">    }</span>
+
+    /**
+     * Creates a copy of the given assertion error with the custom failure message prepended.
+     * @param error The assertion error to copy
+     * @param message The custom message to prepend
+     * @since 2.1.0
+     */
+    public MockitoAssertionError(MockitoAssertionError error, String message) {
+<span class="fc" id="L44">        super(message + &quot;\n&quot; + error.getMessage());</span>
+<span class="fc" id="L45">        super.setStackTrace(error.getStackTrace());</span>
+<span class="fc" id="L46">        unfilteredStackTrace = error.getUnfilteredStackTrace();</span>
+<span class="fc" id="L47">    }</span>
+
+    /**
+     * Creates a copy of the given assertion error with the custom failure message prepended.
+     * @param error The assertion error to copy
+     * @param message The custom message to prepend
+     * @since 3.3.13
+     */
+    public MockitoAssertionError(AssertionError error, String message) {
+<span class="fc" id="L56">        super(message + &quot;\n&quot; + error.getMessage());</span>
+<span class="fc" id="L57">        unfilteredStackTrace = error.getStackTrace();</span>
+<span class="fc" id="L58">        super.setStackTrace(unfilteredStackTrace);</span>
+<span class="fc" id="L59">    }</span>
+
+    public StackTraceElement[] getUnfilteredStackTrace() {
+<span class="fc" id="L62">        return unfilteredStackTrace;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

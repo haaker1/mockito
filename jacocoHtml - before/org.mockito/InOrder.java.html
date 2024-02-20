@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InOrder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito</a> &gt; <span class="el_source">InOrder.java</span></div><h1>InOrder.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito;
+
+import static org.mockito.Mockito.times;
+
+import org.mockito.verification.VerificationMode;
+
+/**
+ * Allows verification in order. E.g:
+ *
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ * // Given
+ * First firstMock = mock(First.class);
+ * Second secondMock = mock(Second.class);
+ * InOrder inOrder = inOrder(firstMock, secondMock);
+ *
+ * // When
+ * firstMock.add(&quot;was called first&quot;);
+ * secondMock.add(&quot;was called second&quot;);
+ *
+ * // Then
+ * inOrder.verify(firstMock).add(&quot;was called first&quot;);
+ * inOrder.verify(secondMock).add(&quot;was called second&quot;);
+ * inOrder.verifyNoMoreInteractions();
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * Static mocks can be verified alongside non-static mocks. E.g:
+ *
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ * // Given
+ * First firstMock = mock(First.class);
+ * MockedStatic&lt;StaticSecond&gt; staticSecondMock = mockStatic(StaticSecond.class);
+ * InOrder inOrder = inOrder(firstMock, StaticSecond.class);
+ *
+ * // When
+ * firstMock.add(&quot;was called first&quot;);
+ * StaticSecond.doSomething(&quot;foobar&quot;);
+ *
+ * // Then
+ * inOrder.verify(firstMock).add(&quot;was called first&quot;);
+ * inOrder.verify(staticSecondMock, () -&amp;gt; StaticSecond.doSomething(&quot;foobar&quot;));
+ * inOrder.verifyNoMoreInteractions();
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * As of Mockito 1.8.4 you can verifyNoMoreInteractions() in order-sensitive way. Read more:
+ * {@link InOrder#verifyNoMoreInteractions()}.
+ * &lt;p&gt;
+ *
+ * See examples in javadoc for {@link Mockito} class
+ */
+public interface InOrder {
+    /**
+     * Verifies interaction &lt;b&gt;happened once&lt;/b&gt; in order.
+     * &lt;p&gt;
+     * Alias to &lt;code&gt;inOrder.verify(mock, times(1))&lt;/code&gt;
+     * &lt;p&gt;
+     * Example:
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     * InOrder inOrder = inOrder(firstMock, secondMock);
+     *
+     * inOrder.verify(firstMock).someMethod(&quot;was called first&quot;);
+     * inOrder.verify(secondMock).someMethod(&quot;was called second&quot;);
+     * &lt;/code&gt;&lt;/pre&gt;
+     *
+     * See examples in javadoc for {@link Mockito} class
+     *
+     * @param mock to be verified
+     *
+     * @return mock object itself
+     */
+    &lt;T&gt; T verify(T mock);
+
+    /**
+     * Verifies interaction in order. E.g:
+     *
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     * InOrder inOrder = inOrder(firstMock, secondMock);
+     *
+     * inOrder.verify(firstMock, times(2)).someMethod(&quot;was called first two times&quot;);
+     * inOrder.verify(secondMock, atLeastOnce()).someMethod(&quot;was called second at least once&quot;);
+     * &lt;/code&gt;&lt;/pre&gt;
+     *
+     * See examples in javadoc for {@link Mockito} class
+     *
+     * @param mock to be verified
+     * @param mode for example times(x) or atLeastOnce()
+     *
+     * @return mock object itself
+     */
+    &lt;T&gt; T verify(T mock, VerificationMode mode);
+
+    /**
+     * Verifies static interaction in order, with exactly one number of invocations.
+     *
+     * @see #verify(MockedStatic, MockedStatic.Verification, VerificationMode)
+     */
+    default void verify(MockedStatic&lt;?&gt; mockedStatic, MockedStatic.Verification verification) {
+<span class="fc" id="L101">        verify(mockedStatic, verification, times(1));</span>
+<span class="fc" id="L102">    }</span>
+
+    /**
+     * Verifies static interaction in order. E.g:
+     *
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     * try (MockedStatic&lt;Foo&gt; mocked = mockStatic(Foo.class)) {
+     *   InOrder inOrder = inOrder(Foo.class);
+     *
+     *   mocked.when(Foo::firstMethod).thenReturn(&quot;first&quot;);
+     *   mocked.when(Foo::secondMethod).thenReturn(&quot;second&quot;);
+     *
+     *   assertEquals(&quot;first&quot;, Foo.firstMethod());
+     *   assertEquals(&quot;second&quot;, Foo.secondMethod());
+     *
+     *   inOrder.verify(mocked, Foo::firstMethod, times(1));
+     *   inOrder.verify(mocked, Foo::secondMethod, atLeastOnce());
+     * }
+     * &lt;/code&gt;&lt;/pre&gt;
+     *
+     * @param mockedStatic static mock to be verified
+     * @param verification verification to be verified
+     * @param mode         for example times(x) or atLeastOnce()
+     */
+    void verify(
+            MockedStatic&lt;?&gt; mockedStatic,
+            MockedStatic.Verification verification,
+            VerificationMode mode);
+
+    /**
+     * Verifies that no more interactions happened &lt;b&gt;in order&lt;/b&gt;.
+     * Different from {@link Mockito#verifyNoMoreInteractions(Object...)} because the order of verification matters.
+     * &lt;p&gt;
+     * Example:
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     * mock.foo(); //1st
+     * mock.bar(); //2nd
+     * mock.baz(); //3rd
+     *
+     * InOrder inOrder = inOrder(mock);
+     *
+     * inOrder.verify(mock).bar(); //2n
+     * inOrder.verify(mock).baz(); //3rd (last method)
+     *
+     * //passes because there are no more interactions after last method:
+     * inOrder.verifyNoMoreInteractions();
+     *
+     * //however this fails because 1st method was not verified:
+     * Mockito.verifyNoMoreInteractions(mock);
+     * &lt;/code&gt;&lt;/pre&gt;
+     */
+    void verifyNoMoreInteractions();
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

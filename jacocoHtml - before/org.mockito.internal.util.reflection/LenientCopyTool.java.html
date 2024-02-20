@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LenientCopyTool.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.util.reflection</a> &gt; <span class="el_source">LenientCopyTool.java</span></div><h1>LenientCopyTool.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.util.reflection;
+
+import org.mockito.internal.configuration.plugins.Plugins;
+import org.mockito.plugins.MemberAccessor;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+
+<span class="fc" id="L13">public class LenientCopyTool {</span>
+
+<span class="fc" id="L15">    MemberAccessor accessor = Plugins.getMemberAccessor();</span>
+
+    public &lt;T&gt; void copyToMock(T from, T mock) {
+<span class="fc" id="L18">        copy(from, mock, from.getClass());</span>
+<span class="fc" id="L19">    }</span>
+
+    public &lt;T&gt; void copyToRealObject(T from, T to) {
+<span class="fc" id="L22">        copy(from, to, from.getClass());</span>
+<span class="fc" id="L23">    }</span>
+
+    private &lt;T&gt; void copy(T from, T to, Class&lt;?&gt; fromClazz) {
+<span class="fc bfc" id="L26" title="All 2 branches covered.">        while (fromClazz != Object.class) {</span>
+<span class="fc" id="L27">            copyValues(from, to, fromClazz);</span>
+<span class="fc" id="L28">            fromClazz = fromClazz.getSuperclass();</span>
+        }
+<span class="fc" id="L30">    }</span>
+
+    private &lt;T&gt; void copyValues(T from, T mock, Class&lt;?&gt; classFrom) {
+<span class="fc" id="L33">        Field[] fields = classFrom.getDeclaredFields();</span>
+
+<span class="fc bfc" id="L35" title="All 2 branches covered.">        for (Field field : fields) {</span>
+            // ignore static fields
+<span class="fc bfc" id="L37" title="All 2 branches covered.">            if (Modifier.isStatic(field.getModifiers())) {</span>
+<span class="fc" id="L38">                continue;</span>
+            }
+            try {
+<span class="fc" id="L41">                Object value = accessor.get(field, from);</span>
+<span class="fc" id="L42">                accessor.set(field, mock, value);</span>
+<span class="fc" id="L43">            } catch (Throwable t) {</span>
+                // Ignore - be lenient - if some field cannot be copied then let's be it
+<span class="fc" id="L45">            }</span>
+        }
+<span class="fc" id="L47">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,441 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InstrumentationMemberAccessor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.util.reflection</a> &gt; <span class="el_source">InstrumentationMemberAccessor.java</span></div><h1>InstrumentationMemberAccessor.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2020 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.util.reflection;
+
+import net.bytebuddy.ByteBuddy;
+import net.bytebuddy.agent.ByteBuddyAgent;
+import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
+import net.bytebuddy.implementation.MethodCall;
+import org.mockito.exceptions.base.MockitoInitializationException;
+import org.mockito.internal.SuppressSignatureCheck;
+import org.mockito.plugins.MemberAccessor;
+
+import java.lang.instrument.Instrumentation;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.*;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import static net.bytebuddy.matcher.ElementMatchers.named;
+import static org.mockito.internal.util.StringUtil.join;
+
+@SuppressSignatureCheck
+class InstrumentationMemberAccessor implements MemberAccessor {
+
+<span class="fc" id="L29">    private static final Map&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt; WRAPPERS = new HashMap&lt;&gt;();</span>
+
+    private static final Instrumentation INSTRUMENTATION;
+    private static final Dispatcher DISPATCHER;
+
+    private static final Throwable INITIALIZATION_ERROR;
+
+    static {
+<span class="fc" id="L37">        WRAPPERS.put(boolean.class, Boolean.class);</span>
+<span class="fc" id="L38">        WRAPPERS.put(byte.class, Byte.class);</span>
+<span class="fc" id="L39">        WRAPPERS.put(short.class, Short.class);</span>
+<span class="fc" id="L40">        WRAPPERS.put(char.class, Character.class);</span>
+<span class="fc" id="L41">        WRAPPERS.put(int.class, Integer.class);</span>
+<span class="fc" id="L42">        WRAPPERS.put(long.class, Long.class);</span>
+<span class="fc" id="L43">        WRAPPERS.put(float.class, Float.class);</span>
+<span class="fc" id="L44">        WRAPPERS.put(double.class, Double.class);</span>
+        Instrumentation instrumentation;
+        Dispatcher dispatcher;
+        Throwable throwable;
+        try {
+<span class="fc" id="L49">            instrumentation = ByteBuddyAgent.install();</span>
+            // We need to generate a dispatcher instance that is located in a distinguished class
+            // loader to create a unique (unnamed) module to which we can open other packages to.
+            // This way, we assure that classes within Mockito's module (which might be a shared,
+            // unnamed module) do not face escalated privileges where tests might pass that would
+            // otherwise fail without Mockito's opening.
+<span class="fc" id="L55">            dispatcher =</span>
+                    new ByteBuddy()
+<span class="fc" id="L57">                            .subclass(Dispatcher.class)</span>
+<span class="fc" id="L58">                            .method(named(&quot;getLookup&quot;))</span>
+<span class="fc" id="L59">                            .intercept(MethodCall.invoke(MethodHandles.class.getMethod(&quot;lookup&quot;)))</span>
+<span class="fc" id="L60">                            .method(named(&quot;getModule&quot;))</span>
+<span class="fc" id="L61">                            .intercept(</span>
+<span class="fc" id="L62">                                    MethodCall.invoke(Class.class.getMethod(&quot;getModule&quot;))</span>
+<span class="fc" id="L63">                                            .onMethodCall(</span>
+<span class="fc" id="L64">                                                    MethodCall.invoke(</span>
+<span class="fc" id="L65">                                                            Object.class.getMethod(&quot;getClass&quot;))))</span>
+<span class="fc" id="L66">                            .method(named(&quot;setAccessible&quot;))</span>
+<span class="fc" id="L67">                            .intercept(</span>
+<span class="fc" id="L68">                                    MethodCall.invoke(</span>
+<span class="fc" id="L69">                                                    AccessibleObject.class.getMethod(</span>
+                                                            &quot;setAccessible&quot;, boolean.class))
+<span class="fc" id="L71">                                            .onArgument(0)</span>
+<span class="fc" id="L72">                                            .withArgument(1))</span>
+<span class="fc" id="L73">                            .method(named(&quot;invokeWithArguments&quot;))</span>
+<span class="fc" id="L74">                            .intercept(</span>
+<span class="fc" id="L75">                                    MethodCall.invoke(</span>
+<span class="fc" id="L76">                                                    MethodHandle.class.getMethod(</span>
+                                                            &quot;invokeWithArguments&quot;, Object[].class))
+<span class="fc" id="L78">                                            .onArgument(0)</span>
+<span class="fc" id="L79">                                            .withArgument(1))</span>
+<span class="fc" id="L80">                            .make()</span>
+<span class="fc" id="L81">                            .load(</span>
+<span class="fc" id="L82">                                    InstrumentationMemberAccessor.class.getClassLoader(),</span>
+                                    ClassLoadingStrategy.Default.WRAPPER)
+<span class="fc" id="L84">                            .getLoaded()</span>
+<span class="fc" id="L85">                            .getConstructor()</span>
+<span class="fc" id="L86">                            .newInstance();</span>
+<span class="fc" id="L87">            throwable = null;</span>
+<span class="fc" id="L88">        } catch (Throwable t) {</span>
+<span class="fc" id="L89">            instrumentation = null;</span>
+<span class="fc" id="L90">            dispatcher = null;</span>
+<span class="fc" id="L91">            throwable = t;</span>
+<span class="fc" id="L92">        }</span>
+<span class="fc" id="L93">        INSTRUMENTATION = instrumentation;</span>
+<span class="fc" id="L94">        DISPATCHER = dispatcher;</span>
+<span class="fc" id="L95">        INITIALIZATION_ERROR = throwable;</span>
+<span class="fc" id="L96">    }</span>
+
+    @SuppressWarnings(value = &quot;unused&quot;)
+    private final MethodHandle getModule;
+
+    @SuppressWarnings(value = &quot;unused&quot;)
+    private final MethodHandle isOpen;
+
+    @SuppressWarnings(value = &quot;unused&quot;)
+    private final MethodHandle redefineModule;
+
+    @SuppressWarnings(value = &quot;unused&quot;)
+    private final MethodHandle privateLookupIn;
+
+<span class="fc" id="L110">    InstrumentationMemberAccessor() {</span>
+<span class="fc bfc" id="L111" title="All 2 branches covered.">        if (INITIALIZATION_ERROR != null) {</span>
+<span class="fc" id="L112">            throw new MockitoInitializationException(</span>
+<span class="fc" id="L113">                    join(</span>
+                            &quot;Could not initialize the Mockito instrumentation member accessor&quot;,
+                            &quot;&quot;,
+                            &quot;This is unexpected on JVMs from Java 9 or later - possibly, the instrumentation API could not be resolved&quot;),
+                    INITIALIZATION_ERROR);
+        }
+        try {
+<span class="fc" id="L120">            Class&lt;?&gt; module = Class.forName(&quot;java.lang.Module&quot;);</span>
+<span class="fc" id="L121">            getModule =</span>
+<span class="fc" id="L122">                    MethodHandles.publicLookup()</span>
+<span class="fc" id="L123">                            .findVirtual(Class.class, &quot;getModule&quot;, MethodType.methodType(module));</span>
+<span class="fc" id="L124">            isOpen =</span>
+<span class="fc" id="L125">                    MethodHandles.publicLookup()</span>
+<span class="fc" id="L126">                            .findVirtual(</span>
+                                    module,
+                                    &quot;isOpen&quot;,
+<span class="fc" id="L129">                                    MethodType.methodType(boolean.class, String.class));</span>
+<span class="fc" id="L130">            redefineModule =</span>
+<span class="fc" id="L131">                    MethodHandles.publicLookup()</span>
+<span class="fc" id="L132">                            .findVirtual(</span>
+                                    Instrumentation.class,
+                                    &quot;redefineModule&quot;,
+<span class="fc" id="L135">                                    MethodType.methodType(</span>
+                                            void.class,
+                                            module,
+                                            Set.class,
+                                            Map.class,
+                                            Map.class,
+                                            Set.class,
+                                            Map.class));
+<span class="fc" id="L143">            privateLookupIn =</span>
+<span class="fc" id="L144">                    MethodHandles.publicLookup()</span>
+<span class="fc" id="L145">                            .findStatic(</span>
+                                    MethodHandles.class,
+                                    &quot;privateLookupIn&quot;,
+<span class="fc" id="L148">                                    MethodType.methodType(</span>
+                                            MethodHandles.Lookup.class,
+                                            Class.class,
+                                            MethodHandles.Lookup.class));
+<span class="nc" id="L152">        } catch (Throwable t) {</span>
+<span class="nc" id="L153">            throw new MockitoInitializationException(</span>
+                    &quot;Could not resolve instrumentation invoker&quot;, t);
+<span class="fc" id="L155">        }</span>
+<span class="fc" id="L156">    }</span>
+
+    @Override
+    public Object newInstance(Constructor&lt;?&gt; constructor, Object... arguments)
+            throws InstantiationException, InvocationTargetException {
+<span class="fc" id="L161">        return newInstance(constructor, ConstructionDispatcher::newInstance, arguments);</span>
+    }
+
+    @Override
+    public Object newInstance(
+            Constructor&lt;?&gt; constructor, OnConstruction onConstruction, Object... arguments)
+            throws InstantiationException, InvocationTargetException {
+<span class="fc bfc" id="L168" title="All 2 branches covered.">        if (Modifier.isAbstract(constructor.getDeclaringClass().getModifiers())) {</span>
+<span class="fc" id="L169">            throw new InstantiationException(</span>
+<span class="fc" id="L170">                    &quot;Cannot instantiate abstract &quot; + constructor.getDeclaringClass().getTypeName());</span>
+        }
+<span class="fc" id="L172">        assureArguments(constructor, null, null, arguments, constructor.getParameterTypes());</span>
+        try {
+<span class="fc" id="L174">            Object module =</span>
+<span class="fc" id="L175">                    DISPATCHER.invokeWithArguments(</span>
+<span class="fc" id="L176">                            getModule.bindTo(constructor.getDeclaringClass()));</span>
+<span class="fc" id="L177">            String packageName = constructor.getDeclaringClass().getPackage().getName();</span>
+<span class="fc" id="L178">            assureOpen(module, packageName);</span>
+<span class="fc" id="L179">            MethodHandle handle =</span>
+                    ((MethodHandles.Lookup)
+<span class="fc" id="L181">                                    DISPATCHER.invokeWithArguments(</span>
+                                            privateLookupIn,
+<span class="fc" id="L183">                                            constructor.getDeclaringClass(),</span>
+<span class="fc" id="L184">                                            DISPATCHER.getLookup()))</span>
+<span class="fc" id="L185">                            .unreflectConstructor(constructor);</span>
+<span class="fc" id="L186">            AtomicBoolean thrown = new AtomicBoolean();</span>
+<span class="fc" id="L187">            Object value =</span>
+<span class="fc" id="L188">                    onConstruction.invoke(</span>
+                            () -&gt; {
+                                try {
+                                    // Use handle.asFixedArity() to handle varargs bindings properly
+                                    // (as by default Java will create method handle with
+                                    // asVarargsCollector), fe:
+                                    //
+                                    //   private static class Varargs {
+                                    //     Varargs(String whatever, Observer... observers) {
+                                    //     }
+                                    //   }
+<span class="fc" id="L199">                                    return DISPATCHER.invokeWithArguments(</span>
+<span class="fc" id="L200">                                            handle.asFixedArity(), arguments);</span>
+<span class="fc" id="L201">                                } catch (Throwable throwable) {</span>
+<span class="fc" id="L202">                                    thrown.set(true);</span>
+<span class="fc" id="L203">                                    return throwable;</span>
+                                }
+                            });
+<span class="fc bfc" id="L206" title="All 2 branches covered.">            if (thrown.get()) {</span>
+<span class="fc" id="L207">                throw new InvocationTargetException((Throwable) value);</span>
+            } else {
+<span class="fc" id="L209">                return value;</span>
+            }
+<span class="fc" id="L211">        } catch (InvocationTargetException e) {</span>
+<span class="fc" id="L212">            throw e;</span>
+<span class="nc" id="L213">        } catch (Throwable t) {</span>
+<span class="nc" id="L214">            throw new IllegalStateException(</span>
+                    &quot;Could not construct &quot;
+                            + constructor
+                            + &quot; with arguments &quot;
+<span class="nc" id="L218">                            + Arrays.toString(arguments),</span>
+                    t);
+        }
+    }
+
+    @Override
+    public Object invoke(Method method, Object target, Object... arguments)
+            throws InvocationTargetException {
+<span class="fc" id="L226">        assureArguments(</span>
+                method,
+<span class="fc bfc" id="L228" title="All 2 branches covered.">                Modifier.isStatic(method.getModifiers()) ? null : target,</span>
+<span class="fc" id="L229">                method.getDeclaringClass(),</span>
+                arguments,
+<span class="fc" id="L231">                method.getParameterTypes());</span>
+        try {
+<span class="fc" id="L233">            Object module =</span>
+<span class="fc" id="L234">                    DISPATCHER.invokeWithArguments(getModule.bindTo(method.getDeclaringClass()));</span>
+<span class="fc" id="L235">            String packageName = method.getDeclaringClass().getPackage().getName();</span>
+<span class="fc" id="L236">            assureOpen(module, packageName);</span>
+<span class="fc" id="L237">            MethodHandle handle =</span>
+                    ((MethodHandles.Lookup)
+<span class="fc" id="L239">                                    DISPATCHER.invokeWithArguments(</span>
+                                            privateLookupIn,
+<span class="fc" id="L241">                                            method.getDeclaringClass(),</span>
+<span class="fc" id="L242">                                            DISPATCHER.getLookup()))</span>
+<span class="fc" id="L243">                            .unreflect(method);</span>
+<span class="fc bfc" id="L244" title="All 2 branches covered.">            if (!Modifier.isStatic(method.getModifiers())) {</span>
+<span class="fc" id="L245">                handle = handle.bindTo(target);</span>
+            }
+<span class="pc bpc" id="L247" title="1 of 2 branches missed.">            if (handle.isVarargsCollector()) {</span>
+<span class="nc" id="L248">                handle = handle.asFixedArity();</span>
+            }
+            try {
+<span class="fc" id="L251">                return DISPATCHER.invokeWithArguments(handle, arguments);</span>
+<span class="fc" id="L252">            } catch (Throwable t) {</span>
+<span class="fc" id="L253">                throw new InvocationTargetException(t);</span>
+            }
+<span class="fc" id="L255">        } catch (InvocationTargetException e) {</span>
+<span class="fc" id="L256">            throw e;</span>
+<span class="nc" id="L257">        } catch (Throwable t) {</span>
+<span class="nc" id="L258">            throw new IllegalStateException(</span>
+                    &quot;Could not invoke &quot;
+                            + method
+                            + &quot; on &quot;
+                            + target
+                            + &quot; with arguments &quot;
+<span class="nc" id="L264">                            + Arrays.toString(arguments),</span>
+                    t);
+        }
+    }
+
+    @Override
+    public Object get(Field field, Object target) {
+<span class="fc" id="L271">        assureArguments(</span>
+                field,
+<span class="fc bfc" id="L273" title="All 2 branches covered.">                Modifier.isStatic(field.getModifiers()) ? null : target,</span>
+<span class="fc" id="L274">                field.getDeclaringClass(),</span>
+                new Object[0],
+                new Class&lt;?&gt;[0]);
+        try {
+<span class="fc" id="L278">            Object module =</span>
+<span class="fc" id="L279">                    DISPATCHER.invokeWithArguments(getModule.bindTo(field.getDeclaringClass()));</span>
+<span class="fc" id="L280">            String packageName = field.getDeclaringClass().getPackage().getName();</span>
+<span class="fc" id="L281">            assureOpen(module, packageName);</span>
+<span class="fc" id="L282">            MethodHandle handle =</span>
+                    ((MethodHandles.Lookup)
+<span class="fc" id="L284">                                    DISPATCHER.invokeWithArguments(</span>
+                                            privateLookupIn,
+<span class="fc" id="L286">                                            field.getDeclaringClass(),</span>
+<span class="fc" id="L287">                                            DISPATCHER.getLookup()))</span>
+<span class="fc" id="L288">                            .unreflectGetter(field);</span>
+<span class="fc bfc" id="L289" title="All 2 branches covered.">            if (!Modifier.isStatic(field.getModifiers())) {</span>
+<span class="fc" id="L290">                handle = handle.bindTo(target);</span>
+            }
+<span class="fc" id="L292">            return DISPATCHER.invokeWithArguments(handle);</span>
+<span class="nc" id="L293">        } catch (Throwable t) {</span>
+<span class="nc" id="L294">            throw new IllegalStateException(&quot;Could not read &quot; + field + &quot; on &quot; + target, t);</span>
+        }
+    }
+
+    @Override
+    public void set(Field field, Object target, Object value) throws IllegalAccessException {
+<span class="fc" id="L300">        assureArguments(</span>
+                field,
+<span class="fc bfc" id="L302" title="All 2 branches covered.">                Modifier.isStatic(field.getModifiers()) ? null : target,</span>
+<span class="fc" id="L303">                field.getDeclaringClass(),</span>
+                new Object[] {value},
+<span class="fc" id="L305">                new Class&lt;?&gt;[] {field.getType()});</span>
+<span class="fc" id="L306">        boolean illegalAccess = false;</span>
+        try {
+<span class="fc" id="L308">            Object module =</span>
+<span class="fc" id="L309">                    DISPATCHER.invokeWithArguments(getModule.bindTo(field.getDeclaringClass()));</span>
+<span class="fc" id="L310">            String packageName = field.getDeclaringClass().getPackage().getName();</span>
+<span class="fc" id="L311">            assureOpen(module, packageName);</span>
+            // Method handles do not allow setting final fields where setAccessible(true)
+            // is required before unreflecting.
+            boolean isFinal;
+<span class="fc bfc" id="L315" title="All 2 branches covered.">            if (Modifier.isFinal(field.getModifiers())) {</span>
+<span class="fc" id="L316">                isFinal = true;</span>
+                try {
+<span class="fc" id="L318">                    DISPATCHER.setAccessible(field, true);</span>
+<span class="nc" id="L319">                } catch (Throwable ignored) {</span>
+<span class="nc" id="L320">                    illegalAccess =</span>
+                            true; // To distinguish from propagated illegal access exception.
+<span class="nc" id="L322">                    throw new IllegalAccessException(</span>
+                            &quot;Could not make final field &quot; + field + &quot; accessible&quot;);
+<span class="fc" id="L324">                }</span>
+            } else {
+<span class="fc" id="L326">                isFinal = false;</span>
+            }
+            try {
+<span class="fc" id="L329">                MethodHandle handle =</span>
+                        ((MethodHandles.Lookup)
+<span class="fc" id="L331">                                        DISPATCHER.invokeWithArguments(</span>
+                                                privateLookupIn,
+<span class="fc" id="L333">                                                field.getDeclaringClass(),</span>
+<span class="fc" id="L334">                                                DISPATCHER.getLookup()))</span>
+<span class="fc" id="L335">                                .unreflectSetter(field);</span>
+<span class="fc bfc" id="L336" title="All 2 branches covered.">                if (!Modifier.isStatic(field.getModifiers())) {</span>
+<span class="fc" id="L337">                    handle = handle.bindTo(target);</span>
+                }
+<span class="fc" id="L339">                DISPATCHER.invokeWithArguments(handle, value);</span>
+            } finally {
+<span class="fc bfc" id="L341" title="All 2 branches covered.">                if (isFinal) {</span>
+<span class="fc" id="L342">                    DISPATCHER.setAccessible(field, false);</span>
+                }
+            }
+<span class="nc" id="L345">        } catch (Throwable t) {</span>
+<span class="nc bnc" id="L346" title="All 2 branches missed.">            if (illegalAccess) {</span>
+<span class="nc" id="L347">                throw (IllegalAccessException) t;</span>
+            } else {
+<span class="nc" id="L349">                throw new IllegalStateException(&quot;Could not read &quot; + field + &quot; on &quot; + target, t);</span>
+            }
+<span class="fc" id="L351">        }</span>
+<span class="fc" id="L352">    }</span>
+
+    private void assureOpen(Object module, String packageName) throws Throwable {
+        // It would be more reliable to check if a module's package already is opened to
+        // the dispatcher module from before. Unfortunately, there is no reliable check
+        // for doing so since the isOpen(String, Module) method always returns true
+        // if the second argument is an unnamed module. Therefore, for now, we need
+        // to reopen packages even if they are already opened to the dispatcher module.
+<span class="fc bfc" id="L360" title="All 2 branches covered.">        if (!(Boolean) DISPATCHER.invokeWithArguments(isOpen, module, packageName)) {</span>
+<span class="fc" id="L361">            DISPATCHER.invokeWithArguments(</span>
+<span class="fc" id="L362">                    redefineModule.bindTo(INSTRUMENTATION),</span>
+                    module,
+<span class="fc" id="L364">                    Collections.emptySet(),</span>
+<span class="fc" id="L365">                    Collections.emptyMap(),</span>
+<span class="fc" id="L366">                    Collections.singletonMap(</span>
+<span class="fc" id="L367">                            packageName, Collections.singleton(DISPATCHER.getModule())),</span>
+<span class="fc" id="L368">                    Collections.emptySet(),</span>
+<span class="fc" id="L369">                    Collections.emptyMap());</span>
+        }
+<span class="fc" id="L371">    }</span>
+
+    private static void assureArguments(
+            AccessibleObject target,
+            Object owner,
+            Class&lt;?&gt; type,
+            Object[] values,
+            Class&lt;?&gt;[] types) {
+<span class="fc bfc" id="L379" title="All 2 branches covered.">        if (owner != null) {</span>
+<span class="fc bfc" id="L380" title="All 2 branches covered.">            if (!type.isAssignableFrom(owner.getClass())) {</span>
+<span class="fc" id="L381">                throw new IllegalArgumentException(&quot;Cannot access &quot; + target + &quot; on &quot; + owner);</span>
+            }
+        }
+
+<span class="fc" id="L385">        Object[] args = values;</span>
+<span class="fc bfc" id="L386" title="All 2 branches covered.">        if (args == null) {</span>
+<span class="fc" id="L387">            args = new Object[0];</span>
+        }
+
+<span class="fc bfc" id="L390" title="All 2 branches covered.">        if (types.length != args.length) {</span>
+<span class="fc" id="L391">            throw new IllegalArgumentException(</span>
+                    &quot;Incorrect number of arguments for &quot;
+                            + target
+                            + &quot;: expected &quot;
+                            + types.length
+                            + &quot; but recevied &quot;
+                            + args.length);
+        }
+<span class="fc bfc" id="L399" title="All 2 branches covered.">        for (int index = 0; index &lt; args.length; index++) {</span>
+<span class="fc bfc" id="L400" title="All 2 branches covered.">            if (args[index] == null) {</span>
+<span class="pc bpc" id="L401" title="1 of 2 branches missed.">                if (types[index].isPrimitive()) {</span>
+<span class="nc" id="L402">                    throw new IllegalArgumentException(</span>
+                            &quot;Cannot assign null to primitive type &quot;
+<span class="nc" id="L404">                                    + types[index].getTypeName()</span>
+                                    + &quot; for &quot;
+                                    + index
+                                    + &quot; parameter of &quot;
+                                    + target);
+                }
+            } else {
+<span class="fc" id="L411">                Class&lt;?&gt; resolved = WRAPPERS.getOrDefault(types[index], types[index]);</span>
+<span class="fc bfc" id="L412" title="All 2 branches covered.">                if (!resolved.isAssignableFrom(args[index].getClass())) {</span>
+<span class="fc" id="L413">                    throw new IllegalArgumentException(</span>
+                            &quot;Cannot assign value of type &quot;
+<span class="fc" id="L415">                                    + args[index].getClass()</span>
+                                    + &quot; to &quot;
+                                    + resolved
+                                    + &quot; for &quot;
+                                    + index
+                                    + &quot; parameter of &quot;
+                                    + target);
+                }
+            }
+        }
+<span class="fc" id="L425">    }</span>
+
+    public interface Dispatcher {
+
+        MethodHandles.Lookup getLookup();
+
+        Object getModule();
+
+        void setAccessible(AccessibleObject target, boolean value);
+
+        // Used to avoid invoke/invokeExact being exposed to Android where this class should
+        // never be loaded. Since the invocation happens from the generated code, the Android
+        // build pipeline does not fail.
+        Object invokeWithArguments(MethodHandle handle, Object... arguments) throws Throwable;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

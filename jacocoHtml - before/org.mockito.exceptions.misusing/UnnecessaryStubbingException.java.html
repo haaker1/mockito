@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UnnecessaryStubbingException.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.exceptions.misusing</a> &gt; <span class="el_source">UnnecessaryStubbingException.java</span></div><h1>UnnecessaryStubbingException.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.exceptions.misusing;
+
+import org.mockito.Mockito;
+import org.mockito.MockitoSession;
+import org.mockito.exceptions.base.MockitoException;
+
+/**
+ * This exception indicates presence of unused stubbings.
+ * It is highly recommended to remove unused stubbings to keep the codebase clean.
+ * In a rare scenario that unused stubbing is a false negative you can opt out from the validation via
+ * (in order of ascending scope):
+ * &lt;ol&gt;
+ *     &lt;li&gt;Declaring specific stubbing as 'lenient' - {@link Mockito#lenient()}&lt;/li&gt;
+ *     &lt;li&gt;Declaring specific mock as 'lenient' - {@link org.mockito.MockSettings#lenient()}&lt;/li&gt;
+ *     &lt;li&gt;Declaring all mocks in given test class or test method mock as 'lenient' with
+ *          our JUnit support ({@link org.mockito.junit.MockitoJUnit}) or Mockito session ({@link MockitoSession})&lt;/li&gt;
+ * &lt;/ol&gt;
+ *
+ * &lt;p&gt;
+ * Unnecessary stubbings are stubbed method calls that were never realized during test execution. Example:
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ * //code under test:
+ * ...
+ * String result = translator.translate(&quot;one&quot;)
+ * ...
+ *
+ * //test:
+ * ...
+ * when(translator.translate(&quot;one&quot;)).thenReturn(&quot;jeden&quot;); // &amp;lt;- stubbing realized during code execution
+ * when(translator.translate(&quot;two&quot;)).thenReturn(&quot;dwa&quot;); // &amp;lt;- stubbing never realized
+ * ...
+ * &lt;/code&gt;
+ * &lt;/pre&gt;
+ * Notice that one of the stubbed methods were never realized in the code under test, during test execution.
+ * The stray stubbing might be an oversight of the developer, the artifact of copy-paste
+ * or the effect of not understanding the test/code.
+ * Either way, the developer ends up with unnecessary test code.
+ * In order to keep the codebase clean and maintainable it is necessary to remove unnecessary code.
+ * Otherwise tests are harder to read and reason about.
+ * &lt;p&gt;
+ * Mockito JUnit Runner triggers &lt;code&gt;UnnecessaryStubbingException&lt;/code&gt; only when none of the test methods use the stubbings.
+ * This means that it is ok to put default stubbing in a 'setup' method or in test class constructor.
+ * That default stubbing needs to be used at least once by one of the test methods.
+ */
+public class UnnecessaryStubbingException extends MockitoException {
+    public UnnecessaryStubbingException(String message) {
+<span class="fc" id="L51">        super(message);</span>
+<span class="fc" id="L52">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

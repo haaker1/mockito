@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockInjection.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.configuration.injection</a> &gt; <span class="el_source">MockInjection.java</span></div><h1>MockInjection.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.configuration.injection;
+
+import static org.mockito.internal.util.Checks.checkItemsNotNull;
+import static org.mockito.internal.util.Checks.checkNotNull;
+import static org.mockito.internal.util.collections.Sets.newMockSafeHashSet;
+
+import java.lang.reflect.Field;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
+/**
+ * Internal injection configuration utility.
+ *
+ * &lt;p&gt;Allow the user of this class to configure the way the injection of mocks will happen.
+ */
+public final class MockInjection {
+
+    /**
+     * Create a new configuration setup for a field
+     *
+     *
+     * @param field Field needing mock injection
+     * @param ofInstance Instance owning the &lt;code&gt;field&lt;/code&gt;
+     * @return New configuration builder
+     */
+    public static OngoingMockInjection onField(Field field, Object ofInstance) {
+<span class="fc" id="L32">        return new OngoingMockInjection(field, ofInstance);</span>
+    }
+
+    /**
+     * Create a new configuration setup for fields
+     *
+     *
+     * @param fields Fields needing mock injection
+     * @param ofInstance Instance owning the &lt;code&gt;field&lt;/code&gt;
+     * @return New configuration builder
+     */
+    public static OngoingMockInjection onFields(Set&lt;Field&gt; fields, Object ofInstance) {
+<span class="fc" id="L44">        return new OngoingMockInjection(fields, ofInstance);</span>
+    }
+
+    /**
+     * Ongoing configuration of the mock injector.
+     */
+    public static class OngoingMockInjection {
+<span class="fc" id="L51">        private final Set&lt;Field&gt; fields = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L52">        private final Set&lt;Object&gt; mocks = newMockSafeHashSet();</span>
+        private final Object fieldOwner;
+<span class="fc" id="L54">        private final MockInjectionStrategy injectionStrategies = MockInjectionStrategy.nop();</span>
+<span class="fc" id="L55">        private final MockInjectionStrategy postInjectionStrategies = MockInjectionStrategy.nop();</span>
+
+        private OngoingMockInjection(Field field, Object fieldOwner) {
+<span class="fc" id="L58">            this(Collections.singleton(field), fieldOwner);</span>
+<span class="fc" id="L59">        }</span>
+
+<span class="fc" id="L61">        private OngoingMockInjection(Set&lt;Field&gt; fields, Object fieldOwner) {</span>
+<span class="fc" id="L62">            this.fieldOwner = checkNotNull(fieldOwner, &quot;fieldOwner&quot;);</span>
+<span class="fc" id="L63">            this.fields.addAll(checkItemsNotNull(fields, &quot;fields&quot;));</span>
+<span class="fc" id="L64">        }</span>
+
+        public OngoingMockInjection withMocks(Set&lt;Object&gt; mocks) {
+<span class="fc" id="L67">            this.mocks.addAll(checkNotNull(mocks, &quot;mocks&quot;));</span>
+<span class="fc" id="L68">            return this;</span>
+        }
+
+        public OngoingMockInjection tryConstructorInjection() {
+<span class="fc" id="L72">            injectionStrategies.thenTry(new ConstructorInjection());</span>
+<span class="fc" id="L73">            return this;</span>
+        }
+
+        public OngoingMockInjection tryPropertyOrFieldInjection() {
+<span class="fc" id="L77">            injectionStrategies.thenTry(new PropertyAndSetterInjection());</span>
+<span class="fc" id="L78">            return this;</span>
+        }
+
+        public OngoingMockInjection handleSpyAnnotation() {
+<span class="fc" id="L82">            postInjectionStrategies.thenTry(new SpyOnInjectedFieldsHandler());</span>
+<span class="fc" id="L83">            return this;</span>
+        }
+
+        public void apply() {
+<span class="fc bfc" id="L87" title="All 2 branches covered.">            for (Field field : fields) {</span>
+<span class="fc" id="L88">                injectionStrategies.process(field, fieldOwner, mocks);</span>
+<span class="fc" id="L89">                postInjectionStrategies.process(field, fieldOwner, mocks);</span>
+<span class="fc" id="L90">            }</span>
+<span class="fc" id="L91">        }</span>
+    }
+
+    private MockInjection() {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

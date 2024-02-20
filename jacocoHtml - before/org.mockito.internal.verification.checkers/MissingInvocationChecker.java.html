@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MissingInvocationChecker.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.verification.checkers</a> &gt; <span class="el_source">MissingInvocationChecker.java</span></div><h1>MissingInvocationChecker.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.verification.checkers;
+
+import static org.mockito.internal.exceptions.Reporter.argumentsAreDifferent;
+import static org.mockito.internal.exceptions.Reporter.wantedButNotInvoked;
+import static org.mockito.internal.exceptions.Reporter.wantedButNotInvokedInOrder;
+import static org.mockito.internal.invocation.InvocationsFinder.findAllMatchingUnverifiedChunks;
+import static org.mockito.internal.invocation.InvocationsFinder.findInvocations;
+import static org.mockito.internal.invocation.InvocationsFinder.findPreviousVerifiedInOrder;
+import static org.mockito.internal.invocation.InvocationsFinder.findSimilarInvocation;
+import static org.mockito.internal.verification.argumentmatching.ArgumentMatchingTool.getNotMatchingArgsWithSameName;
+import static org.mockito.internal.verification.argumentmatching.ArgumentMatchingTool.getSuspiciouslyNotMatchingArgsIndexes;
+
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.mockito.internal.reporting.SmartPrinter;
+import org.mockito.internal.verification.api.InOrderContext;
+import org.mockito.invocation.Invocation;
+import org.mockito.invocation.Location;
+import org.mockito.invocation.MatchableInvocation;
+
+public class MissingInvocationChecker {
+
+    private MissingInvocationChecker() {}
+
+    public static void checkMissingInvocation(
+            List&lt;Invocation&gt; invocations, MatchableInvocation wanted) {
+<span class="fc" id="L33">        List&lt;Invocation&gt; actualInvocations = findInvocations(invocations, wanted);</span>
+
+<span class="fc bfc" id="L35" title="All 2 branches covered.">        if (!actualInvocations.isEmpty()) {</span>
+<span class="fc" id="L36">            return;</span>
+        }
+
+<span class="fc" id="L39">        Invocation similar = findSimilarInvocation(invocations, wanted);</span>
+<span class="fc bfc" id="L40" title="All 2 branches covered.">        if (similar == null) {</span>
+<span class="fc" id="L41">            throw wantedButNotInvoked(wanted, invocations);</span>
+        }
+
+<span class="fc" id="L44">        Integer[] indexesOfSuspiciousArgs =</span>
+<span class="fc" id="L45">                getSuspiciouslyNotMatchingArgsIndexes(wanted.getMatchers(), similar.getArguments());</span>
+<span class="fc" id="L46">        Set&lt;String&gt; classesWithSameSimpleName =</span>
+<span class="fc" id="L47">                getNotMatchingArgsWithSameName(wanted.getMatchers(), similar.getArguments());</span>
+<span class="fc" id="L48">        SmartPrinter smartPrinter =</span>
+                new SmartPrinter(
+                        wanted, invocations, indexesOfSuspiciousArgs, classesWithSameSimpleName);
+<span class="fc" id="L51">        List&lt;Location&gt; actualLocations =</span>
+<span class="fc" id="L52">                invocations.stream().map(Invocation::getLocation).collect(Collectors.toList());</span>
+
+<span class="fc" id="L54">        throw argumentsAreDifferent(</span>
+                similar,
+                wanted,
+<span class="fc" id="L57">                smartPrinter.getWanted(),</span>
+<span class="fc" id="L58">                smartPrinter.getActuals(),</span>
+                actualLocations);
+    }
+
+    public static void checkMissingInvocation(
+            List&lt;Invocation&gt; invocations, MatchableInvocation wanted, InOrderContext context) {
+<span class="fc" id="L64">        List&lt;Invocation&gt; chunk = findAllMatchingUnverifiedChunks(invocations, wanted, context);</span>
+
+<span class="fc bfc" id="L66" title="All 2 branches covered.">        if (!chunk.isEmpty()) {</span>
+<span class="fc" id="L67">            return;</span>
+        }
+
+<span class="fc" id="L70">        Invocation previousInOrder = findPreviousVerifiedInOrder(invocations, context);</span>
+<span class="pc bpc" id="L71" title="1 of 2 branches missed.">        if (previousInOrder != null) {</span>
+<span class="fc" id="L72">            throw wantedButNotInvokedInOrder(wanted, previousInOrder);</span>
+        }
+
+<span class="nc" id="L75">        checkMissingInvocation(invocations, wanted);</span>
+<span class="nc" id="L76">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

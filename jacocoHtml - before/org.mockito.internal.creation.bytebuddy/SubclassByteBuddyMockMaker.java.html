@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SubclassByteBuddyMockMaker.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.creation.bytebuddy</a> &gt; <span class="el_source">SubclassByteBuddyMockMaker.java</span></div><h1>SubclassByteBuddyMockMaker.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.creation.bytebuddy;
+
+import static org.mockito.internal.util.StringUtil.join;
+
+import java.lang.reflect.Modifier;
+
+import org.mockito.creation.instance.Instantiator;
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.internal.configuration.plugins.Plugins;
+import org.mockito.internal.util.Platform;
+import org.mockito.invocation.MockHandler;
+import org.mockito.mock.MockCreationSettings;
+
+/**
+ * Subclass based mock maker.
+ *
+ * This mock maker tries to create a subclass to represent a mock. It uses the given mock settings, that contains
+ * the type to mock, extra interfaces, and serialization support.
+ *
+ * &lt;p&gt;
+ * The type to mock has to be not final and not part of the JDK. The created mock will implement extra interfaces
+ * if any. And will implement &lt;code&gt;Serializable&lt;/code&gt; if this settings is explicitly set.
+ */
+public class SubclassByteBuddyMockMaker implements ClassCreatingMockMaker {
+
+    private final BytecodeGenerator cachingMockBytecodeGenerator;
+
+    public SubclassByteBuddyMockMaker() {
+<span class="fc" id="L33">        this(new SubclassInjectionLoader());</span>
+<span class="fc" id="L34">    }</span>
+
+<span class="fc" id="L36">    public SubclassByteBuddyMockMaker(SubclassLoader loader) {</span>
+<span class="fc" id="L37">        cachingMockBytecodeGenerator =</span>
+                new TypeCachingBytecodeGenerator(new SubclassBytecodeGenerator(loader), false);
+<span class="fc" id="L39">    }</span>
+
+    @Override
+    public &lt;T&gt; T createMock(MockCreationSettings&lt;T&gt; settings, MockHandler handler) {
+<span class="fc" id="L43">        Class&lt;? extends T&gt; mockedProxyType = createMockType(settings);</span>
+
+<span class="fc" id="L45">        Instantiator instantiator = Plugins.getInstantiatorProvider().getInstantiator(settings);</span>
+<span class="fc" id="L46">        T mockInstance = null;</span>
+        try {
+<span class="fc" id="L48">            mockInstance = instantiator.newInstance(mockedProxyType);</span>
+<span class="fc" id="L49">            MockAccess mockAccess = (MockAccess) mockInstance;</span>
+<span class="fc" id="L50">            mockAccess.setMockitoInterceptor(new MockMethodInterceptor(handler, settings));</span>
+
+<span class="fc" id="L52">            return ensureMockIsAssignableToMockedType(settings, mockInstance);</span>
+<span class="nc" id="L53">        } catch (ClassCastException cce) {</span>
+<span class="nc" id="L54">            throw new MockitoException(</span>
+<span class="nc" id="L55">                    join(</span>
+                            &quot;ClassCastException occurred while creating the mockito mock :&quot;,
+<span class="nc" id="L57">                            &quot;  class to mock : &quot; + describeClass(settings.getTypeToMock()),</span>
+<span class="nc" id="L58">                            &quot;  created class : &quot; + describeClass(mockedProxyType),</span>
+<span class="nc" id="L59">                            &quot;  proxy instance class : &quot; + describeClass(mockInstance),</span>
+<span class="nc" id="L60">                            &quot;  instance creation by : &quot; + instantiator.getClass().getSimpleName(),</span>
+                            &quot;&quot;,
+                            &quot;You might experience classloading issues, please ask the mockito mailing-list.&quot;,
+                            &quot;&quot;),
+                    cce);
+<span class="nc" id="L65">        } catch (org.mockito.creation.instance.InstantiationException e) {</span>
+<span class="nc" id="L66">            throw new MockitoException(</span>
+                    &quot;Unable to create mock instance of type '&quot;
+<span class="nc" id="L68">                            + mockedProxyType.getSuperclass().getSimpleName()</span>
+                            + &quot;'&quot;,
+                    e);
+        }
+    }
+
+    @Override
+    public &lt;T&gt; Class&lt;? extends T&gt; createMockType(MockCreationSettings&lt;T&gt; settings) {
+        try {
+<span class="fc" id="L77">            return cachingMockBytecodeGenerator.mockClass(</span>
+<span class="fc" id="L78">                    MockFeatures.withMockFeatures(</span>
+<span class="fc" id="L79">                            settings.getTypeToMock(),</span>
+<span class="fc" id="L80">                            settings.getExtraInterfaces(),</span>
+<span class="fc" id="L81">                            settings.getSerializableMode(),</span>
+<span class="fc" id="L82">                            settings.isStripAnnotations(),</span>
+<span class="fc" id="L83">                            settings.getDefaultAnswer()));</span>
+<span class="nc" id="L84">        } catch (Exception bytecodeGenerationFailed) {</span>
+<span class="nc" id="L85">            throw prettifyFailure(settings, bytecodeGenerationFailed);</span>
+        }
+    }
+
+    private static &lt;T&gt; T ensureMockIsAssignableToMockedType(
+            MockCreationSettings&lt;T&gt; settings, T mock) {
+        // Force explicit cast to mocked type here, instead of
+        // relying on the JVM to implicitly cast on the client call site.
+        // This allows us to catch earlier the ClassCastException earlier
+<span class="fc" id="L94">        Class&lt;T&gt; typeToMock = settings.getTypeToMock();</span>
+<span class="fc" id="L95">        return typeToMock.cast(mock);</span>
+    }
+
+    private &lt;T&gt; RuntimeException prettifyFailure(
+            MockCreationSettings&lt;T&gt; mockFeatures, Exception generationFailed) {
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        if (mockFeatures.getTypeToMock().isArray()) {</span>
+<span class="nc" id="L101">            throw new MockitoException(</span>
+<span class="nc" id="L102">                    join(&quot;Mockito cannot mock arrays: &quot; + mockFeatures.getTypeToMock() + &quot;.&quot;, &quot;&quot;),</span>
+                    generationFailed);
+        }
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        if (Modifier.isPrivate(mockFeatures.getTypeToMock().getModifiers())) {</span>
+<span class="nc" id="L106">            throw new MockitoException(</span>
+<span class="nc" id="L107">                    join(</span>
+<span class="nc" id="L108">                            &quot;Mockito cannot mock this class: &quot; + mockFeatures.getTypeToMock() + &quot;.&quot;,</span>
+                            &quot;Most likely it is due to mocking a private class that is not visible to Mockito&quot;,
+                            &quot;&quot;),
+                    generationFailed);
+        }
+<span class="nc" id="L113">        throw new MockitoException(</span>
+<span class="nc" id="L114">                join(</span>
+<span class="nc" id="L115">                        &quot;Mockito cannot mock this class: &quot; + mockFeatures.getTypeToMock() + &quot;.&quot;,</span>
+                        &quot;&quot;,
+                        &quot;Mockito can only mock non-private &amp; non-final classes, but the root cause of this error might be different.&quot;,
+                        &quot;Please check the full stacktrace to understand what the issue is.&quot;,
+                        &quot;If you're still not sure why you're getting this error, please open an issue on GitHub.&quot;,
+                        &quot;&quot;,
+<span class="nc" id="L121">                        Platform.warnForVM(</span>
+                                &quot;IBM J9 VM&quot;,
+                                &quot;Early IBM virtual machine are known to have issues with Mockito, please upgrade to an up-to-date version.\n&quot;,
+                                &quot;Hotspot&quot;,
+                                &quot;&quot;),
+<span class="nc" id="L126">                        Platform.describe(),</span>
+                        &quot;&quot;,
+                        &quot;Underlying exception : &quot; + generationFailed),
+                generationFailed);
+    }
+
+    private static String describeClass(Class&lt;?&gt; type) {
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        return type == null</span>
+<span class="nc" id="L134">                ? &quot;null&quot;</span>
+                : &quot;'&quot;
+<span class="nc" id="L136">                        + type.getCanonicalName()</span>
+                        + &quot;', loaded by classloader : '&quot;
+<span class="nc" id="L138">                        + type.getClassLoader()</span>
+<span class="nc" id="L139">                        + &quot;'&quot;;</span>
+    }
+
+    private static String describeClass(Object instance) {
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        return instance == null ? &quot;null&quot; : describeClass(instance.getClass());</span>
+    }
+
+    @Override
+    public MockHandler getHandler(Object mock) {
+<span class="pc bpc" id="L148" title="1 of 2 branches missed.">        if (!(mock instanceof MockAccess)) {</span>
+<span class="nc" id="L149">            return null;</span>
+        }
+<span class="fc" id="L151">        return ((MockAccess) mock).getMockitoInterceptor().getMockHandler();</span>
+    }
+
+    @Override
+    public void resetMock(Object mock, MockHandler newHandler, MockCreationSettings settings) {
+<span class="fc" id="L156">        ((MockAccess) mock).setMockitoInterceptor(new MockMethodInterceptor(newHandler, settings));</span>
+<span class="fc" id="L157">    }</span>
+
+    @Override
+    public TypeMockability isTypeMockable(final Class&lt;?&gt; type) {
+<span class="fc" id="L161">        return new TypeMockability() {</span>
+            @Override
+            public boolean mockable() {
+<span class="fc bfc" id="L164" title="All 2 branches covered.">                return !type.isPrimitive()</span>
+<span class="fc bfc" id="L165" title="All 2 branches covered.">                        &amp;&amp; !Modifier.isFinal(type.getModifiers())</span>
+<span class="fc bfc" id="L166" title="All 2 branches covered.">                        &amp;&amp; !TypeSupport.INSTANCE.isSealed(type);</span>
+            }
+
+            @Override
+            public String nonMockableReason() {
+<span class="fc bfc" id="L171" title="All 2 branches covered.">                if (mockable()) {</span>
+<span class="fc" id="L172">                    return &quot;&quot;;</span>
+                }
+<span class="fc bfc" id="L174" title="All 2 branches covered.">                if (type.isPrimitive()) {</span>
+<span class="fc" id="L175">                    return &quot;primitive type&quot;;</span>
+                }
+<span class="fc bfc" id="L177" title="All 2 branches covered.">                if (Modifier.isFinal(type.getModifiers())) {</span>
+<span class="fc" id="L178">                    return &quot;final class&quot;;</span>
+                }
+<span class="pc bpc" id="L180" title="1 of 2 branches missed.">                if (TypeSupport.INSTANCE.isSealed(type)) {</span>
+<span class="fc" id="L181">                    return &quot;sealed class&quot;;</span>
+                }
+<span class="nc" id="L183">                return join(&quot;not handled type&quot;);</span>
+            }
+        };
+    }
+
+    @Override
+    public void clearAllCaches() {
+<span class="nc" id="L190">        cachingMockBytecodeGenerator.clearAllCaches();</span>
+<span class="nc" id="L191">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ThreadSafeMockingProgress.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.progress</a> &gt; <span class="el_source">ThreadSafeMockingProgress.java</span></div><h1>ThreadSafeMockingProgress.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.progress;
+
+/**
+ * Provides access to the {@link MockingProgress} of a corresponding {@link Thread}. Every {@link Thread} in Mockito has it s own {@link MockingProgress} to avoid data races while stubbing.
+ */
+public class ThreadSafeMockingProgress {
+
+<span class="fc" id="L12">    private static final ThreadLocal&lt;MockingProgress&gt; MOCKING_PROGRESS_PROVIDER =</span>
+<span class="fc" id="L13">            new ThreadLocal&lt;MockingProgress&gt;() {</span>
+                @Override
+                protected MockingProgress initialValue() {
+<span class="fc" id="L16">                    return new MockingProgressImpl();</span>
+                }
+            };
+
+    private ThreadSafeMockingProgress() {}
+
+    /**
+     * Returns the {@link MockingProgress} for the current Thread.
+     * &lt;p&gt;
+     * &lt;b&gt;IMPORTANT&lt;/b&gt;: Never assign and access the returned {@link MockingProgress} to an instance or static field. Thread safety can not be guaranteed in this case, cause the Thread that wrote the field might not be the same that read it. In other words multiple threads will access the same {@link MockingProgress}.
+     *
+     * @return never &lt;code&gt;null&lt;/code&gt;
+     */
+    public static final MockingProgress mockingProgress() {
+<span class="fc" id="L30">        return MOCKING_PROGRESS_PROVIDER.get();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

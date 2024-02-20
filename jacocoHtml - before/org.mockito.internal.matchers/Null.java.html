@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Null.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.matchers</a> &gt; <span class="el_source">Null.java</span></div><h1>Null.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.matchers;
+
+import java.io.Serializable;
+import java.util.Objects;
+
+import org.mockito.ArgumentMatcher;
+
+public class Null&lt;T&gt; implements ArgumentMatcher&lt;T&gt;, Serializable {
+
+<span class="fc" id="L14">    public static final Null&lt;Object&gt; NULL = new Null&lt;&gt;(Object.class);</span>
+    private final Class&lt;T&gt; type;
+
+<span class="fc" id="L17">    public Null(Class&lt;T&gt; type) {</span>
+<span class="fc" id="L18">        this.type = Objects.requireNonNull(type);</span>
+<span class="fc" id="L19">    }</span>
+
+    @Override
+    public boolean matches(Object actual) {
+<span class="fc bfc" id="L23" title="All 2 branches covered.">        return actual == null;</span>
+    }
+
+    @Override
+    public Class&lt;T&gt; type() {
+<span class="fc" id="L28">        return type;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L33">        return &quot;isNull()&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

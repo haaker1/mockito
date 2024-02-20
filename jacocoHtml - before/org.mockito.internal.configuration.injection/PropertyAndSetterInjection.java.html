@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PropertyAndSetterInjection.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.configuration.injection</a> &gt; <span class="el_source">PropertyAndSetterInjection.java</span></div><h1>PropertyAndSetterInjection.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.configuration.injection;
+
+import static org.mockito.internal.exceptions.Reporter.cannotInitializeForInjectMocksAnnotation;
+import static org.mockito.internal.exceptions.Reporter.fieldInitialisationThrewException;
+import static org.mockito.internal.util.collections.Sets.newMockSafeHashSet;
+import static org.mockito.internal.util.reflection.SuperTypesLastSorter.sortSuperTypesLast;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.internal.configuration.injection.filter.MockCandidateFilter;
+import org.mockito.internal.configuration.injection.filter.NameBasedCandidateFilter;
+import org.mockito.internal.configuration.injection.filter.TerminalMockCandidateFilter;
+import org.mockito.internal.configuration.injection.filter.TypeBasedCandidateFilter;
+import org.mockito.internal.util.reflection.FieldInitializationReport;
+import org.mockito.internal.util.reflection.FieldInitializer;
+
+/**
+ * Inject mocks using first setters then fields, if no setters available.
+ *
+ * &lt;p&gt;
+ * &lt;u&gt;Algorithm :&lt;br&gt;&lt;/u&gt;
+ * for each field annotated by @InjectMocks
+ *   &lt;ul&gt;
+ *   &lt;li&gt;initialize field annotated by @InjectMocks
+ *   &lt;li&gt;for each fields of a class in @InjectMocks type hierarchy
+ *     &lt;ul&gt;
+ *     &lt;li&gt;make a copy of mock candidates
+ *     &lt;li&gt;order fields from sub-type to super-type, then by field name
+ *     &lt;li&gt;for the list of fields in a class try two passes of :
+ *         &lt;ul&gt;
+ *             &lt;li&gt;find mock candidate by type
+ *             &lt;li&gt;if more than &lt;b&gt;*one*&lt;/b&gt; candidate find mock candidate on name
+ *             &lt;li&gt;if one mock candidate then
+ *                 &lt;ul&gt;
+ *                     &lt;li&gt;set mock by property setter if possible
+ *                     &lt;li&gt;else set mock by field injection
+ *                 &lt;/ul&gt;
+ *             &lt;li&gt;remove mock from mocks copy (mocks are just injected once in a class)
+ *             &lt;li&gt;remove injected field from list of class fields
+ *         &lt;/ul&gt;
+ *     &lt;li&gt;else don't fail, user will then provide dependencies
+ *     &lt;/ul&gt;
+ *   &lt;/ul&gt;
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * &lt;u&gt;Note:&lt;/u&gt; If the field needing injection is not initialized, the strategy tries
+ * to create one using a no-arg constructor of the field type.
+ * &lt;/p&gt;
+ */
+<span class="fc" id="L63">public class PropertyAndSetterInjection extends MockInjectionStrategy {</span>
+
+<span class="fc" id="L65">    private final MockCandidateFilter mockCandidateFilter =</span>
+            new TypeBasedCandidateFilter(
+                    new NameBasedCandidateFilter(new TerminalMockCandidateFilter()));
+
+    @Override
+    public boolean processInjection(
+            Field injectMocksField, Object injectMocksFieldOwner, Set&lt;Object&gt; mockCandidates) {
+<span class="fc" id="L72">        FieldInitializationReport report =</span>
+<span class="fc" id="L73">                initializeInjectMocksField(injectMocksField, injectMocksFieldOwner);</span>
+
+        // for each field in the class hierarchy
+<span class="fc" id="L76">        boolean injectionOccurred = false;</span>
+<span class="fc" id="L77">        Class&lt;?&gt; fieldClass = report.fieldClass();</span>
+<span class="fc" id="L78">        Object fieldInstanceNeedingInjection = report.fieldInstance();</span>
+<span class="fc bfc" id="L79" title="All 2 branches covered.">        while (fieldClass != Object.class) {</span>
+<span class="fc" id="L80">            injectionOccurred |=</span>
+<span class="fc" id="L81">                    injectMockCandidates(</span>
+                            fieldClass,
+                            fieldInstanceNeedingInjection,
+                            injectMocksField,
+<span class="fc" id="L85">                            newMockSafeHashSet(mockCandidates));</span>
+<span class="fc" id="L86">            fieldClass = fieldClass.getSuperclass();</span>
+        }
+<span class="fc" id="L88">        return injectionOccurred;</span>
+    }
+
+    private FieldInitializationReport initializeInjectMocksField(Field field, Object fieldOwner) {
+        try {
+<span class="fc" id="L93">            return new FieldInitializer(fieldOwner, field).initialize();</span>
+<span class="fc" id="L94">        } catch (MockitoException e) {</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">            if (e.getCause() instanceof InvocationTargetException) {</span>
+<span class="fc" id="L96">                Throwable realCause = e.getCause().getCause();</span>
+<span class="fc" id="L97">                throw fieldInitialisationThrewException(field, realCause);</span>
+            }
+<span class="fc" id="L99">            throw cannotInitializeForInjectMocksAnnotation(field.getName(), e.getMessage());</span>
+        }
+    }
+
+    private boolean injectMockCandidates(
+            Class&lt;?&gt; awaitingInjectionClazz,
+            Object injectee,
+            Field injectMocksField,
+            Set&lt;Object&gt; mocks) {
+        boolean injectionOccurred;
+<span class="fc" id="L109">        List&lt;Field&gt; orderedCandidateInjecteeFields =</span>
+<span class="fc" id="L110">                orderedInstanceFieldsFrom(awaitingInjectionClazz);</span>
+        // pass 1
+<span class="fc" id="L112">        injectionOccurred =</span>
+<span class="fc" id="L113">                injectMockCandidatesOnFields(</span>
+                        mocks, injectee, injectMocksField, false, orderedCandidateInjecteeFields);
+        // pass 2
+<span class="fc" id="L116">        injectionOccurred |=</span>
+<span class="fc" id="L117">                injectMockCandidatesOnFields(</span>
+                        mocks,
+                        injectee,
+                        injectMocksField,
+                        injectionOccurred,
+                        orderedCandidateInjecteeFields);
+<span class="fc" id="L123">        return injectionOccurred;</span>
+    }
+
+    private boolean injectMockCandidatesOnFields(
+            Set&lt;Object&gt; mocks,
+            Object injectee,
+            Field injectMocksField,
+            boolean injectionOccurred,
+            List&lt;Field&gt; orderedCandidateInjecteeFields) {
+<span class="fc bfc" id="L132" title="All 2 branches covered.">        for (Iterator&lt;Field&gt; it = orderedCandidateInjecteeFields.iterator(); it.hasNext(); ) {</span>
+<span class="fc" id="L133">            Field candidateField = it.next();</span>
+<span class="fc" id="L134">            Object injected =</span>
+                    mockCandidateFilter
+<span class="fc" id="L136">                            .filterCandidate(</span>
+                                    mocks,
+                                    candidateField,
+                                    orderedCandidateInjecteeFields,
+                                    injectee,
+                                    injectMocksField)
+<span class="fc" id="L142">                            .thenInject();</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">            if (injected != null) {</span>
+<span class="fc" id="L144">                injectionOccurred |= true;</span>
+<span class="fc" id="L145">                mocks.remove(injected);</span>
+<span class="fc" id="L146">                it.remove();</span>
+            }
+<span class="fc" id="L148">        }</span>
+<span class="fc" id="L149">        return injectionOccurred;</span>
+    }
+
+    private List&lt;Field&gt; orderedInstanceFieldsFrom(Class&lt;?&gt; awaitingInjectionClazz) {
+<span class="fc" id="L153">        return sortSuperTypesLast(</span>
+<span class="fc" id="L154">                Arrays.stream(awaitingInjectionClazz.getDeclaredFields())</span>
+<span class="fc" id="L155">                        .filter(</span>
+                                field -&gt;
+<span class="fc bfc" id="L157" title="All 2 branches covered.">                                        !Modifier.isFinal(field.getModifiers())</span>
+<span class="pc bpc" id="L158" title="1 of 2 branches missed.">                                                &amp;&amp; !Modifier.isStatic(field.getModifiers()))</span>
+<span class="fc" id="L159">                        .collect(Collectors.toList()));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

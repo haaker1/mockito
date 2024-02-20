@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Equality.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.matchers</a> &gt; <span class="el_source">Equality.java</span></div><h1>Equality.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.matchers;
+
+import java.lang.reflect.Array;
+
+// stolen from hamcrest because I didn't want to have more dependency than Matcher class
+public final class Equality {
+
+    public static boolean areEqual(Object o1, Object o2) {
+<span class="fc bfc" id="L13" title="All 2 branches covered.">        if (o1 == o2) {</span>
+<span class="fc" id="L14">            return true;</span>
+<span class="fc bfc" id="L15" title="All 4 branches covered.">        } else if (o1 == null || o2 == null) {</span>
+<span class="fc" id="L16">            return false;</span>
+<span class="fc bfc" id="L17" title="All 2 branches covered.">        } else if (isArray(o1)) {</span>
+<span class="pc bpc" id="L18" title="1 of 4 branches missed.">            return isArray(o2) &amp;&amp; areArraysEqual(o1, o2);</span>
+        } else {
+<span class="fc" id="L20">            return o1.equals(o2);</span>
+        }
+    }
+
+    static boolean areArraysEqual(Object o1, Object o2) {
+<span class="fc bfc" id="L25" title="All 4 branches covered.">        return areArrayLengthsEqual(o1, o2) &amp;&amp; areArrayElementsEqual(o1, o2);</span>
+    }
+
+    static boolean areArrayLengthsEqual(Object o1, Object o2) {
+<span class="fc bfc" id="L29" title="All 2 branches covered.">        return Array.getLength(o1) == Array.getLength(o2);</span>
+    }
+
+    static boolean areArrayElementsEqual(Object o1, Object o2) {
+<span class="fc bfc" id="L33" title="All 2 branches covered.">        for (int i = 0; i &lt; Array.getLength(o1); i++) {</span>
+<span class="fc bfc" id="L34" title="All 2 branches covered.">            if (!areEqual(Array.get(o1, i), Array.get(o2, i))) {</span>
+<span class="fc" id="L35">                return false;</span>
+            }
+        }
+<span class="fc" id="L38">        return true;</span>
+    }
+
+    static boolean isArray(Object o) {
+<span class="fc" id="L42">        return o.getClass().isArray();</span>
+    }
+
+    private Equality() {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

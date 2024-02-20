@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockMethodInterceptor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.creation.bytebuddy</a> &gt; <span class="el_source">MockMethodInterceptor.java</span></div><h1>MockMethodInterceptor.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.creation.bytebuddy;
+
+import static org.mockito.internal.invocation.DefaultInvocationFactory.createInvocation;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectStreamException;
+import java.io.Serializable;
+import java.lang.reflect.Method;
+import java.util.concurrent.Callable;
+
+import net.bytebuddy.implementation.bind.annotation.AllArguments;
+import net.bytebuddy.implementation.bind.annotation.Argument;
+import net.bytebuddy.implementation.bind.annotation.BindingPriority;
+import net.bytebuddy.implementation.bind.annotation.FieldValue;
+import net.bytebuddy.implementation.bind.annotation.Origin;
+import net.bytebuddy.implementation.bind.annotation.RuntimeType;
+import net.bytebuddy.implementation.bind.annotation.StubValue;
+import net.bytebuddy.implementation.bind.annotation.SuperCall;
+import net.bytebuddy.implementation.bind.annotation.This;
+import org.mockito.internal.debugging.LocationFactory;
+import org.mockito.internal.invocation.RealMethod;
+import org.mockito.invocation.Location;
+import org.mockito.invocation.MockHandler;
+import org.mockito.mock.MockCreationSettings;
+
+public class MockMethodInterceptor implements Serializable {
+
+    private static final long serialVersionUID = 7152947254057253027L;
+
+    final MockHandler handler;
+
+    private final MockCreationSettings mockCreationSettings;
+
+    private final ByteBuddyCrossClassLoaderSerializationSupport serializationSupport;
+
+<span class="fc" id="L41">    private transient ThreadLocal&lt;Object&gt; weakReferenceHatch = new ThreadLocal&lt;&gt;();</span>
+
+<span class="fc" id="L43">    public MockMethodInterceptor(MockHandler handler, MockCreationSettings mockCreationSettings) {</span>
+<span class="fc" id="L44">        this.handler = handler;</span>
+<span class="fc" id="L45">        this.mockCreationSettings = mockCreationSettings;</span>
+<span class="fc" id="L46">        serializationSupport = new ByteBuddyCrossClassLoaderSerializationSupport();</span>
+<span class="fc" id="L47">    }</span>
+
+    private void readObject(ObjectInputStream stream) throws IOException, ClassNotFoundException {
+<span class="fc" id="L50">        stream.defaultReadObject();</span>
+<span class="fc" id="L51">        weakReferenceHatch = new ThreadLocal&lt;&gt;();</span>
+<span class="fc" id="L52">    }</span>
+
+    Object doIntercept(Object mock, Method invokedMethod, Object[] arguments, RealMethod realMethod)
+            throws Throwable {
+<span class="fc" id="L56">        return doIntercept(mock, invokedMethod, arguments, realMethod, LocationFactory.create());</span>
+    }
+
+    Object doIntercept(
+            Object mock,
+            Method invokedMethod,
+            Object[] arguments,
+            RealMethod realMethod,
+            Location location)
+            throws Throwable {
+        // If the currently dispatched method is used in a hot path, typically a tight loop and if
+        // the mock is not used after the currently dispatched method, the JVM might attempt a
+        // garbage collection of the mock instance even before the execution of the current
+        // method is completed. Since we only reference the mock weakly from hereon after to avoid
+        // leaking the instance, it might therefore be garbage collected before the
+        // handler.handle(...) method completes. Since the handler method expects the mock to be
+        // present while a method call onto the mock is dispatched, this can lead to the problem
+        // described in GitHub #1802.
+        //
+        // To avoid this problem, we distract the JVM JIT by escaping the mock instance to a thread
+        // local field for the duration of the handler's dispatch.
+        //
+        // When dropping support for Java 8, instead of this hatch we should use an explicit fence
+        // https://docs.oracle.com/javase/9/docs/api/java/lang/ref/Reference.html#reachabilityFence-java.lang.Object-
+<span class="fc" id="L80">        weakReferenceHatch.set(mock);</span>
+        try {
+<span class="fc" id="L82">            return handler.handle(</span>
+<span class="fc" id="L83">                    createInvocation(</span>
+                            mock,
+                            invokedMethod,
+                            arguments,
+                            realMethod,
+                            mockCreationSettings,
+                            location));
+        } finally {
+<span class="fc" id="L91">            weakReferenceHatch.remove();</span>
+        }
+    }
+
+    public MockHandler getMockHandler() {
+<span class="fc" id="L96">        return handler;</span>
+    }
+
+    public ByteBuddyCrossClassLoaderSerializationSupport getSerializationSupport() {
+<span class="nc" id="L100">        return serializationSupport;</span>
+    }
+
+    public static final class ForHashCode {
+
+        @SuppressWarnings(&quot;unused&quot;)
+        public static int doIdentityHashCode(@This Object thiz) {
+<span class="fc" id="L107">            return System.identityHashCode(thiz);</span>
+        }
+
+        private ForHashCode() {}
+    }
+
+<span class="nc" id="L113">    public static class ForEquals {</span>
+
+        @SuppressWarnings(&quot;unused&quot;)
+        public static boolean doIdentityEquals(@This Object thiz, @Argument(0) Object other) {
+<span class="fc bfc" id="L117" title="All 2 branches covered.">            return thiz == other;</span>
+        }
+    }
+
+    public static final class ForWriteReplace {
+
+        public static Object doWriteReplace(@This MockAccess thiz) throws ObjectStreamException {
+<span class="nc" id="L124">            return thiz.getMockitoInterceptor().getSerializationSupport().writeReplace(thiz);</span>
+        }
+
+        private ForWriteReplace() {}
+    }
+
+<span class="nc" id="L130">    public static class DispatcherDefaultingToRealMethod {</span>
+
+        @SuppressWarnings(&quot;unused&quot;)
+        @RuntimeType
+        @BindingPriority(BindingPriority.DEFAULT * 2)
+        public static Object interceptSuperCallable(
+                @This Object mock,
+                @FieldValue(&quot;mockitoInterceptor&quot;) MockMethodInterceptor interceptor,
+                @Origin Method invokedMethod,
+                @AllArguments Object[] arguments,
+                @SuperCall(serializableProxy = true) Callable&lt;?&gt; superCall)
+                throws Throwable {
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">            if (interceptor == null) {</span>
+<span class="nc" id="L143">                return superCall.call();</span>
+            }
+<span class="fc" id="L145">            return interceptor.doIntercept(</span>
+                    mock, invokedMethod, arguments, new RealMethod.FromCallable(superCall));
+        }
+
+        @SuppressWarnings(&quot;unused&quot;)
+        @RuntimeType
+        public static Object interceptAbstract(
+                @This Object mock,
+                @FieldValue(&quot;mockitoInterceptor&quot;) MockMethodInterceptor interceptor,
+                @StubValue Object stubValue,
+                @Origin Method invokedMethod,
+                @AllArguments Object[] arguments)
+                throws Throwable {
+<span class="pc bpc" id="L158" title="1 of 2 branches missed.">            if (interceptor == null) {</span>
+<span class="nc" id="L159">                return stubValue;</span>
+            }
+<span class="fc" id="L161">            return interceptor.doIntercept(</span>
+                    mock, invokedMethod, arguments, RealMethod.IsIllegal.INSTANCE);
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

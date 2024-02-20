@@ -1,0 +1,914 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InlineDelegateByteBuddyMockMaker.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.creation.bytebuddy</a> &gt; <span class="el_source">InlineDelegateByteBuddyMockMaker.java</span></div><h1>InlineDelegateByteBuddyMockMaker.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.creation.bytebuddy;
+
+import net.bytebuddy.agent.ByteBuddyAgent;
+import org.mockito.MockedConstruction;
+import org.mockito.creation.instance.InstantiationException;
+import org.mockito.creation.instance.Instantiator;
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.exceptions.base.MockitoInitializationException;
+import org.mockito.exceptions.misusing.MockitoConfigurationException;
+import org.mockito.internal.SuppressSignatureCheck;
+import org.mockito.internal.configuration.plugins.Plugins;
+import org.mockito.internal.creation.instance.ConstructorInstantiator;
+import org.mockito.internal.util.Platform;
+import org.mockito.internal.util.concurrent.DetachedThreadLocal;
+import org.mockito.internal.util.concurrent.WeakConcurrentMap;
+import org.mockito.invocation.MockHandler;
+import org.mockito.mock.MockCreationSettings;
+import org.mockito.plugins.InlineMockMaker;
+import org.mockito.plugins.MemberAccessor;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.instrument.Instrumentation;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Modifier;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import java.util.jar.JarOutputStream;
+
+import static org.mockito.internal.creation.bytebuddy.InlineBytecodeGenerator.EXCLUDES;
+import static org.mockito.internal.util.StringUtil.join;
+
+/**
+ * Agent and subclass based mock maker.
+ * &lt;p&gt;
+ * This mock maker uses a combination of the Java instrumentation API and sub-classing rather than creating
+ * a new sub-class to create a mock. This way, it becomes possible to mock final types and methods. This mock
+ * maker &lt;strong&gt;must be activated explicitly&lt;/strong&gt; for supporting mocking final types and methods:
+ * &lt;p&gt;
+ * &lt;p&gt;
+ * This mock maker can be activated by creating the file &lt;code&gt;/mockito-extensions/org.mockito.plugins.MockMaker&lt;/code&gt;
+ * containing the text &lt;code&gt;mock-maker-inline&lt;/code&gt; or &lt;code&gt;org.mockito.internal.creation.bytebuddy.InlineByteBuddyMockMaker&lt;/code&gt;.
+ * &lt;p&gt;
+ * &lt;p&gt;
+ * This mock maker will make a best effort to avoid subclass creation when creating a mock. Otherwise it will use the
+ * &lt;code&gt;org.mockito.internal.creation.bytebuddy.SubclassByteBuddyMockMaker&lt;/code&gt; to create the mock class. That means
+ * that the following condition is true
+ * &lt;p&gt;
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ * class Foo { }
+ * assert mock(Foo.class).getClass() == Foo.class;
+ * &lt;/pre&gt;&lt;/code&gt;
+ * &lt;p&gt;
+ * unless any of the following conditions is met, in such case the mock maker &lt;em&gt;falls back&lt;/em&gt; to
+ * the creation of a subclass.
+ * &lt;p&gt;
+ * &lt;ul&gt;
+ * &lt;li&gt;the type to mock is an abstract class.&lt;/li&gt;
+ * &lt;li&gt;the mock is set to require additional interfaces.&lt;/li&gt;
+ * &lt;li&gt;the mock is &lt;a href=&quot;#20&quot;&gt;explicitly set to support serialization&lt;/a&gt;.&lt;/li&gt;
+ * &lt;/ul&gt;
+ * &lt;p&gt;
+ * &lt;p&gt;
+ * Some type of the JDK cannot be mocked, this includes &lt;code&gt;Class&lt;/code&gt;, &lt;code&gt;String&lt;/code&gt;, and wrapper types.
+ * &lt;p&gt;
+ * &lt;p&gt;
+ * Nevertheless, final methods of such types are mocked when using the inlining mock maker. Mocking final types and enums
+ * does however remain impossible when explicitly requiring serialization support or when adding ancillary interfaces.
+ * &lt;p&gt;
+ * &lt;p&gt;
+ * Important behavioral changes when using inline-mocks:
+ * &lt;ul&gt;
+ * &lt;li&gt;Mockito is capable of mocking package-private methods even if they are defined in different packages than
+ * the mocked type. Mockito voluntarily never mocks package-visible methods within &lt;code&gt;java.*&lt;/code&gt; packages.&lt;/li&gt;
+ * &lt;li&gt;Additionally to final types, Mockito can now mock types that are not visible for extension; such types
+ * include private types in a protected package.&lt;/li&gt;
+ * &lt;li&gt;Mockito can no longer mock &lt;code&gt;native&lt;/code&gt; methods. Inline mocks require byte code manipulation of a
+ * method where native methods do not offer any byte code to manipulate.&lt;/li&gt;
+ * &lt;li&gt;Mockito can no longer strip &lt;code&gt;synchronized&lt;/code&gt; modifiers from mocked instances.&lt;/li&gt;
+ * &lt;/ul&gt;
+ * &lt;p&gt;
+ * &lt;p&gt;
+ * Note that inline mocks require a Java agent to be attached. Mockito will attempt an attachment of a Java agent upon
+ * loading the mock maker for creating inline mocks. Such runtime attachment is only possible when using a JVM that
+ * is part of a JDK or when using a Java 9 VM. When running on a non-JDK VM prior to Java 9, it is however possible to
+ * manually add the &lt;a href=&quot;https://bytebuddy.net&quot;&gt;Byte Buddy Java agent jar&lt;/a&gt; using the &lt;code&gt;-javaagent&lt;/code&gt;
+ * parameter upon starting the JVM. Furthermore, the inlining mock maker requires the VM to support class retransformation
+ * (also known as HotSwap). All major VM distributions such as HotSpot (OpenJDK), J9 (IBM/Websphere) or Zing (Azul)
+ * support this feature.
+ */
+@SuppressSignatureCheck
+class InlineDelegateByteBuddyMockMaker
+        implements ClassCreatingMockMaker, InlineMockMaker, Instantiator {
+
+    private static final Instrumentation INSTRUMENTATION;
+
+    private static final Throwable INITIALIZATION_ERROR;
+
+    static {
+        Instrumentation instrumentation;
+<span class="fc" id="L112">        Throwable initializationError = null;</span>
+
+        // ByteBuddy internally may attempt to fork a subprocess. In Java 11 and Java 19, the Java
+        // process class observes the os.name system property to determine the OS and thus determine
+        // how to fork a new process. If the user is stubbing System properties, they may clear
+        // the existing System properties, which will cause this to fail. This is very much an
+        // implementation detail, but it will result in Mockito failing to load with an error that
+        // is not overly clear, so let's attempt to detect this issue ahead of time instead.
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">        if (System.getProperty(&quot;os.name&quot;) == null) {</span>
+<span class="nc" id="L121">            throw new IllegalStateException(</span>
+<span class="nc" id="L122">                    join(</span>
+                            &quot;The Byte Buddy agent cannot be loaded.&quot;,
+                            &quot;&quot;,
+                            &quot;To initialise the Byte Buddy agent, a subprocess may need to be created. To do this, the JVM requires &quot;
+                                    + &quot;knowledge of the 'os.name' System property in most JRE implementations. This property is not present, &quot;
+                                    + &quot;which means this operation will fail to complete. Please first make sure you are not clearing this &quot;
+                                    + &quot;property anywhere, and failing that, raise a bug with your JVM vendor.&quot;));
+        }
+
+        try {
+            try {
+<span class="fc" id="L133">                instrumentation = ByteBuddyAgent.install();</span>
+<span class="pc bpc" id="L134" title="1 of 2 branches missed.">                if (!instrumentation.isRetransformClassesSupported()) {</span>
+<span class="nc" id="L135">                    throw new IllegalStateException(</span>
+<span class="nc" id="L136">                            join(</span>
+                                    &quot;Byte Buddy requires retransformation for creating inline mocks. This feature is unavailable on the current VM.&quot;,
+                                    &quot;&quot;,
+                                    &quot;You cannot use this mock maker on this VM&quot;));
+                }
+<span class="fc" id="L141">                File boot = File.createTempFile(&quot;mockitoboot&quot;, &quot;.jar&quot;);</span>
+<span class="fc" id="L142">                boot.deleteOnExit();</span>
+<span class="fc" id="L143">                JarOutputStream outputStream = new JarOutputStream(new FileOutputStream(boot));</span>
+                try {
+<span class="fc" id="L145">                    String source =</span>
+                            &quot;org/mockito/internal/creation/bytebuddy/inject/MockMethodDispatcher&quot;;
+<span class="fc" id="L147">                    InputStream inputStream =</span>
+                            InlineDelegateByteBuddyMockMaker.class
+<span class="fc" id="L149">                                    .getClassLoader()</span>
+<span class="fc" id="L150">                                    .getResourceAsStream(source + &quot;.raw&quot;);</span>
+<span class="pc bpc" id="L151" title="1 of 2 branches missed.">                    if (inputStream == null) {</span>
+<span class="nc" id="L152">                        throw new IllegalStateException(</span>
+<span class="nc" id="L153">                                join(</span>
+                                        &quot;The MockMethodDispatcher class file is not locatable: &quot;
+                                                + source
+                                                + &quot;.raw&quot;,
+                                        &quot;&quot;,
+                                        &quot;The class loader responsible for looking up the resource: &quot;
+                                                + InlineDelegateByteBuddyMockMaker.class
+<span class="nc" id="L160">                                                        .getClassLoader()));</span>
+                    }
+<span class="fc" id="L162">                    outputStream.putNextEntry(new JarEntry(source + &quot;.class&quot;));</span>
+                    try {
+                        int length;
+<span class="fc" id="L165">                        byte[] buffer = new byte[1024];</span>
+<span class="fc bfc" id="L166" title="All 2 branches covered.">                        while ((length = inputStream.read(buffer)) != -1) {</span>
+<span class="fc" id="L167">                            outputStream.write(buffer, 0, length);</span>
+                        }
+                    } finally {
+<span class="fc" id="L170">                        inputStream.close();</span>
+                    }
+<span class="fc" id="L172">                    outputStream.closeEntry();</span>
+                } finally {
+<span class="fc" id="L174">                    outputStream.close();</span>
+                }
+<span class="fc" id="L176">                try (JarFile jarfile = new JarFile(boot)) {</span>
+<span class="fc" id="L177">                    instrumentation.appendToBootstrapClassLoaderSearch(jarfile);</span>
+                }
+                try {
+<span class="fc" id="L180">                    Class.forName(</span>
+                            &quot;org.mockito.internal.creation.bytebuddy.inject.MockMethodDispatcher&quot;,
+                            false,
+                            null);
+<span class="nc" id="L184">                } catch (ClassNotFoundException cnfe) {</span>
+<span class="nc" id="L185">                    throw new IllegalStateException(</span>
+<span class="nc" id="L186">                            join(</span>
+                                    &quot;Mockito failed to inject the MockMethodDispatcher class into the bootstrap class loader&quot;,
+                                    &quot;&quot;,
+                                    &quot;It seems like your current VM does not support the instrumentation API correctly.&quot;),
+                            cnfe);
+<span class="fc" id="L191">                }</span>
+<span class="nc" id="L192">            } catch (IOException ioe) {</span>
+<span class="nc" id="L193">                throw new IllegalStateException(</span>
+<span class="nc" id="L194">                        join(</span>
+                                &quot;Mockito could not self-attach a Java agent to the current VM. This feature is required for inline mocking.&quot;,
+                                &quot;This error occured due to an I/O error during the creation of this agent: &quot;
+                                        + ioe,
+                                &quot;&quot;,
+                                &quot;Potentially, the current VM does not support the instrumentation API correctly&quot;),
+                        ioe);
+<span class="fc" id="L201">            }</span>
+<span class="fc" id="L202">        } catch (Throwable throwable) {</span>
+<span class="fc" id="L203">            instrumentation = null;</span>
+<span class="fc" id="L204">            initializationError = throwable;</span>
+<span class="fc" id="L205">        }</span>
+<span class="fc" id="L206">        INSTRUMENTATION = instrumentation;</span>
+<span class="fc" id="L207">        INITIALIZATION_ERROR = initializationError;</span>
+<span class="fc" id="L208">    }</span>
+
+    private final BytecodeGenerator bytecodeGenerator;
+
+<span class="fc" id="L212">    private final WeakConcurrentMap&lt;Object, MockMethodInterceptor&gt; mocks =</span>
+            new WeakConcurrentMap&lt;&gt;(false);
+
+<span class="fc" id="L215">    private final DetachedThreadLocal&lt;Map&lt;Class&lt;?&gt;, MockMethodInterceptor&gt;&gt; mockedStatics =</span>
+            new DetachedThreadLocal&lt;&gt;(DetachedThreadLocal.Cleaner.MANUAL);
+
+<span class="fc" id="L218">    private final DetachedThreadLocal&lt;Map&lt;Class&lt;?&gt;, BiConsumer&lt;Object, MockedConstruction.Context&gt;&gt;&gt;</span>
+            mockedConstruction = new DetachedThreadLocal&lt;&gt;(DetachedThreadLocal.Cleaner.MANUAL);
+
+<span class="fc" id="L221">    private final ThreadLocal&lt;Class&lt;?&gt;&gt; currentMocking = ThreadLocal.withInitial(() -&gt; null);</span>
+
+<span class="fc" id="L223">    private final ThreadLocal&lt;Object&gt; currentSpied = new ThreadLocal&lt;&gt;();</span>
+
+<span class="fc" id="L225">    InlineDelegateByteBuddyMockMaker() {</span>
+<span class="fc bfc" id="L226" title="All 2 branches covered.">        if (INITIALIZATION_ERROR != null) {</span>
+            String detail;
+<span class="pc bpc" id="L228" title="2 of 4 branches missed.">            if (PlatformUtils.isAndroidPlatform() || PlatformUtils.isProbablyTermuxEnvironment()) {</span>
+<span class="nc" id="L229">                detail =</span>
+                        &quot;It appears as if you are trying to run this mock maker on Android which does not support the instrumentation API.&quot;;
+            } else {
+                try {
+<span class="pc bpc" id="L233" title="1 of 2 branches missed.">                    if (INITIALIZATION_ERROR instanceof NoClassDefFoundError</span>
+<span class="pc bpc" id="L234" title="1 of 2 branches missed.">                            &amp;&amp; INITIALIZATION_ERROR.getMessage() != null</span>
+                            &amp;&amp; INITIALIZATION_ERROR
+<span class="fc" id="L236">                                    .getMessage()</span>
+<span class="pc bpc" id="L237" title="1 of 2 branches missed.">                                    .startsWith(&quot;net/bytebuddy/agent/&quot;)) {</span>
+<span class="fc" id="L238">                        detail =</span>
+<span class="fc" id="L239">                                join(</span>
+                                        &quot;It seems like you are running Mockito with an incomplete or inconsistent class path. Byte Buddy Agent could not be loaded.&quot;,
+                                        &quot;&quot;,
+                                        &quot;Byte Buddy Agent is available on Maven Central as 'net.bytebuddy:byte-buddy-agent' with the module name 'net.bytebuddy.agent'.&quot;,
+                                        &quot;Normally, your IDE or build tool (such as Maven or Gradle) should take care of your class path completion but &quot;);
+<span class="nc" id="L244">                    } else if (Class.forName(&quot;javax.tools.ToolProvider&quot;)</span>
+<span class="nc" id="L245">                                    .getMethod(&quot;getSystemJavaCompiler&quot;)</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">                                    .invoke(null)</span>
+                            == null) {
+<span class="nc" id="L248">                        detail =</span>
+                                &quot;It appears as if you are running on a JRE. Either install a JDK or add JNA to the class path.&quot;;
+                    } else {
+<span class="nc" id="L251">                        detail =</span>
+                                &quot;It appears as if your JDK does not supply a working agent attachment mechanism.&quot;;
+                    }
+<span class="nc" id="L254">                } catch (Throwable ignored) {</span>
+<span class="nc" id="L255">                    detail =</span>
+                            &quot;It appears as if you are running an incomplete JVM installation that might not support all tooling APIs&quot;;
+<span class="fc" id="L257">                }</span>
+            }
+<span class="fc" id="L259">            throw new MockitoInitializationException(</span>
+<span class="fc" id="L260">                    join(</span>
+                            &quot;Could not initialize inline Byte Buddy mock maker.&quot;,
+                            &quot;&quot;,
+                            detail,
+<span class="fc" id="L264">                            Platform.describe()),</span>
+                    INITIALIZATION_ERROR);
+        }
+
+<span class="fc" id="L268">        ThreadLocal&lt;Class&lt;?&gt;&gt; currentConstruction = new ThreadLocal&lt;&gt;();</span>
+<span class="fc" id="L269">        ThreadLocal&lt;Boolean&gt; isSuspended = ThreadLocal.withInitial(() -&gt; false);</span>
+<span class="fc" id="L270">        Predicate&lt;Class&lt;?&gt;&gt; isCallFromSubclassConstructor = StackWalkerChecker.orFallback();</span>
+<span class="fc" id="L271">        Predicate&lt;Class&lt;?&gt;&gt; isMockConstruction =</span>
+                type -&gt; {
+<span class="fc bfc" id="L273" title="All 2 branches covered.">                    if (isSuspended.get()) {</span>
+<span class="fc" id="L274">                        return false;</span>
+<span class="fc bfc" id="L275" title="All 2 branches covered.">                    } else if ((currentMocking.get() != null</span>
+<span class="fc bfc" id="L276" title="All 2 branches covered.">                                    &amp;&amp; type.isAssignableFrom(currentMocking.get()))</span>
+<span class="fc bfc" id="L277" title="All 2 branches covered.">                            || currentConstruction.get() != null) {</span>
+<span class="fc" id="L278">                        return true;</span>
+                    }
+<span class="fc" id="L280">                    Map&lt;Class&lt;?&gt;, ?&gt; interceptors = mockedConstruction.get();</span>
+<span class="fc bfc" id="L281" title="All 4 branches covered.">                    if (interceptors != null &amp;&amp; interceptors.containsKey(type)) {</span>
+                        // We only initiate a construction mock, if the call originates from an
+                        // un-mocked (as suppression is not enabled) subclass constructor.
+<span class="fc bfc" id="L284" title="All 2 branches covered.">                        if (isCallFromSubclassConstructor.test(type)) {</span>
+<span class="fc" id="L285">                            return false;</span>
+                        }
+<span class="fc" id="L287">                        currentConstruction.set(type);</span>
+<span class="fc" id="L288">                        return true;</span>
+                    } else {
+<span class="fc" id="L290">                        return false;</span>
+                    }
+                };
+<span class="fc" id="L293">        ConstructionCallback onConstruction =</span>
+                (type, object, arguments, parameterTypeNames) -&gt; {
+<span class="fc bfc" id="L295" title="All 2 branches covered.">                    if (currentMocking.get() != null) {</span>
+<span class="fc" id="L296">                        Object spy = currentSpied.get();</span>
+<span class="fc bfc" id="L297" title="All 2 branches covered.">                        if (spy == null) {</span>
+<span class="fc" id="L298">                            return null;</span>
+<span class="pc bpc" id="L299" title="1 of 2 branches missed.">                        } else if (type.isInstance(spy)) {</span>
+<span class="fc" id="L300">                            return spy;</span>
+                        } else {
+<span class="nc" id="L302">                            isSuspended.set(true);</span>
+                            try {
+                                // Unexpected construction of non-spied object
+<span class="nc" id="L305">                                throw new MockitoException(</span>
+                                        &quot;Unexpected spy for &quot;
+<span class="nc" id="L307">                                                + type.getName()</span>
+                                                + &quot; on instance of &quot;
+<span class="nc" id="L309">                                                + object.getClass().getName(),</span>
+<span class="nc bnc" id="L310" title="All 2 branches missed.">                                        object instanceof Throwable ? (Throwable) object : null);</span>
+                            } finally {
+<span class="nc" id="L312">                                isSuspended.set(false);</span>
+                            }
+                        }
+<span class="fc bfc" id="L315" title="All 2 branches covered.">                    } else if (currentConstruction.get() != type) {</span>
+<span class="fc" id="L316">                        return null;</span>
+                    }
+<span class="fc" id="L318">                    currentConstruction.remove();</span>
+<span class="fc" id="L319">                    isSuspended.set(true);</span>
+                    try {
+<span class="fc" id="L321">                        Map&lt;Class&lt;?&gt;, BiConsumer&lt;Object, MockedConstruction.Context&gt;&gt; interceptors =</span>
+<span class="fc" id="L322">                                mockedConstruction.get();</span>
+<span class="pc bpc" id="L323" title="1 of 2 branches missed.">                        if (interceptors != null) {</span>
+<span class="fc" id="L324">                            BiConsumer&lt;Object, MockedConstruction.Context&gt; interceptor =</span>
+<span class="fc" id="L325">                                    interceptors.get(type);</span>
+<span class="pc bpc" id="L326" title="1 of 2 branches missed.">                            if (interceptor != null) {</span>
+<span class="fc" id="L327">                                interceptor.accept(</span>
+                                        object,
+                                        new InlineConstructionMockContext(
+<span class="fc" id="L330">                                                arguments, object.getClass(), parameterTypeNames));</span>
+                            }
+                        }
+                    } finally {
+<span class="fc" id="L334">                        isSuspended.set(false);</span>
+                    }
+<span class="fc" id="L336">                    return null;</span>
+                };
+
+<span class="fc" id="L339">        bytecodeGenerator =</span>
+                new TypeCachingBytecodeGenerator(
+                        new InlineBytecodeGenerator(
+                                INSTRUMENTATION,
+                                mocks,
+                                mockedStatics,
+                                isMockConstruction,
+                                onConstruction),
+                        true);
+<span class="fc" id="L348">    }</span>
+
+    @Override
+    public &lt;T&gt; T createMock(MockCreationSettings&lt;T&gt; settings, MockHandler handler) {
+<span class="fc" id="L352">        return doCreateMock(settings, handler, false);</span>
+    }
+
+    @Override
+    public &lt;T&gt; Optional&lt;T&gt; createSpy(
+            MockCreationSettings&lt;T&gt; settings, MockHandler handler, T object) {
+<span class="pc bpc" id="L358" title="1 of 2 branches missed.">        if (object == null) {</span>
+<span class="nc" id="L359">            throw new MockitoConfigurationException(&quot;Spy instance must not be null&quot;);</span>
+        }
+<span class="fc" id="L361">        currentSpied.set(object);</span>
+        try {
+<span class="fc" id="L363">            return Optional.ofNullable(doCreateMock(settings, handler, true));</span>
+        } finally {
+<span class="fc" id="L365">            currentSpied.remove();</span>
+        }
+    }
+
+    private &lt;T&gt; T doCreateMock(
+            MockCreationSettings&lt;T&gt; settings,
+            MockHandler handler,
+            boolean nullOnNonInlineConstruction) {
+<span class="fc" id="L373">        Class&lt;? extends T&gt; type = createMockType(settings);</span>
+
+        try {
+            T instance;
+<span class="fc bfc" id="L377" title="All 2 branches covered.">            if (settings.isUsingConstructor()) {</span>
+<span class="fc" id="L378">                instance =</span>
+                        new ConstructorInstantiator(
+<span class="fc bfc" id="L380" title="All 2 branches covered.">                                        settings.getOuterClassInstance() != null,</span>
+<span class="fc" id="L381">                                        settings.getConstructorArgs())</span>
+<span class="fc" id="L382">                                .newInstance(type);</span>
+            } else {
+                try {
+                    // We attempt to use the &quot;native&quot; mock maker first that avoids
+                    // Objenesis and Unsafe
+<span class="fc" id="L387">                    instance = newInstance(type);</span>
+<span class="fc" id="L388">                } catch (InstantiationException ignored) {</span>
+<span class="pc bpc" id="L389" title="1 of 2 branches missed.">                    if (nullOnNonInlineConstruction) {</span>
+<span class="nc" id="L390">                        return null;</span>
+                    }
+                    Instantiator instantiator =
+<span class="fc" id="L393">                            Plugins.getInstantiatorProvider().getInstantiator(settings);</span>
+<span class="fc" id="L394">                    instance = instantiator.newInstance(type);</span>
+<span class="fc" id="L395">                }</span>
+            }
+<span class="fc" id="L397">            MockMethodInterceptor mockMethodInterceptor =</span>
+                    new MockMethodInterceptor(handler, settings);
+<span class="fc" id="L399">            mocks.put(instance, mockMethodInterceptor);</span>
+<span class="fc bfc" id="L400" title="All 2 branches covered.">            if (instance instanceof MockAccess) {</span>
+<span class="fc" id="L401">                ((MockAccess) instance).setMockitoInterceptor(mockMethodInterceptor);</span>
+            }
+<span class="fc" id="L403">            mocks.expungeStaleEntries();</span>
+<span class="fc" id="L404">            return instance;</span>
+<span class="fc" id="L405">        } catch (InstantiationException e) {</span>
+<span class="fc" id="L406">            throw new MockitoException(</span>
+<span class="fc" id="L407">                    &quot;Unable to create mock instance of type '&quot; + type.getSimpleName() + &quot;'&quot;, e);</span>
+        }
+    }
+
+    @Override
+    public &lt;T&gt; Class&lt;? extends T&gt; createMockType(MockCreationSettings&lt;T&gt; settings) {
+        try {
+<span class="fc" id="L414">            return bytecodeGenerator.mockClass(</span>
+<span class="fc" id="L415">                    MockFeatures.withMockFeatures(</span>
+<span class="fc" id="L416">                            settings.getTypeToMock(),</span>
+<span class="fc" id="L417">                            settings.getExtraInterfaces(),</span>
+<span class="fc" id="L418">                            settings.getSerializableMode(),</span>
+<span class="fc" id="L419">                            settings.isStripAnnotations(),</span>
+<span class="fc" id="L420">                            settings.getDefaultAnswer()));</span>
+<span class="fc" id="L421">        } catch (Exception bytecodeGenerationFailed) {</span>
+<span class="nc" id="L422">            throw prettifyFailure(settings, bytecodeGenerationFailed);</span>
+        }
+    }
+
+    private &lt;T&gt; RuntimeException prettifyFailure(
+            MockCreationSettings&lt;T&gt; mockFeatures, Exception generationFailed) {
+<span class="fc" id="L428">        Class&lt;T&gt; typeToMock = mockFeatures.getTypeToMock();</span>
+<span class="fc bfc" id="L429" title="All 2 branches covered.">        if (typeToMock.isArray()) {</span>
+<span class="fc" id="L430">            throw new MockitoException(</span>
+<span class="fc" id="L431">                    join(&quot;Arrays cannot be mocked: &quot; + typeToMock + &quot;.&quot;, &quot;&quot;), generationFailed);</span>
+        }
+<span class="fc bfc" id="L433" title="All 2 branches covered.">        if (Modifier.isFinal(typeToMock.getModifiers())) {</span>
+<span class="fc" id="L434">            throw new MockitoException(</span>
+<span class="fc" id="L435">                    join(</span>
+                            &quot;Mockito cannot mock this class: &quot; + typeToMock + &quot;.&quot;,
+                            &quot;Can not mock final classes with the following settings :&quot;,
+                            &quot; - explicit serialization (e.g. withSettings().serializable())&quot;,
+                            &quot; - extra interfaces (e.g. withSettings().extraInterfaces(...))&quot;,
+                            &quot;&quot;,
+                            &quot;You are seeing this disclaimer because Mockito is configured to create inlined mocks.&quot;,
+                            &quot;You can learn about inline mocks and their limitations under item #39 of the Mockito class javadoc.&quot;,
+                            &quot;&quot;,
+                            &quot;Underlying exception : &quot; + generationFailed),
+                    generationFailed);
+        }
+<span class="pc bpc" id="L447" title="2 of 4 branches missed.">        if (TypeSupport.INSTANCE.isSealed(typeToMock) &amp;&amp; typeToMock.isEnum()) {</span>
+<span class="fc" id="L448">            throw new MockitoException(</span>
+<span class="fc" id="L449">                    join(</span>
+                            &quot;Mockito cannot mock this class: &quot; + typeToMock + &quot;.&quot;,
+                            &quot;Sealed abstract enums can't be mocked. Since Java 15 abstract enums are declared sealed, which prevents mocking.&quot;,
+                            &quot;You can still return an existing enum literal from a stubbed method call.&quot;),
+                    generationFailed);
+        }
+<span class="nc bnc" id="L455" title="All 2 branches missed.">        if (Modifier.isPrivate(typeToMock.getModifiers())) {</span>
+<span class="nc" id="L456">            throw new MockitoException(</span>
+<span class="nc" id="L457">                    join(</span>
+                            &quot;Mockito cannot mock this class: &quot; + typeToMock + &quot;.&quot;,
+                            &quot;Most likely it is a private class that is not visible by Mockito&quot;,
+                            &quot;&quot;,
+                            &quot;You are seeing this disclaimer because Mockito is configured to create inlined mocks.&quot;,
+                            &quot;You can learn about inline mocks and their limitations under item #39 of the Mockito class javadoc.&quot;,
+                            &quot;&quot;),
+                    generationFailed);
+        }
+<span class="nc" id="L466">        throw new MockitoException(</span>
+<span class="nc" id="L467">                join(</span>
+                        &quot;Mockito cannot mock this class: &quot; + typeToMock + &quot;.&quot;,
+                        &quot;&quot;,
+                        &quot;If you're not sure why you're getting this error, please open an issue on GitHub.&quot;,
+                        &quot;&quot;,
+<span class="nc" id="L472">                        Platform.warnForVM(</span>
+                                &quot;IBM J9 VM&quot;,
+                                &quot;Early IBM virtual machine are known to have issues with Mockito, please upgrade to an up-to-date version.\n&quot;,
+                                &quot;Hotspot&quot;,
+                                &quot;&quot;),
+<span class="nc" id="L477">                        Platform.describe(),</span>
+                        &quot;&quot;,
+                        &quot;You are seeing this disclaimer because Mockito is configured to create inlined mocks.&quot;,
+                        &quot;You can learn about inline mocks and their limitations under item #39 of the Mockito class javadoc.&quot;,
+                        &quot;&quot;,
+                        &quot;Underlying exception : &quot; + generationFailed),
+                generationFailed);
+    }
+
+    @Override
+    public MockHandler getHandler(Object mock) {
+        MockMethodInterceptor interceptor;
+<span class="fc bfc" id="L489" title="All 2 branches covered.">        if (mock instanceof Class&lt;?&gt;) {</span>
+<span class="fc" id="L490">            Map&lt;Class&lt;?&gt;, MockMethodInterceptor&gt; interceptors = mockedStatics.get();</span>
+<span class="pc bpc" id="L491" title="1 of 2 branches missed.">            interceptor = interceptors != null ? interceptors.get(mock) : null;</span>
+<span class="fc" id="L492">        } else {</span>
+<span class="fc" id="L493">            interceptor = mocks.get(mock);</span>
+        }
+<span class="fc bfc" id="L495" title="All 2 branches covered.">        if (interceptor == null) {</span>
+<span class="fc" id="L496">            return null;</span>
+        } else {
+<span class="fc" id="L498">            return interceptor.handler;</span>
+        }
+    }
+
+    @Override
+    public void resetMock(Object mock, MockHandler newHandler, MockCreationSettings settings) {
+<span class="fc" id="L504">        MockMethodInterceptor mockMethodInterceptor =</span>
+                new MockMethodInterceptor(newHandler, settings);
+<span class="fc bfc" id="L506" title="All 2 branches covered.">        if (mock instanceof Class&lt;?&gt;) {</span>
+<span class="fc" id="L507">            Map&lt;Class&lt;?&gt;, MockMethodInterceptor&gt; interceptors = mockedStatics.get();</span>
+<span class="pc bpc" id="L508" title="2 of 4 branches missed.">            if (interceptors == null || !interceptors.containsKey(mock)) {</span>
+<span class="nc" id="L509">                throw new MockitoException(</span>
+                        &quot;Cannot reset &quot;
+                                + mock
+                                + &quot; which is not currently registered as a static mock&quot;);
+            }
+<span class="fc" id="L514">            interceptors.put((Class&lt;?&gt;) mock, mockMethodInterceptor);</span>
+<span class="fc" id="L515">        } else {</span>
+<span class="pc bpc" id="L516" title="1 of 2 branches missed.">            if (!mocks.containsKey(mock)) {</span>
+<span class="nc" id="L517">                throw new MockitoException(</span>
+                        &quot;Cannot reset &quot; + mock + &quot; which is not currently registered as a mock&quot;);
+            }
+<span class="fc" id="L520">            mocks.put(mock, mockMethodInterceptor);</span>
+<span class="fc bfc" id="L521" title="All 2 branches covered.">            if (mock instanceof MockAccess) {</span>
+<span class="fc" id="L522">                ((MockAccess) mock).setMockitoInterceptor(mockMethodInterceptor);</span>
+            }
+<span class="fc" id="L524">            mocks.expungeStaleEntries();</span>
+        }
+<span class="fc" id="L526">    }</span>
+
+    @Override
+    public void clearAllCaches() {
+<span class="fc" id="L530">        clearAllMocks();</span>
+<span class="fc" id="L531">        bytecodeGenerator.clearAllCaches();</span>
+<span class="fc" id="L532">    }</span>
+
+    @Override
+    public void clearMock(Object mock) {
+<span class="pc bpc" id="L536" title="1 of 2 branches missed.">        if (mock instanceof Class&lt;?&gt;) {</span>
+<span class="nc bnc" id="L537" title="All 2 branches missed.">            for (Map&lt;Class&lt;?&gt;, ?&gt; entry : mockedStatics.getBackingMap().target.values()) {</span>
+<span class="nc" id="L538">                entry.remove(mock);</span>
+<span class="nc" id="L539">            }</span>
+        } else {
+<span class="fc" id="L541">            mocks.remove(mock);</span>
+        }
+<span class="fc" id="L543">    }</span>
+
+    @Override
+    public void clearAllMocks() {
+<span class="fc" id="L547">        mockedStatics.getBackingMap().clear();</span>
+<span class="fc" id="L548">        mocks.clear();</span>
+<span class="fc" id="L549">    }</span>
+
+    @Override
+    public TypeMockability isTypeMockable(final Class&lt;?&gt; type) {
+<span class="fc" id="L553">        return new TypeMockability() {</span>
+            @Override
+            public boolean mockable() {
+<span class="fc bfc" id="L556" title="All 4 branches covered.">                return INSTRUMENTATION.isModifiableClass(type) &amp;&amp; !EXCLUDES.contains(type);</span>
+            }
+
+            @Override
+            public String nonMockableReason() {
+<span class="fc bfc" id="L561" title="All 2 branches covered.">                if (mockable()) {</span>
+<span class="fc" id="L562">                    return &quot;&quot;;</span>
+                }
+<span class="fc bfc" id="L564" title="All 2 branches covered.">                if (type.isPrimitive()) {</span>
+<span class="fc" id="L565">                    return &quot;primitive type&quot;;</span>
+                }
+<span class="fc bfc" id="L567" title="All 2 branches covered.">                if (EXCLUDES.contains(type)) {</span>
+<span class="fc" id="L568">                    return &quot;Cannot mock wrapper types, String.class or Class.class&quot;;</span>
+                }
+<span class="fc" id="L570">                return &quot;VM does not support modification of given type&quot;;</span>
+            }
+        };
+    }
+
+    @Override
+    public &lt;T&gt; StaticMockControl&lt;T&gt; createStaticMock(
+            Class&lt;T&gt; type, MockCreationSettings&lt;T&gt; settings, MockHandler handler) {
+<span class="pc bpc" id="L578" title="1 of 2 branches missed.">        if (type == ConcurrentHashMap.class) {</span>
+<span class="nc" id="L579">            throw new MockitoException(</span>
+                    &quot;It is not possible to mock static methods of ConcurrentHashMap &quot;
+                            + &quot;to avoid infinitive loops within Mockito's implementation of static mock handling&quot;);
+<span class="pc bpc" id="L582" title="3 of 6 branches missed.">        } else if (type == Thread.class</span>
+                || type == System.class
+                || type == Arrays.class
+<span class="pc bpc" id="L585" title="1 of 2 branches missed.">                || ClassLoader.class.isAssignableFrom(type)) {</span>
+<span class="nc" id="L586">            throw new MockitoException(</span>
+                    &quot;It is not possible to mock static methods of &quot;
+<span class="nc" id="L588">                            + type.getName()</span>
+                            + &quot; to avoid interfering with class loading what leads to infinite loops&quot;);
+        }
+
+<span class="fc" id="L592">        bytecodeGenerator.mockClassStatic(type);</span>
+
+<span class="fc" id="L594">        Map&lt;Class&lt;?&gt;, MockMethodInterceptor&gt; interceptors = mockedStatics.get();</span>
+<span class="fc bfc" id="L595" title="All 2 branches covered.">        if (interceptors == null) {</span>
+<span class="fc" id="L596">            interceptors = new WeakHashMap&lt;&gt;();</span>
+<span class="fc" id="L597">            mockedStatics.set(interceptors);</span>
+        }
+<span class="fc" id="L599">        mockedStatics.getBackingMap().expungeStaleEntries();</span>
+
+<span class="fc" id="L601">        return new InlineStaticMockControl&lt;&gt;(type, interceptors, settings, handler);</span>
+    }
+
+    @Override
+    public &lt;T&gt; ConstructionMockControl&lt;T&gt; createConstructionMock(
+            Class&lt;T&gt; type,
+            Function&lt;MockedConstruction.Context, MockCreationSettings&lt;T&gt;&gt; settingsFactory,
+            Function&lt;MockedConstruction.Context, MockHandler&lt;T&gt;&gt; handlerFactory,
+            MockedConstruction.MockInitializer&lt;T&gt; mockInitializer) {
+<span class="fc bfc" id="L610" title="All 2 branches covered.">        if (type == Object.class) {</span>
+<span class="fc" id="L611">            throw new MockitoException(</span>
+                    &quot;It is not possible to mock construction of the Object class &quot;
+                            + &quot;to avoid inference with default object constructor chains&quot;);
+<span class="pc bpc" id="L614" title="1 of 4 branches missed.">        } else if (type.isPrimitive() || Modifier.isAbstract(type.getModifiers())) {</span>
+<span class="fc" id="L615">            throw new MockitoException(</span>
+                    &quot;It is not possible to construct primitive types or abstract types: &quot;
+<span class="fc" id="L617">                            + type.getName());</span>
+        }
+
+<span class="fc" id="L620">        bytecodeGenerator.mockClassConstruction(type);</span>
+
+<span class="fc" id="L622">        Map&lt;Class&lt;?&gt;, BiConsumer&lt;Object, MockedConstruction.Context&gt;&gt; interceptors =</span>
+<span class="fc" id="L623">                mockedConstruction.get();</span>
+<span class="fc bfc" id="L624" title="All 2 branches covered.">        if (interceptors == null) {</span>
+<span class="fc" id="L625">            interceptors = new WeakHashMap&lt;&gt;();</span>
+<span class="fc" id="L626">            mockedConstruction.set(interceptors);</span>
+        }
+<span class="fc" id="L628">        mockedConstruction.getBackingMap().expungeStaleEntries();</span>
+
+<span class="fc" id="L630">        return new InlineConstructionMockControl&lt;&gt;(</span>
+                type, settingsFactory, handlerFactory, mockInitializer, interceptors);
+    }
+
+    @Override
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public &lt;T&gt; T newInstance(Class&lt;T&gt; cls) throws InstantiationException {
+<span class="fc" id="L637">        Constructor&lt;?&gt;[] constructors = cls.getDeclaredConstructors();</span>
+<span class="fc bfc" id="L638" title="All 2 branches covered.">        if (constructors.length == 0) {</span>
+<span class="fc" id="L639">            throw new InstantiationException(cls.getName() + &quot; does not define a constructor&quot;);</span>
+        }
+<span class="fc" id="L641">        Constructor&lt;?&gt; selected = constructors[0];</span>
+<span class="fc bfc" id="L642" title="All 2 branches covered.">        for (Constructor&lt;?&gt; constructor : constructors) {</span>
+<span class="fc bfc" id="L643" title="All 2 branches covered.">            if (Modifier.isPublic(constructor.getModifiers())) {</span>
+<span class="fc" id="L644">                selected = constructor;</span>
+<span class="fc" id="L645">                break;</span>
+            }
+        }
+<span class="fc" id="L648">        Class&lt;?&gt;[] types = selected.getParameterTypes();</span>
+<span class="fc" id="L649">        Object[] arguments = new Object[types.length];</span>
+<span class="fc" id="L650">        int index = 0;</span>
+<span class="fc bfc" id="L651" title="All 2 branches covered.">        for (Class&lt;?&gt; type : types) {</span>
+<span class="fc" id="L652">            arguments[index++] = makeStandardArgument(type);</span>
+        }
+<span class="fc" id="L654">        MemberAccessor accessor = Plugins.getMemberAccessor();</span>
+        try {
+<span class="fc" id="L656">            return (T)</span>
+<span class="fc" id="L657">                    accessor.newInstance(</span>
+                            selected,
+                            callback -&gt; {
+<span class="fc" id="L660">                                currentMocking.set(cls);</span>
+                                try {
+<span class="fc" id="L662">                                    return callback.newInstance();</span>
+                                } finally {
+<span class="fc" id="L664">                                    currentMocking.remove();</span>
+                                }
+                            },
+                            arguments);
+<span class="nc" id="L668">        } catch (Exception e) {</span>
+<span class="nc" id="L669">            throw new InstantiationException(&quot;Could not instantiate &quot; + cls.getName(), e);</span>
+        }
+    }
+
+    private Object makeStandardArgument(Class&lt;?&gt; type) {
+<span class="fc bfc" id="L674" title="All 2 branches covered.">        if (type == boolean.class) {</span>
+<span class="fc" id="L675">            return false;</span>
+<span class="fc bfc" id="L676" title="All 2 branches covered.">        } else if (type == byte.class) {</span>
+<span class="fc" id="L677">            return (byte) 0;</span>
+<span class="fc bfc" id="L678" title="All 2 branches covered.">        } else if (type == short.class) {</span>
+<span class="fc" id="L679">            return (short) 0;</span>
+<span class="fc bfc" id="L680" title="All 2 branches covered.">        } else if (type == char.class) {</span>
+<span class="fc" id="L681">            return (char) 0;</span>
+<span class="fc bfc" id="L682" title="All 2 branches covered.">        } else if (type == int.class) {</span>
+<span class="fc" id="L683">            return 0;</span>
+<span class="fc bfc" id="L684" title="All 2 branches covered.">        } else if (type == long.class) {</span>
+<span class="fc" id="L685">            return 0L;</span>
+<span class="fc bfc" id="L686" title="All 2 branches covered.">        } else if (type == float.class) {</span>
+<span class="fc" id="L687">            return 0f;</span>
+<span class="fc bfc" id="L688" title="All 2 branches covered.">        } else if (type == double.class) {</span>
+<span class="fc" id="L689">            return 0d;</span>
+        } else {
+<span class="fc" id="L691">            return null;</span>
+        }
+    }
+
+    private static class InlineStaticMockControl&lt;T&gt; implements StaticMockControl&lt;T&gt; {
+
+        private final Class&lt;T&gt; type;
+
+        private final Map&lt;Class&lt;?&gt;, MockMethodInterceptor&gt; interceptors;
+
+        private final MockCreationSettings&lt;T&gt; settings;
+
+        private final MockHandler handler;
+
+        private InlineStaticMockControl(
+                Class&lt;T&gt; type,
+                Map&lt;Class&lt;?&gt;, MockMethodInterceptor&gt; interceptors,
+                MockCreationSettings&lt;T&gt; settings,
+<span class="fc" id="L709">                MockHandler handler) {</span>
+<span class="fc" id="L710">            this.type = type;</span>
+<span class="fc" id="L711">            this.interceptors = interceptors;</span>
+<span class="fc" id="L712">            this.settings = settings;</span>
+<span class="fc" id="L713">            this.handler = handler;</span>
+<span class="fc" id="L714">        }</span>
+
+        @Override
+        public Class&lt;T&gt; getType() {
+<span class="fc" id="L718">            return type;</span>
+        }
+
+        @Override
+        public void enable() {
+<span class="fc bfc" id="L723" title="All 2 branches covered.">            if (interceptors.putIfAbsent(type, new MockMethodInterceptor(handler, settings))</span>
+                    != null) {
+<span class="fc" id="L725">                throw new MockitoException(</span>
+<span class="fc" id="L726">                        join(</span>
+                                &quot;For &quot;
+<span class="fc" id="L728">                                        + type.getName()</span>
+                                        + &quot;, static mocking is already registered in the current thread&quot;,
+                                &quot;&quot;,
+                                &quot;To create a new mock, the existing static mock registration must be deregistered&quot;));
+            }
+<span class="fc" id="L733">        }</span>
+
+        @Override
+        public void disable() {
+<span class="pc bpc" id="L737" title="1 of 2 branches missed.">            if (interceptors.remove(type) == null) {</span>
+<span class="nc" id="L738">                throw new MockitoException(</span>
+<span class="nc" id="L739">                        join(</span>
+                                &quot;Could not deregister &quot;
+<span class="nc" id="L741">                                        + type.getName()</span>
+                                        + &quot; as a static mock since it is not currently registered&quot;,
+                                &quot;&quot;,
+                                &quot;To register a static mock, use Mockito.mockStatic(&quot;
+<span class="nc" id="L745">                                        + type.getSimpleName()</span>
+                                        + &quot;.class)&quot;));
+            }
+<span class="fc" id="L748">        }</span>
+    }
+
+    private class InlineConstructionMockControl&lt;T&gt; implements ConstructionMockControl&lt;T&gt; {
+
+        private final Class&lt;T&gt; type;
+
+        private final Function&lt;MockedConstruction.Context, MockCreationSettings&lt;T&gt;&gt; settingsFactory;
+        private final Function&lt;MockedConstruction.Context, MockHandler&lt;T&gt;&gt; handlerFactory;
+
+        private final MockedConstruction.MockInitializer&lt;T&gt; mockInitializer;
+
+        private final Map&lt;Class&lt;?&gt;, BiConsumer&lt;Object, MockedConstruction.Context&gt;&gt; interceptors;
+
+<span class="fc" id="L762">        private final List&lt;Object&gt; all = new ArrayList&lt;&gt;();</span>
+        private int count;
+
+        private InlineConstructionMockControl(
+                Class&lt;T&gt; type,
+                Function&lt;MockedConstruction.Context, MockCreationSettings&lt;T&gt;&gt; settingsFactory,
+                Function&lt;MockedConstruction.Context, MockHandler&lt;T&gt;&gt; handlerFactory,
+                MockedConstruction.MockInitializer&lt;T&gt; mockInitializer,
+<span class="fc" id="L770">                Map&lt;Class&lt;?&gt;, BiConsumer&lt;Object, MockedConstruction.Context&gt;&gt; interceptors) {</span>
+<span class="fc" id="L771">            this.type = type;</span>
+<span class="fc" id="L772">            this.settingsFactory = settingsFactory;</span>
+<span class="fc" id="L773">            this.handlerFactory = handlerFactory;</span>
+<span class="fc" id="L774">            this.mockInitializer = mockInitializer;</span>
+<span class="fc" id="L775">            this.interceptors = interceptors;</span>
+<span class="fc" id="L776">        }</span>
+
+        @Override
+        public Class&lt;T&gt; getType() {
+<span class="nc" id="L780">            return type;</span>
+        }
+
+        @Override
+        public void enable() {
+<span class="fc bfc" id="L785" title="All 2 branches covered.">            if (interceptors.putIfAbsent(</span>
+                            type,
+                            (object, context) -&gt; {
+<span class="fc" id="L788">                                ((InlineConstructionMockContext) context).count = ++count;</span>
+<span class="fc" id="L789">                                MockMethodInterceptor interceptor =</span>
+                                        new MockMethodInterceptor(
+<span class="fc" id="L791">                                                handlerFactory.apply(context),</span>
+<span class="fc" id="L792">                                                settingsFactory.apply(context));</span>
+<span class="fc" id="L793">                                mocks.put(object, interceptor);</span>
+                                try {
+                                    @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L796">                                    T cast = (T) object;</span>
+<span class="fc" id="L797">                                    mockInitializer.prepare(cast, context);</span>
+<span class="nc" id="L798">                                } catch (Throwable t) {</span>
+<span class="nc" id="L799">                                    mocks.remove(object); // TODO: filter stack trace?</span>
+<span class="nc" id="L800">                                    throw new MockitoException(</span>
+                                            &quot;Could not initialize mocked construction&quot;, t);
+<span class="fc" id="L802">                                }</span>
+<span class="fc" id="L803">                                all.add(object);</span>
+<span class="fc" id="L804">                            })</span>
+                    != null) {
+<span class="fc" id="L806">                throw new MockitoException(</span>
+<span class="fc" id="L807">                        join(</span>
+                                &quot;For &quot;
+<span class="fc" id="L809">                                        + type.getName()</span>
+                                        + &quot;, static mocking is already registered in the current thread&quot;,
+                                &quot;&quot;,
+                                &quot;To create a new mock, the existing static mock registration must be deregistered&quot;));
+            }
+<span class="fc" id="L814">        }</span>
+
+        @Override
+        public void disable() {
+<span class="pc bpc" id="L818" title="1 of 2 branches missed.">            if (interceptors.remove(type) == null) {</span>
+<span class="nc" id="L819">                throw new MockitoException(</span>
+<span class="nc" id="L820">                        join(</span>
+                                &quot;Could not deregister &quot;
+<span class="nc" id="L822">                                        + type.getName()</span>
+                                        + &quot; as a static mock since it is not currently registered&quot;,
+                                &quot;&quot;,
+                                &quot;To register a static mock, use Mockito.mockStatic(&quot;
+<span class="nc" id="L826">                                        + type.getSimpleName()</span>
+                                        + &quot;.class)&quot;));
+            }
+<span class="fc" id="L829">            all.clear();</span>
+<span class="fc" id="L830">        }</span>
+
+        @Override
+        @SuppressWarnings(&quot;unchecked&quot;)
+        public List&lt;T&gt; getMocks() {
+<span class="fc" id="L835">            return (List&lt;T&gt;) all;</span>
+        }
+    }
+
+    private static class InlineConstructionMockContext implements MockedConstruction.Context {
+
+<span class="fc" id="L841">        private static final Map&lt;String, Class&lt;?&gt;&gt; PRIMITIVES = new HashMap&lt;&gt;();</span>
+
+        static {
+<span class="fc" id="L844">            PRIMITIVES.put(boolean.class.getName(), boolean.class);</span>
+<span class="fc" id="L845">            PRIMITIVES.put(byte.class.getName(), byte.class);</span>
+<span class="fc" id="L846">            PRIMITIVES.put(short.class.getName(), short.class);</span>
+<span class="fc" id="L847">            PRIMITIVES.put(char.class.getName(), char.class);</span>
+<span class="fc" id="L848">            PRIMITIVES.put(int.class.getName(), int.class);</span>
+<span class="fc" id="L849">            PRIMITIVES.put(long.class.getName(), long.class);</span>
+<span class="fc" id="L850">            PRIMITIVES.put(float.class.getName(), float.class);</span>
+<span class="fc" id="L851">            PRIMITIVES.put(double.class.getName(), double.class);</span>
+<span class="fc" id="L852">        }</span>
+
+        private int count;
+
+        private final Object[] arguments;
+        private final Class&lt;?&gt; type;
+        private final String[] parameterTypeNames;
+
+        private InlineConstructionMockContext(
+<span class="fc" id="L861">                Object[] arguments, Class&lt;?&gt; type, String[] parameterTypeNames) {</span>
+<span class="fc" id="L862">            this.arguments = arguments;</span>
+<span class="fc" id="L863">            this.type = type;</span>
+<span class="fc" id="L864">            this.parameterTypeNames = parameterTypeNames;</span>
+<span class="fc" id="L865">        }</span>
+
+        @Override
+        public int getCount() {
+<span class="pc bpc" id="L869" title="1 of 2 branches missed.">            if (count == 0) {</span>
+<span class="nc" id="L870">                throw new MockitoConfigurationException(</span>
+                        &quot;mocked construction context is not initialized&quot;);
+            }
+<span class="fc" id="L873">            return count;</span>
+        }
+
+        @Override
+        public Constructor&lt;?&gt; constructor() {
+<span class="fc" id="L878">            Class&lt;?&gt;[] parameterTypes = new Class&lt;?&gt;[parameterTypeNames.length];</span>
+<span class="fc" id="L879">            int index = 0;</span>
+<span class="fc bfc" id="L880" title="All 2 branches covered.">            for (String parameterTypeName : parameterTypeNames) {</span>
+<span class="pc bpc" id="L881" title="1 of 2 branches missed.">                if (PRIMITIVES.containsKey(parameterTypeName)) {</span>
+<span class="nc" id="L882">                    parameterTypes[index++] = PRIMITIVES.get(parameterTypeName);</span>
+                } else {
+                    try {
+<span class="fc" id="L885">                        parameterTypes[index++] =</span>
+<span class="fc" id="L886">                                Class.forName(parameterTypeName, false, type.getClassLoader());</span>
+<span class="nc" id="L887">                    } catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L888">                        throw new MockitoException(</span>
+                                &quot;Could not find parameter of type &quot; + parameterTypeName, e);
+<span class="fc" id="L890">                    }</span>
+                }
+            }
+            try {
+<span class="fc" id="L894">                return type.getDeclaredConstructor(parameterTypes);</span>
+<span class="nc" id="L895">            } catch (NoSuchMethodException e) {</span>
+<span class="nc" id="L896">                throw new MockitoException(</span>
+<span class="nc" id="L897">                        join(</span>
+                                &quot;Could not resolve constructor of type&quot;,
+                                &quot;&quot;,
+<span class="nc" id="L900">                                type.getName(),</span>
+                                &quot;&quot;,
+                                &quot;with arguments of types&quot;,
+<span class="nc" id="L903">                                Arrays.toString(parameterTypes)),</span>
+                        e);
+            }
+        }
+
+        @Override
+        public List&lt;?&gt; arguments() {
+<span class="fc" id="L910">            return Collections.unmodifiableList(Arrays.asList(arguments));</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

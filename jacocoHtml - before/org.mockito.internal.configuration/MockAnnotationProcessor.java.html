@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockAnnotationProcessor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.configuration</a> &gt; <span class="el_source">MockAnnotationProcessor.java</span></div><h1>MockAnnotationProcessor.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.configuration;
+
+import static org.mockito.internal.util.StringUtil.join;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+
+import org.mockito.Mock;
+import org.mockito.MockSettings;
+import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.internal.util.Supplier;
+import org.mockito.quality.Strictness;
+
+/**
+ * Instantiates a mock on a field annotated by {@link Mock}
+ */
+<span class="fc" id="L25">public class MockAnnotationProcessor implements FieldAnnotationProcessor&lt;Mock&gt; {</span>
+    @Override
+    public Object process(Mock annotation, Field field) {
+<span class="fc" id="L28">        return processAnnotationForMock(</span>
+<span class="fc" id="L29">                annotation, field.getType(), field::getGenericType, field.getName());</span>
+    }
+
+    @SuppressWarnings(&quot;deprecation&quot;)
+    public static Object processAnnotationForMock(
+            Mock annotation, Class&lt;?&gt; type, Supplier&lt;Type&gt; genericType, String name) {
+<span class="fc" id="L35">        MockSettings mockSettings = Mockito.withSettings();</span>
+<span class="fc bfc" id="L36" title="All 2 branches covered.">        if (annotation.extraInterfaces().length &gt; 0) { // never null</span>
+<span class="fc" id="L37">            mockSettings.extraInterfaces(annotation.extraInterfaces());</span>
+        }
+<span class="fc bfc" id="L39" title="All 2 branches covered.">        if (&quot;&quot;.equals(annotation.name())) {</span>
+<span class="fc" id="L40">            mockSettings.name(name);</span>
+        } else {
+<span class="fc" id="L42">            mockSettings.name(annotation.name());</span>
+        }
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        if (annotation.serializable()) {</span>
+<span class="fc" id="L45">            mockSettings.serializable();</span>
+        }
+<span class="fc bfc" id="L47" title="All 2 branches covered.">        if (annotation.stubOnly()) {</span>
+<span class="fc" id="L48">            mockSettings.stubOnly();</span>
+        }
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        if (annotation.lenient()) {</span>
+<span class="fc" id="L51">            mockSettings.lenient();</span>
+        }
+<span class="fc bfc" id="L53" title="All 2 branches covered.">        if (annotation.strictness() != Mock.Strictness.TEST_LEVEL_DEFAULT) {</span>
+<span class="fc" id="L54">            mockSettings.strictness(Strictness.valueOf(annotation.strictness().toString()));</span>
+        }
+<span class="fc bfc" id="L56" title="All 2 branches covered.">        if (!annotation.mockMaker().isEmpty()) {</span>
+<span class="fc" id="L57">            mockSettings.mockMaker(annotation.mockMaker());</span>
+        }
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if (annotation.withoutAnnotations()) {</span>
+<span class="fc" id="L60">            mockSettings.withoutAnnotations();</span>
+        }
+
+<span class="fc" id="L63">        mockSettings.genericTypeToMock(genericType.get());</span>
+
+        // see @Mock answer default value
+<span class="fc" id="L66">        mockSettings.defaultAnswer(annotation.answer());</span>
+
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        if (type == MockedStatic.class) {</span>
+<span class="fc" id="L69">            return Mockito.mockStatic(</span>
+<span class="fc" id="L70">                    inferParameterizedType(</span>
+<span class="fc" id="L71">                            genericType.get(), name, MockedStatic.class.getSimpleName()),</span>
+                    mockSettings);
+<span class="fc bfc" id="L73" title="All 2 branches covered.">        } else if (type == MockedConstruction.class) {</span>
+<span class="fc" id="L74">            return Mockito.mockConstruction(</span>
+<span class="fc" id="L75">                    inferParameterizedType(</span>
+<span class="fc" id="L76">                            genericType.get(), name, MockedConstruction.class.getSimpleName()),</span>
+                    mockSettings);
+        } else {
+<span class="fc" id="L79">            return Mockito.mock(type, mockSettings);</span>
+        }
+    }
+
+    static Class&lt;?&gt; inferParameterizedType(Type type, String name, String sort) {
+<span class="fc bfc" id="L84" title="All 2 branches covered.">        if (type instanceof ParameterizedType) {</span>
+<span class="fc" id="L85">            ParameterizedType parameterizedType = (ParameterizedType) type;</span>
+<span class="fc" id="L86">            Type[] arguments = parameterizedType.getActualTypeArguments();</span>
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">            if (arguments.length == 1) {</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">                if (arguments[0] instanceof Class&lt;?&gt;) {</span>
+<span class="fc" id="L89">                    return (Class&lt;?&gt;) arguments[0];</span>
+                }
+            }
+        }
+<span class="fc" id="L93">        throw new MockitoException(</span>
+<span class="fc" id="L94">                join(</span>
+                        &quot;Mockito cannot infer a static mock from a raw type for &quot; + name,
+                        &quot;&quot;,
+                        &quot;Instead of @Mock &quot; + sort + &quot; you need to specify a parameterized type&quot;,
+                        &quot;For example, if you would like to mock Sample.class, specify&quot;,
+                        &quot;&quot;,
+                        &quot;@Mock &quot; + sort + &quot;&lt;Sample&gt;&quot;,
+                        &quot;&quot;,
+                        &quot;as the type parameter. If the type is itself parameterized, it should be specified as raw type.&quot;));
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

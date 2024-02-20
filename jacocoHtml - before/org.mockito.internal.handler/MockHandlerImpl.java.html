@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="sv"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockHandlerImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.handler</a> &gt; <span class="el_source">MockHandlerImpl.java</span></div><h1>MockHandlerImpl.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.handler;
+
+import static org.mockito.internal.listeners.StubbingLookupNotifier.notifyStubbedAnswerLookup;
+import static org.mockito.internal.progress.ThreadSafeMockingProgress.mockingProgress;
+
+import org.mockito.internal.creation.settings.CreationSettings;
+import org.mockito.internal.invocation.InvocationMatcher;
+import org.mockito.internal.invocation.MatchersBinder;
+import org.mockito.internal.stubbing.InvocationContainerImpl;
+import org.mockito.internal.stubbing.OngoingStubbingImpl;
+import org.mockito.internal.stubbing.StubbedInvocationMatcher;
+import org.mockito.internal.stubbing.answers.DefaultAnswerValidator;
+import org.mockito.internal.util.MockUtil;
+import org.mockito.internal.verification.MockAwareVerificationMode;
+import org.mockito.internal.verification.VerificationDataImpl;
+import org.mockito.invocation.Invocation;
+import org.mockito.invocation.InvocationContainer;
+import org.mockito.invocation.MockHandler;
+import org.mockito.mock.MockCreationSettings;
+import org.mockito.verification.VerificationMode;
+
+/**
+ * Invocation handler set on mock objects.
+ *
+ * @param &lt;T&gt; type of mock object to handle
+ */
+public class MockHandlerImpl&lt;T&gt; implements MockHandler&lt;T&gt; {
+
+    private static final long serialVersionUID = -2917871070982574165L;
+
+    InvocationContainerImpl invocationContainer;
+
+<span class="fc" id="L37">    MatchersBinder matchersBinder = new MatchersBinder();</span>
+
+    private final MockCreationSettings&lt;T&gt; mockSettings;
+
+<span class="fc" id="L41">    public MockHandlerImpl(MockCreationSettings&lt;T&gt; mockSettings) {</span>
+<span class="fc" id="L42">        this.mockSettings = mockSettings;</span>
+
+<span class="fc" id="L44">        this.matchersBinder = new MatchersBinder();</span>
+<span class="fc" id="L45">        this.invocationContainer = new InvocationContainerImpl(mockSettings);</span>
+<span class="fc" id="L46">    }</span>
+
+    @Override
+    public Object handle(Invocation invocation) throws Throwable {
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        if (invocationContainer.hasAnswersForStubbing()) {</span>
+            // stubbing voids with doThrow() or doAnswer() style
+<span class="fc" id="L52">            InvocationMatcher invocationMatcher =</span>
+<span class="fc" id="L53">                    matchersBinder.bindMatchers(</span>
+<span class="fc" id="L54">                            mockingProgress().getArgumentMatcherStorage(), invocation);</span>
+<span class="fc" id="L55">            invocationContainer.setMethodForStubbing(invocationMatcher);</span>
+<span class="fc" id="L56">            return null;</span>
+        }
+<span class="fc" id="L58">        VerificationMode verificationMode = mockingProgress().pullVerificationMode();</span>
+
+<span class="fc" id="L60">        InvocationMatcher invocationMatcher =</span>
+<span class="fc" id="L61">                matchersBinder.bindMatchers(</span>
+<span class="fc" id="L62">                        mockingProgress().getArgumentMatcherStorage(), invocation);</span>
+
+<span class="fc" id="L64">        mockingProgress().validateState();</span>
+
+        // if verificationMode is not null then someone is doing verify()
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        if (verificationMode != null) {</span>
+            // We need to check if verification was started on the correct mock
+            // - see VerifyingWithAnExtraCallToADifferentMockTest (bug 138)
+<span class="fc bfc" id="L70" title="All 2 branches covered.">            if (MockUtil.areSameMocks(</span>
+<span class="fc" id="L71">                    ((MockAwareVerificationMode) verificationMode).getMock(),</span>
+<span class="fc" id="L72">                    invocation.getMock())) {</span>
+<span class="fc" id="L73">                VerificationDataImpl data =</span>
+                        new VerificationDataImpl(invocationContainer, invocationMatcher);
+<span class="fc" id="L75">                verificationMode.verify(data);</span>
+<span class="fc" id="L76">                return null;</span>
+            } else {
+                // this means there is an invocation on a different mock. Re-adding verification
+                // mode
+                // - see VerifyingWithAnExtraCallToADifferentMockTest (bug 138)
+<span class="fc" id="L81">                mockingProgress().verificationStarted(verificationMode);</span>
+            }
+        }
+
+        // prepare invocation for stubbing
+<span class="fc" id="L86">        invocationContainer.setInvocationForPotentialStubbing(invocationMatcher);</span>
+<span class="fc" id="L87">        OngoingStubbingImpl&lt;T&gt; ongoingStubbing = new OngoingStubbingImpl&lt;T&gt;(invocationContainer);</span>
+<span class="fc" id="L88">        mockingProgress().reportOngoingStubbing(ongoingStubbing);</span>
+
+        // look for existing answer for this invocation
+<span class="fc" id="L91">        StubbedInvocationMatcher stubbing = invocationContainer.findAnswerFor(invocation);</span>
+        // TODO #793 - when completed, we should be able to get rid of the casting below
+<span class="fc" id="L93">        notifyStubbedAnswerLookup(</span>
+                invocation,
+                stubbing,
+<span class="fc" id="L96">                invocationContainer.getStubbingsAscending(),</span>
+                (CreationSettings) mockSettings);
+
+<span class="fc bfc" id="L99" title="All 2 branches covered.">        if (stubbing != null) {</span>
+<span class="fc" id="L100">            stubbing.captureArgumentsFrom(invocation);</span>
+
+            try {
+<span class="fc" id="L103">                return stubbing.answer(invocation);</span>
+            } finally {
+                // Needed so that we correctly isolate stubbings in some scenarios
+                // see MockitoStubbedCallInAnswerTest or issue #1279
+<span class="fc" id="L107">                mockingProgress().reportOngoingStubbing(ongoingStubbing);</span>
+            }
+        } else {
+            try {
+<span class="fc" id="L111">                Object ret = mockSettings.getDefaultAnswer().answer(invocation);</span>
+<span class="fc" id="L112">                DefaultAnswerValidator.validateReturnValueFor(invocation, ret);</span>
+
+<span class="fc" id="L114">                return ret;</span>
+            } finally {
+                // Mockito uses it to redo setting invocation for potential stubbing in case of
+                // partial
+                // mocks / spies.
+                // Without it, the real method inside 'when' might have delegated to other self
+                // method
+                // and overwrite the intended stubbed method with a different one.
+                // This means we would be stubbing a wrong method.
+                // Typically this would led to runtime exception that validates return type with
+                // stubbed
+                // method signature.
+<span class="fc" id="L126">                invocationContainer.resetInvocationForPotentialStubbing(invocationMatcher);</span>
+<span class="fc" id="L127">                mockingProgress().reportOngoingStubbing(ongoingStubbing);</span>
+            }
+        }
+    }
+
+    @Override
+    public MockCreationSettings&lt;T&gt; getMockSettings() {
+<span class="fc" id="L134">        return mockSettings;</span>
+    }
+
+    @Override
+    public InvocationContainer getInvocationContainer() {
+<span class="fc" id="L139">        return invocationContainer;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>
