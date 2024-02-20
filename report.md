@@ -116,6 +116,16 @@ git diff ...
 
 Number of test cases added: two per team member (P) or at least four (P+).
 
+
+
+Requirements to increase coverage:
+* ArrayEquals.matches: The current test suite does not cover cases where the wanted object is an int array and the actual given object is something else. It also does not cover cases where the actual given object is null.
+
+| function                         | old coverage | new coverage | added test cases  |
+|----------------------------------|--------------|--------------|-------------------|              
+| ArrayEquals.matches              | 72%          | 80%          | 792aa0a & 86a022e | 
+
+
 ## Self-assessment: Way of working
 
 Current state according to the Essence standard: ...
