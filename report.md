@@ -57,18 +57,26 @@ Both lizard and JaCoCo disagree with regards to CCN, which means they measure it
 
 ## Refactoring
 
+*Plan for refactoring complex code:*
+
 * SerializableMethod::equals - 
 * ArrayEquals::matches - 
 * EqualsBuilder::append - 
 *  - 
 
-Plan for refactoring complex code:
 
-Estimated impact of refactoring (lower CC, but other drawbacks?).
+*Estimated impact of refactoring (lower CC, but other drawbacks?).*
 
-Carried out refactoring (optional, P+):
+The CC will be lower, but there will be more functions, which can sometimes be a drawback if considering readability. Some functions are just inherently complex.
 
-git diff ...
+*Carried out refactoring (optional, P+):*
+
+| Member         | Refactor    |
+|----------------|--------|
+| Alex           | `git diff`       |
+| Anne           | ``       |
+| Hugo           | ``       |
+| Juan           | ``       |
 
 ## Coverage
 
