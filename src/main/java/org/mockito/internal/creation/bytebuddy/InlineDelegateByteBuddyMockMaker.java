@@ -5,6 +5,7 @@
 package org.mockito.internal.creation.bytebuddy;
 
 import net.bytebuddy.agent.ByteBuddyAgent;
+
 import org.mockito.MockedConstruction;
 import org.mockito.creation.instance.InstantiationException;
 import org.mockito.creation.instance.Instantiator;

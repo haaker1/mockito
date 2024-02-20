@@ -8,6 +8,7 @@ import static org.junit.Assert.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 import org.junit.Before;
@@ -69,6 +70,30 @@ public class SerializableMethodTest extends TestBase {
         assertFalse(new SerializableMethod(testBaseToStringMethod).equals(method));
     }
 
-    // TODO: add tests for generated equals() method
+    @Test
+    public void shouldNotBeEqualToNull() {
+        assertFalse(new SerializableMethod(toStringMethod).equals(null));
+    }
 
+    @Test
+    public void shouldNotBeEqualToOtherObject() {
+        assertFalse(new SerializableMethod(toStringMethod).equals(new Object()));
+    }
+
+    @Test
+    public void shouldNotBeEqualToOtherMethodName() throws NoSuchMethodException, SecurityException {
+        Method hashCodeMethod = this.getClass().getMethod("hashCode", args);
+        assertFalse(new SerializableMethod(toStringMethod).equals(new SerializableMethod(hashCodeMethod)));
+    }
+
+    @Test
+    public void shouldNotBeEqualToOtherParameters() throws NoSuchMethodException, SecurityException {
+        class Dummy {
+            public void method() {}
+            public void method(int a) {}
+        }
+        Method m1 = new Dummy().getClass().getMethod("method", new Class<?>[]{});
+        Method m2 = new Dummy().getClass().getMethod("method", new Class<?>[]{int.class});
+        assertFalse(new SerializableMethod(m1).equals(new SerializableMethod(m2)));
+    }
 }
