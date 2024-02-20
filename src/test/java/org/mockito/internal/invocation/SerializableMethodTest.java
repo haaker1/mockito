@@ -74,4 +74,9 @@ public class SerializableMethodTest extends TestBase {
     public void shouldNotBeEqualToNull() {
         assertFalse(new SerializableMethod(toStringMethod).equals(null));
     }
+
+    @Test
+    public void shouldNotBeEqualToOtherObject() {
+        assertFalse(new SerializableMethod(toStringMethod).equals(new Object()));
+    }
 }
