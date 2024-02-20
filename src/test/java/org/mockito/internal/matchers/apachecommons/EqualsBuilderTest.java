@@ -448,6 +448,20 @@ public class EqualsBuilderTest extends TestBase {
     }
 
     @Test
+    public void testEqualBigDecimal() {
+        BigDecimal o1 = new BigDecimal("42.0");
+        BigDecimal o2 = new BigDecimal("42.0");
+        assertTrue(new EqualsBuilder().append(o1, o2).isEquals());
+    }
+
+    @Test
+    public void testOneBigDecimal() {
+        BigDecimal o1 = new BigDecimal("42.0");
+        int o2 = 41;
+        assertFalse(new EqualsBuilder().append(o1, o2).isEquals());
+    }
+
+    @Test
     public void testAccessors() {
         EqualsBuilder equalsBuilder = new EqualsBuilder();
         assertTrue(equalsBuilder.isEquals());
