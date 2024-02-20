@@ -100,7 +100,7 @@ public class SerializableMethod implements Serializable, MockitoMethod {
 
     @Override
     public boolean equals(Object obj) {
-        Coverage.setTotalBranches("SerializableMethod::equals", 24);
+        Coverage.setTotalBranches("SerializableMethod::equals", 15);
         Coverage.reached("SerializableMethod::equals", 0);
         if (this == obj) {
             Coverage.reached("SerializableMethod::equals", 1);
@@ -121,53 +121,29 @@ public class SerializableMethod implements Serializable, MockitoMethod {
             Coverage.reached("SerializableMethod::equals", 6);
         }
         SerializableMethod other = (SerializableMethod) obj;
-        if (declaringClass == null) {
+        if (!declaringClass.equals(other.declaringClass)) {
             Coverage.reached("SerializableMethod::equals", 7);
-            if (other.declaringClass != null) {
-                Coverage.reached("SerializableMethod::equals", 8);
-                return false;
-            } else {
-                Coverage.reached("SerializableMethod::equals", 9);
-            }
-        } else if (!declaringClass.equals(other.declaringClass)) {
-            Coverage.reached("SerializableMethod::equals", 10);
             return false;
         } else {
-            Coverage.reached("SerializableMethod::equals", 11);
+            Coverage.reached("SerializableMethod::equals", 8);
         }
-        if (methodName == null) {
-            Coverage.reached("SerializableMethod::equals", 12);
-            if (other.methodName != null) {
-                Coverage.reached("SerializableMethod::equals", 13);
-                return false;
-            } else {
-                Coverage.reached("SerializableMethod::equals", 14);
-            }
-        } else if (!methodName.equals(other.methodName)) {
-            Coverage.reached("SerializableMethod::equals", 15);
+        if (!methodName.equals(other.methodName)) {
+            Coverage.reached("SerializableMethod::equals", 9);
             return false;
         } else {
-            Coverage.reached("SerializableMethod::equals", 16);
+            Coverage.reached("SerializableMethod::equals", 10);
         }
         if (!Arrays.equals(parameterTypes, other.parameterTypes)) {
-            Coverage.reached("SerializableMethod::equals", 17);
+            Coverage.reached("SerializableMethod::equals", 11);
             return false;
         } else {
-            Coverage.reached("SerializableMethod::equals", 18);
+            Coverage.reached("SerializableMethod::equals", 12);
         }
-        if (returnType == null) {
-            Coverage.reached("SerializableMethod::equals", 19);
-            if (other.returnType != null) {
-                Coverage.reached("SerializableMethod::equals", 20);
-                return false;
-            } else {
-                Coverage.reached("SerializableMethod::equals", 21);
-            }
-        } else if (!returnType.equals(other.returnType)) {
-            Coverage.reached("SerializableMethod::equals", 22);
+        if (!returnType.equals(other.returnType)) {
+            Coverage.reached("SerializableMethod::equals", 13);
             return false;
         } else {
-            Coverage.reached("SerializableMethod::equals", 23);
+            Coverage.reached("SerializableMethod::equals", 14);
         }
         return true;
     }
