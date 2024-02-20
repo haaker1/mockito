@@ -79,4 +79,10 @@ public class SerializableMethodTest extends TestBase {
     public void shouldNotBeEqualToOtherObject() {
         assertFalse(new SerializableMethod(toStringMethod).equals(new Object()));
     }
+
+    @Test
+    public void shouldNotBeEqualToOtherMethodName() throws NoSuchMethodException, SecurityException {
+        Method hashCodeMethod = this.getClass().getMethod("hashCode", args);
+        assertFalse(new SerializableMethod(toStringMethod).equals(new SerializableMethod(hashCodeMethod)));
+    }
 }
