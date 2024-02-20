@@ -79,12 +79,12 @@ The CC will be lower, but there will be more functions, which can sometimes be a
 
 **Carried out refactoring (optional, P+):**
 
-| Member         | Refactor    |
-|----------------|--------|
-| Alex           | `git diff`       |
-| Anne           | ``       |
-| Hugo           | ``       |
-| Juan           | ``       |
+| Member         | Refactor    | Improvement    |
+|----------------|--------|--------|
+| Alex           | `git diff e7690c9^..e7690c9`       | CCN reduced from 14 to 8 (lizard), or 13 to 7 (manual)      |
+| Anne           | ``       |       |
+| Hugo           | ``       |       |
+| Juan           | ``       |       |
 
 ## Coverage
 
@@ -160,16 +160,16 @@ Report of new coverage: [link]
 
 ## Self-assessment: Way of working
 
-Current state according to the Essence standard: ...
+**Current state according to the Essence standard: ...**
 
-Was the self-assessment unanimous? Any doubts about certain items?
+**Was the self-assessment unanimous? Any doubts about certain items?**
 
-How have you improved so far?
+**How have you improved so far?**
 
-Where is potential for improvement?
+**Where is potential for improvement?**
 
 ## Overall experience
 
-What are your main take-aways from this project? What did you learn?
+**What are your main take-aways from this project? What did you learn?**
 
-Is there something special you want to mention here?
+**Is there something special you want to mention here?**
