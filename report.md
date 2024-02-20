@@ -75,7 +75,7 @@ Method ArrayEquals::matches(Object):
 
 - Posssible refactor: as the code always checks the instance of the target array against the actual array given as parameter, we can remove testing the instance of the `actual` array, if we check whether or not the target and actual array are of the same instance at the beginning by `if(wanted.getClass().isInstance(actual)) {return false;}`. Should not create other problems.
 
-Method EqualsBuilder::append(Object[], Object[]):
+Method EqualsBuilder::append(Object, Object):
 
 - CCN: 17
 
