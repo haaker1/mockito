@@ -135,7 +135,7 @@ Number of test cases added: two per team member (P) or at least four (P+).
 | Alex   | `git diff a4fa4ce^..a4fa4ce` | `git diff 787f032^..787f032` | `git diff 8e7796c^..8e7796c` | `git diff 68919fb^..68919fb` |
 | Anne   | `git diff a10d43c^..a98781b` | `git diff 792aa0a^..792aa0a` |                              |                              |
 | Hugo   |                              |                              |                              |                              |
-| Juan   |                              |                              |                              |                              |
+| Juan   | `git diff a10d43c^..8f2807b` | `git diff a10d43c^..9be7b8d` |                              |                              |
 
 **Requirements to increase coverage:**
 
