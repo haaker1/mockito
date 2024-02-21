@@ -141,7 +141,7 @@ Requirements to increase coverage:
 
 * SerializableMethod::equals - It has a few checks which are never reached, for example whether the other object is null or if they are not of the same class, which could be added as test case. Also, depending on the methods that the function is comparing, they must also have the same method names and parameter types, which are not tested and could be added. 
 * ArrayEquals::matches - The current test suite does not cover cases where the wanted object is an int array and the actual given object is something else. It also does not cover cases where the actual given object is null.
-* EqualsBuilder::append - The existing tests already reach full line coverage and as such the DIY coverage cannot be improved. On the other hand the branch coverage as used by jacoco is not 100%. Coverage can be improved by testing an input with one instance of `BigDecimal` against one that is of another type (e.g. `int`). Another test to try two `BigDecimal` of the same value (but not the same variable) in the input increases the coverage further. 
+* EqualsBuilder::append - The existing tests already reach full DIY coverage and as such the it cannot be improved. On the other hand the branch coverage as used by jacoco is not 100%. Coverage can be improved by testing an input with one instance of `BigDecimal` against one that is of another type (e.g. `int`). Another test to try two `BigDecimal` of the same value (but not the same variable) in the input increases the coverage further. 
 * - 
 
 | function (with new tests)  | jacoco coverage | DIY coverage |
