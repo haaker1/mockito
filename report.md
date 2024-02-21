@@ -37,7 +37,7 @@ From this, we picked out four functions to count manually:
 | ------ | -------------------------- | ---------- | ---------- | ----------- | ----------- |
 | Alex   | SerializableMethod::equals | 14         | 25         | 13          | 13 (Anne)   |
 | Anne   | ArrayEquals::matches       | 21         | 21         | 11          | 11 (Alex)   |
-| Hugo   | EqualsBuilder::append      | 17         | 18         | 18          |             |
+| Hugo   | EqualsBuilder::append      | 17         | 18         | 18          | 18 (Juan)   |
 | Juan   | Matches::matches           | 2          | 3          | 2           | 2 (Hugo)    |
 | Juan   | Equality::AreEquals        | 6          | 7          | 3           | 3 (Hugo)    |
 
@@ -72,7 +72,7 @@ The documentation is lacking for all of the functions, and does not hold any inf
 * SerializableMethod::equals - The function has a lot of if-statements and different ways of figuring out if all necessary fields are equal between two objects. One initial thought is to split these up and handle different stages in different helper-functions. However, upon further inspection, it seems that there is a bit of dead code present; if-statements which are impossible to reach. For example, one branch is taken only if the return type of a function is null (which is not the same as void), which is impossible since every method needs a return type. Therefore, a refactoring plan is to remove the dead code and therefore reduce the complexity.
 * ArrayEquals::matches - The function consists of several if-statements checking if a given array and a target array both are of a specific type, to see if they match. So for every if-statement, two equality checks are performed. To refactor, an equality check between the types of the given and target arrays could be performed in the beginning. If this check passes and the arrays are of the same type, we can continue with only one equality check if the rest of the if-statements. One if-statement will be added, but ten checks, one for every existing if-statement, will be removed because there is no longer a need to use the and-logical operator to check several conditions. Therefore, the cyclomatic complexity of the function will decrease.
 * EqualsBuilder::append - The main part of the function, but also the one to induce most of the complexity, is a large switch-like structure to call the other `append` functions of correct type. This part cannot be refactored easily, attempts to modify it resulted in test failuers. Instead, we can refactor the first 2 parts, the one handling basic scenario (e.g. one or both objects being null; lines 342-351 in the original code), and the second handling non-array types and arrays of different dimensions (e.g. `int[]` and `int[][]`; lines 352-362 in the original code).
-* - 
+* ModuleHandler::adjustModuleGraph: Some if and While statements could be extract into separates functions, decreasing the complexity of the adjustModuleGraph method. Also, it is not a responsability for this fuction to, for example, make the exports or make the read. There is a good practice to extract the method in the lines 247-260 and also, another case, in the lines 187-191.
 
 **Estimated impact of refactoring (lower CC, but other drawbacks?).**
 
