@@ -33,12 +33,13 @@ The complexity measurement tool lizard was run on the code base to identify four
 
 From this, we picked out four functions to count manually: 
 
-| Member | function                   | lizard CCN | jacoco CCN | CCN manual1 | CCN manual2                      |
-| ------ | -------------------------- | ---------- | ---------- | ----------- | -------------------------------- |
-| Alex   | SerializableMethod::equals | 14         | 25         | 13          | 13 (Anne)                        |
-| Anne   | ArrayEquals::matches       | 21         | 21         | 11          | 11 (Alex)                        |
-| Hugo   | EqualsBuilder::append      | 17         | 18         | 18          |                                  |
-| Juan   |                            |            |            |             | 2 (matches), 3 (areEqual) (Hugo) |
+| Member | function                   | lizard CCN | jacoco CCN | CCN manual1 | CCN manual2 |
+| ------ | -------------------------- | ---------- | ---------- | ----------- | ----------- |
+| Alex   | SerializableMethod::equals | 14         | 25         | 13          | 13 (Anne)   |
+| Anne   | ArrayEquals::matches       | 21         | 21         | 11          | 11 (Alex)   |
+| Hugo   | EqualsBuilder::append      | 17         | 18         | 18          |             |
+| Juan   | Matches::matches           | 2          | 3          | 2           | 2 (Hugo)    |
+| Juan   | Equality::AreEquals        | 6          | 7          | 3           | 3 (Hugo)    |
 
 **Did everyone get the same result? Is there something that is unclear? If you have a tool, is its result the same as yours?**
 
@@ -54,9 +55,9 @@ The length of the most complex functions differ. However, they seem to lean towa
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | SerializableMethod::equals            | Check if the SerializableMethod object is equal to another object.                                    |
 | ArrayEquals::matches                  | Check if a given object is an array, and is equal to another object that is an array of the same type |
-| EqualsBuilder::append(Object, Object) | Compare two Object, notably arrays of primitive types and return if they are equal in-depth.          |
-| Matches::matches                      |                                                                                                       |
-| Equality::AreEquals                   |                                                                                                       |
+| EqualsBuilder::append(Object, Object) | Compare two Object, notably arrays of primitive types and return if they are equal in-depth.          |                                                                                                     |
+| Matches::matches                      | Checks if the provided object is a string and if it matches the pattern.                              |
+| Equality::AreEquals                   | Compare two objects for equality, considering null. Returns a boolean indicating if are equal or not. |
 
 **Are exceptions taken into account in the given measurements?**
 The chosen functions lack exceptions which makes it unclear whether or not the tools take these into account.
@@ -125,8 +126,9 @@ The table below shows the coverage in percentage.
 | SerializableMethod::equals   | 46%             | 41.7%        |
 | ArrayEquals::matches         | 72%             | 91.7%        |
 | EqualsBuilder::append        | 94%             | 100%         |
-| Matches::matches             | 70%             |              |
-| Equality::AreEquals          | 91%             |              |
+| Matches::matches             | 70%             | 100%         |
+| Equality::AreEquals          | 91%             | 100%         |
+
 
 
 Report of old coverage: [./jacocoHtml - before](https://github.com/haaker1/mockito/tree/issue/6-report/jacocoHtml%20-%20before)
@@ -145,15 +147,17 @@ Number of test cases added: two per team member (P) or at least four (P+).
 * SerializableMethod::equals - It has a few checks which are never reached, for example whether the other object is null or if they are not of the same class, which could be added as test case. Also, depending on the methods that the function is comparing, they must also have the same method names and parameter types, which are not tested and could be added. 
 * ArrayEquals::matches - The current test suite does not cover cases where the wanted object is an int array and the actual given object is something else. It also does not cover cases where the actual given object is null.
 * EqualsBuilder::append - The existing tests already reach full DIY coverage and as such the it cannot be improved. On the other hand the branch coverage as used by jacoco is not 100%. Coverage can be improved by testing an input with one instance of `BigDecimal` against one that is of another type (e.g. `int`). Another test to try two `BigDecimal` of the same value (but not the same variable) in the input increases the coverage further. 
-* - 
+* Matches::matches - The actual tests does not cover case where object could be something diferent of a String object. This could be problematic if someone in the future remove the condition that validates that the object must be a String.
+* Equality::AreEquals - The current tests does not cover case where the sent array could not be an array.
+
 
 | function (with new tests)  | jacoco coverage | DIY coverage |
 | -------------------------- | --------------- | ------------ |
 | SerializableMethod::equals | 61%             | 58.3%        |
 | ArrayEquals::matches       | 80%             | 100%         |
 | EqualsBuilder::append      | 97%             | 100%         |
-| Matches::matches           | 100%            |              |
-| Equality::AreEquals        | 100%            |              |
+| Matches::matches           | 100%            | 100%         |
+| Equality::AreEquals        | 100%            | 100%         |
 
 Report of new coverage: [link]
 
