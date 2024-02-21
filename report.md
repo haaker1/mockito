@@ -17,7 +17,7 @@ The could be built and run as documented in the project README. To build the pro
 The complexity measurement tool lizard was run on the code base to identify four large functions. The cyclomatic complexity of these functions was also counted by hand. We ran lizard using the command `lizard src/ -x"./src/tests/*" -l java -T cyclomatic_complexity=10` and obtained the following results:
 
 | NLOC | CCN | location                                                                   | file                                                                                         |
-|------|-----|----------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| ---- | --- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | 45   | 11  | MockAnnotationProcessor::processAnnotationForMock@33-81                    | @src/main/java/org/mockito/internal/configuration/MockAnnotationProcessor.java               |
 | 57   | 14  | InlineBytecodeGenerator::triggerRetransformation@247-306                   | @src/main/java/org/mockito/internal/creation/bytebuddy/InlineBytecodeGenerator.java          |
 | 119  | 24  | InlineDelegateByteBuddyMockMaker::InlineDelegateByteBuddyMockMaker@225-348 | @src/main/java/org/mockito/internal/creation/bytebuddy/InlineDelegateByteBuddyMockMaker.java |
@@ -33,12 +33,12 @@ The complexity measurement tool lizard was run on the code base to identify four
 
 From this, we picked out four functions to count manually: 
 
-| Member         | function                         | lizard CCN | jacoco CCN | CCN manual1 | CCN manual2 |
-|----------------|----------------------------------|------------|------------|-------------|-------------|
-| Alex           | SerializableMethod::equals       | 14         | 25         | 13          | 13 (Anne)     |
-| Anne           | ArrayEquals::matches             | 21         | 21         | 11          | 11 (Alex)   |
-| Hugo           | EqualsBuilder::append            | 17         | 18         |             |             |
-| Juan           |                                  |            |            |             |             |
+| Member | function                   | lizard CCN | jacoco CCN | CCN manual1 | CCN manual2 |
+| ------ | -------------------------- | ---------- | ---------- | ----------- | ----------- |
+| Alex   | SerializableMethod::equals | 14         | 25         | 13          | 13 (Anne)   |
+| Anne   | ArrayEquals::matches       | 21         | 21         | 11          | 11 (Alex)   |
+| Hugo   | EqualsBuilder::append      | 17         | 18         |             |             |
+| Juan   |                            |            |            |             |             |
 
 **Did everyone get the same result? Is there something that is unclear? If you have a tool, is its result the same as yours?**
 
@@ -50,12 +50,12 @@ The length of the most complex functions differ. However, they seem to lean towa
 
 **What is the purpose of the functions?**
 
-| function                         | purpose       |
-|----------------------------------|---------------|
-| SerializableMethod::equals       | Check if the SerializableMethod object is equal to another object. |
-| ArrayEquals::matches             | Check if a given object is an array, and is equal to another object that is an array of the same type  |
-| EqualsBuilder::append            |       |
-|                                  |       |
+| function                   | purpose                                                                                               |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- |
+| SerializableMethod::equals | Check if the SerializableMethod object is equal to another object.                                    |
+| ArrayEquals::matches       | Check if a given object is an array, and is equal to another object that is an array of the same type |
+| EqualsBuilder::append      |                                                                                                       |
+|                            |                                                                                                       |
 
 **Are exceptions taken into account in the given measurements?**
 The chosen functions lack exceptions which makes it unclear whether or not the tools take these into account.
@@ -70,8 +70,7 @@ The documentation is lacking for all of the functions, and does not hold any inf
 * SerializableMethod::equals - The function has a lot of if-statements and different ways of figuring out if all necessary fields are equal between two objects. One initial thought is to split these up and handle different stages in different helper-functions. However, upon further inspection, it seems that there is a bit of dead code present; if-statements which are impossible to reach. For example, one branch is taken only if the return type of a function is null (which is not the same as void), which is impossible since every method needs a return type. Therefore, a refactoring plan is to remove the dead code and therefore reduce the complexity.
 * ArrayEquals::matches - 
 * EqualsBuilder::append - 
-*  - 
-
+* - 
 
 **Estimated impact of refactoring (lower CC, but other drawbacks?).**
 
@@ -79,12 +78,12 @@ The CC will be lower, but there will be more functions, which can sometimes be a
 
 **Carried out refactoring (optional, P+):**
 
-| Member         | Refactor    | Improvement    |
-|----------------|--------|--------|
-| Alex           | `git diff e7690c9^..e7690c9`       | CCN reduced from 14 to 8 (lizard), or 13 to 7 (manual)      |
-| Anne           | ``       |       |
-| Hugo           | ``       |       |
-| Juan           | ``       |       |
+| Member | Refactor                     | Improvement                                            |
+| ------ | ---------------------------- | ------------------------------------------------------ |
+| Alex   | `git diff e7690c9^..e7690c9` | CCN reduced from 14 to 8 (lizard), or 13 to 7 (manual) |
+| Anne   | ``                           |                                                        |
+| Hugo   | ``                           |                                                        |
+| Juan   | ``                           |                                                        |
 
 ## Coverage
 
@@ -116,51 +115,47 @@ There are some limitations of the tool. For example, in if-statements such as `i
 
 There were some differences in results between our coverage tool and jacoco. One reason for the differences is that the two tools use different ways of counting. The jacoco tool is more detailed and counts cases such as `if(a || b)` as four different branches (a b, a !b, !a b, !a !b), whereas our tool only counts it as two branches. In addition, jacoco seems to include the coverage of lambda functions and other inner functions, which our tool does not. 
 
-
-
 ## Coverage improvement
 
 The table below shows the coverage in percentage.
 
-| function (without new tests)     | jacoco coverage | DIY coverage |
-|----------------------------------|-----------------|--------------|
-| SerializableMethod::equals       | 46%             | 41.7%        |
-| ArrayEquals::matches             | 72%             | 91.7%        |
-| EqualsBuilder::append            | 94%             | 100%         |
-|                                  |                 |              |
+| function (without new tests) | jacoco coverage | DIY coverage |
+| ---------------------------- | --------------- | ------------ |
+| SerializableMethod::equals   | 46%             | 41.7%        |
+| ArrayEquals::matches         | 72%             | 91.7%        |
+| EqualsBuilder::append        | 94%             | 100%         |
+|                              |                 |              |
 
 Report of old coverage: [./jacocoHtml - before](https://github.com/haaker1/mockito/tree/issue/6-report/jacocoHtml%20-%20before)
 
 Number of test cases added: two per team member (P) or at least four (P+).
 
-| Member         | TC1    | TC2    | TC3    | TC4    |
-|----------------|--------|--------|--------|--------|
-| Alex           | `git diff a4fa4ce^..a4fa4ce`       | `git diff 787f032^..787f032`       | `git diff 8e7796c^..8e7796c`       | `git diff 68919fb^..68919fb`       |
-| Anne           | `git diff a10d43c^..a98781b`       | `git diff 792aa0a^..792aa0a`       |        |        |
-| Hugo           |        |        |        |        |
-| Juan           |        |        |        |        |
-
-
+| Member | TC1                          | TC2                          | TC3                          | TC4                          |
+| ------ | ---------------------------- | ---------------------------- | ---------------------------- | ---------------------------- |
+| Alex   | `git diff a4fa4ce^..a4fa4ce` | `git diff 787f032^..787f032` | `git diff 8e7796c^..8e7796c` | `git diff 68919fb^..68919fb` |
+| Anne   | `git diff a10d43c^..a98781b` | `git diff 792aa0a^..792aa0a` |                              |                              |
+| Hugo   |                              |                              |                              |                              |
+| Juan   |                              |                              |                              |                              |
 
 **Requirements to increase coverage:**
+
 * SerializableMethod::equals - It has a few checks which are never reached, for example whether the other object is null or if they are not of the same class, which could be added as test case. Also, depending on the methods that the function is comparing, they must also have the same method names and parameter types, which are not tested and could be added. 
 * ArrayEquals::matches - The current test suite does not cover cases where the wanted object is an int array and the actual given object is something else. It also does not cover cases where the actual given object is null.
 * EqualsBuilder::append -
-*  - 
+* - 
 
-| function (with new tests)        | jacoco coverage | DIY coverage |
-|----------------------------------|-----------------|--------------|
-| SerializableMethod::equals       | 61%             | 58.3%        |
-| ArrayEquals::matches             | 80%             | 100%         |
-| EqualsBuilder::append            |                 |              |
-|                                  |                 |              |
+| function (with new tests)  | jacoco coverage | DIY coverage |
+| -------------------------- | --------------- | ------------ |
+| SerializableMethod::equals | 61%             | 58.3%        |
+| ArrayEquals::matches       | 80%             | 100%         |
+| EqualsBuilder::append      |                 |              |
+|                            |                 |              |
 
 Report of new coverage: [link]
 
-
 ## Self-assessment: Way of working
 
-Our current state according to the Essence standard is 'in place'. Some tools that we have been using for the entire course, such as git and Java, are being used by the whole team in a natural way without. However, some tools have been adapted for the context of the current project, such as using gradle instead of maven and using lizard and jacoco for complexity and coverage analysis. These new tools are being used by the whole team to perform their work, but the use is not yet fully natural. AN improvement is that the team members are starting to work more independently and asking for input from the other team members when encountering questions or issues. This is possible because the way of working of the team is becoming more unified. There is however potential for improvement when it comes to communication and planning in the beginning of a new project.
+Our current state according to the Essence standard is 'in place'. Some tools that we have been using for the entire course, such as git and Java, are being used by the whole team in a natural way. However, some tools have been adapted for the context of the current project, such as using gradle instead of maven and using lizard and jacoco for complexity and coverage analysis. These new tools are being used by the whole team to perform their work, but the use is not yet fully natural. An improvement is that the team members are starting to work more independently and asking for input from the other team members when encountering questions or issues. This is possible because the way of working of the team is becoming more unified. There is however potential for improvement when it comes to communication and planning in the beginning of a new project.
 
 ## Overall experience
 
