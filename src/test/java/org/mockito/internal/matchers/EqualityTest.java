@@ -31,6 +31,13 @@ public class EqualityTest extends TestBase {
         assertFalse(areEqual(new int[] {1}, new double[] {1.0}));
     }
 
+    @Test
+    public void O1IsArrayAndO2IsANumber() {
+        int[] arr1 = new int[] {1, 2};
+        int num = 1;
+        assertFalse(areEqual(arr1, num));
+    }
+
     @SuppressWarnings("EqualsHashCode")
     private final class BadEquals {
         @Override
