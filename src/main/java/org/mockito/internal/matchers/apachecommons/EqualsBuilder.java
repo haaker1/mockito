@@ -4,6 +4,7 @@
  */
 package org.mockito.internal.matchers.apachecommons;
 
+import org.mockito.Coverage;
 import org.mockito.internal.configuration.plugins.Plugins;
 import org.mockito.plugins.MemberAccessor;
 
@@ -339,47 +340,71 @@ class EqualsBuilder {
      * @return EqualsBuilder - used to chain calls.
      */
     public EqualsBuilder append(Object lhs, Object rhs) {
+        Coverage.setTotalBranches("EqualsBuilder::append", 20);
+        Coverage.reached("EqualsBuilder::append", 0);
         if (!isEquals) {
+            Coverage.reached("EqualsBuilder::append", 1);
             return this;
+        } else {
+            Coverage.reached("EqualsBuilder::append", 2);
         }
         if (lhs == rhs) {
+            Coverage.reached("EqualsBuilder::append", 3);
             return this;
+        } else {
+            Coverage.reached("EqualsBuilder::append", 4);
         }
         if (lhs == null || rhs == null) {
+            Coverage.reached("EqualsBuilder::append", 5);
             this.setEquals(false);
             return this;
+        } else {
+            Coverage.reached("EqualsBuilder::append", 6);
         }
         Class<?> lhsClass = lhs.getClass();
         if (!lhsClass.isArray()) {
+            Coverage.reached("EqualsBuilder::append", 7);
             if (lhs instanceof BigDecimal && rhs instanceof BigDecimal) {
+                Coverage.reached("EqualsBuilder::append", 8);
                 isEquals = (((BigDecimal) lhs).compareTo((BigDecimal) rhs) == 0);
             } else {
+                Coverage.reached("EqualsBuilder::append", 9);
                 // The simple case, not an array, just test the element
                 isEquals = lhs.equals(rhs);
             }
         } else if (lhs.getClass() != rhs.getClass()) {
+            Coverage.reached("EqualsBuilder::append", 10);
             // Here when we compare different dimensions, for example: a boolean[][] to a boolean[]
             this.setEquals(false);
 
             // 'Switch' on type of array, to dispatch to the correct handler
             // This handles multi dimensional arrays of the same depth
         } else if (lhs instanceof long[]) {
+            Coverage.reached("EqualsBuilder::append", 11);
             append((long[]) lhs, (long[]) rhs);
         } else if (lhs instanceof int[]) {
+            Coverage.reached("EqualsBuilder::append", 12);
             append((int[]) lhs, (int[]) rhs);
         } else if (lhs instanceof short[]) {
+            Coverage.reached("EqualsBuilder::append", 13);
             append((short[]) lhs, (short[]) rhs);
         } else if (lhs instanceof char[]) {
+            Coverage.reached("EqualsBuilder::append", 14);
             append((char[]) lhs, (char[]) rhs);
         } else if (lhs instanceof byte[]) {
+            Coverage.reached("EqualsBuilder::append", 15);
             append((byte[]) lhs, (byte[]) rhs);
         } else if (lhs instanceof double[]) {
+            Coverage.reached("EqualsBuilder::append", 16);
             append((double[]) lhs, (double[]) rhs);
         } else if (lhs instanceof float[]) {
+            Coverage.reached("EqualsBuilder::append", 17);
             append((float[]) lhs, (float[]) rhs);
         } else if (lhs instanceof boolean[]) {
+            Coverage.reached("EqualsBuilder::append", 18);
             append((boolean[]) lhs, (boolean[]) rhs);
         } else {
+            Coverage.reached("EqualsBuilder::append", 19);
             // Not an array of primitives
             append((Object[]) lhs, (Object[]) rhs);
         }
