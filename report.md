@@ -160,13 +160,7 @@ Report of new coverage: [link]
 
 ## Self-assessment: Way of working
 
-**Current state according to the Essence standard: ...**
-
-**Was the self-assessment unanimous? Any doubts about certain items?**
-
-**How have you improved so far?**
-
-**Where is potential for improvement?**
+Our current state according to the Essence standard is 'in place'. Some tools that we have been using for the entire course, such as git and Java, are being used by the whole team in a natural way without. However, some tools have been adapted for the context of the current project, such as using gradle instead of maven and using lizard and jacoco for complexity and coverage analysis. These new tools are being used by the whole team to perform their work, but the use is not yet fully natural. AN improvement is that the team members are starting to work more independently and asking for input from the other team members when encountering questions or issues. This is possible because the way of working of the team is becoming more unified. There is however potential for improvement when it comes to communication and planning in the beginning of a new project.
 
 ## Overall experience
 
