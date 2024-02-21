@@ -126,8 +126,8 @@ The table below shows the coverage in percentage.
 | SerializableMethod::equals   | 46%             | 41.7%        |
 | ArrayEquals::matches         | 72%             | 91.7%        |
 | EqualsBuilder::append        | 94%             | 100%         |
-| Matches::matches             | 70%             |              |
-| Equality::AreEquals          | 91%             |              |
+| Matches::matches             | 70%             | 100%         |
+| Equality::AreEquals          | 91%             | 100%         |
 
 
 Report of old coverage: [./jacocoHtml - before](https://github.com/haaker1/mockito/tree/issue/6-report/jacocoHtml%20-%20before)
@@ -146,15 +146,17 @@ Number of test cases added: two per team member (P) or at least four (P+).
 * SerializableMethod::equals - It has a few checks which are never reached, for example whether the other object is null or if they are not of the same class, which could be added as test case. Also, depending on the methods that the function is comparing, they must also have the same method names and parameter types, which are not tested and could be added. 
 * ArrayEquals::matches - The current test suite does not cover cases where the wanted object is an int array and the actual given object is something else. It also does not cover cases where the actual given object is null.
 * EqualsBuilder::append -
-* - 
+* Matches::matches - The actual tests does not cover case where object could be something diferent of a String object. This could be problematic if someone in the future remove the condition that validates that the object must be a String.
+* Equality::AreEquals - The current tests does not cover case where the sent array could not be an array.
+
 
 | function (with new tests)  | jacoco coverage | DIY coverage |
 | -------------------------- | --------------- | ------------ |
 | SerializableMethod::equals | 61%             | 58.3%        |
 | ArrayEquals::matches       | 80%             | 100%         |
 | EqualsBuilder::append      |                 |              |
-| Matches::matches           | 100%            |              |
-| Equality::AreEquals        | 100%            |              |
+| Matches::matches           | 100%            | 100%         |
+| Equality::AreEquals        | 100%            | 100%         |
 
 Report of new coverage: [link]
 
