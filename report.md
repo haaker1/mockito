@@ -50,12 +50,12 @@ The length of the most complex functions differ. However, they seem to lean towa
 
 **What is the purpose of the functions?**
 
-| function                   | purpose                                                                                               |
-| -------------------------- | ----------------------------------------------------------------------------------------------------- |
-| SerializableMethod::equals | Check if the SerializableMethod object is equal to another object.                                    |
-| ArrayEquals::matches       | Check if a given object is an array, and is equal to another object that is an array of the same type |
-| EqualsBuilder::append      |                                                                                                       |
-|                            |                                                                                                       |
+| function                              | purpose                                                                                               |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| SerializableMethod::equals            | Check if the SerializableMethod object is equal to another object.                                    |
+| ArrayEquals::matches                  | Check if a given object is an array, and is equal to another object that is an array of the same type |
+| EqualsBuilder::append(Object, Object) | Compare two Object, notably arrays of primitive types and return if they are equal in-depth.          |
+|                                       |                                                                                                       |
 
 **Are exceptions taken into account in the given measurements?**
 The chosen functions lack exceptions which makes it unclear whether or not the tools take these into account.
@@ -69,7 +69,7 @@ The documentation is lacking for all of the functions, and does not hold any inf
 
 * SerializableMethod::equals - The function has a lot of if-statements and different ways of figuring out if all necessary fields are equal between two objects. One initial thought is to split these up and handle different stages in different helper-functions. However, upon further inspection, it seems that there is a bit of dead code present; if-statements which are impossible to reach. For example, one branch is taken only if the return type of a function is null (which is not the same as void), which is impossible since every method needs a return type. Therefore, a refactoring plan is to remove the dead code and therefore reduce the complexity.
 * ArrayEquals::matches - 
-* EqualsBuilder::append - 
+* EqualsBuilder::append - The main part of the function, but also the one to induce most of the complexity, is a large switch-like structure to call the other `append` functions of correct type. This part cannot be refactored easily, attempts to modify it resulted in test failuers. Instead, we can refactor the first 2 parts, the one handling basic scenario (e.g. one or both objects being null; lines 342-351 in the original code), and the second handling non-array types and arrays of different dimensions (e.g. `int[]` and `int[][]`; lines 352-362 in the original code).
 * - 
 
 **Estimated impact of refactoring (lower CC, but other drawbacks?).**
@@ -78,12 +78,12 @@ The CC will be lower, but there will be more functions, which can sometimes be a
 
 **Carried out refactoring (optional, P+):**
 
-| Member | Refactor                     | Improvement                                            |
-| ------ | ---------------------------- | ------------------------------------------------------ |
-| Alex   | `git diff e7690c9^..e7690c9` | CCN reduced from 14 to 8 (lizard), or 13 to 7 (manual) |
-| Anne   | ``                           |                                                        |
-| Hugo   | ``                           |                                                        |
-| Juan   | ``                           |                                                        |
+| Member | Refactor                     | Improvement                                                         |
+| ------ | ---------------------------- | ------------------------------------------------------------------- |
+| Alex   | `git diff e7690c9^..e7690c9` | CCN reduced from 14 to 8 (lizard), or 13 to 7 (manual)              |
+| Anne   | ``                           |                                                                     |
+| Hugo   | `git diff dcc5154^..dcc5154` | CCN reduced from 17 to 11 (lizard and manual), or 18 to 11 (jacoco) |
+| Juan   | ``                           |                                                                     |
 
 ## Coverage
 
