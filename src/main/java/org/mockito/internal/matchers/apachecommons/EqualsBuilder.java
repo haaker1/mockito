@@ -342,40 +342,12 @@ class EqualsBuilder {
     public EqualsBuilder append(Object lhs, Object rhs) {
         Coverage.setTotalBranches("EqualsBuilder::append", 20);
         Coverage.reached("EqualsBuilder::append", 0);
-        if (!isEquals) {
-            Coverage.reached("EqualsBuilder::append", 1);
+        if(handleBasicAppendScenario(lhs, rhs)) {
             return this;
-        } else {
-            Coverage.reached("EqualsBuilder::append", 2);
         }
-        if (lhs == rhs) {
-            Coverage.reached("EqualsBuilder::append", 3);
-            return this;
-        } else {
-            Coverage.reached("EqualsBuilder::append", 4);
-        }
-        if (lhs == null || rhs == null) {
-            Coverage.reached("EqualsBuilder::append", 5);
-            this.setEquals(false);
-            return this;
-        } else {
-            Coverage.reached("EqualsBuilder::append", 6);
-        }
-        Class<?> lhsClass = lhs.getClass();
-        if (!lhsClass.isArray()) {
-            Coverage.reached("EqualsBuilder::append", 7);
-            if (lhs instanceof BigDecimal && rhs instanceof BigDecimal) {
-                Coverage.reached("EqualsBuilder::append", 8);
-                isEquals = (((BigDecimal) lhs).compareTo((BigDecimal) rhs) == 0);
-            } else {
-                Coverage.reached("EqualsBuilder::append", 9);
-                // The simple case, not an array, just test the element
-                isEquals = lhs.equals(rhs);
-            }
-        } else if (lhs.getClass() != rhs.getClass()) {
-            Coverage.reached("EqualsBuilder::append", 10);
-            // Here when we compare different dimensions, for example: a boolean[][] to a boolean[]
-            this.setEquals(false);
+        if (handleNonArrayAndDifferentArrayDimensions(lhs, rhs)) {
+            // Nothing to be done, but we must not do the following 'Switch' if
+            // the function answers with true
 
             // 'Switch' on type of array, to dispatch to the correct handler
             // This handles multi dimensional arrays of the same depth
@@ -409,6 +381,67 @@ class EqualsBuilder {
             append((Object[]) lhs, (Object[]) rhs);
         }
         return this;
+    }
+
+    /**
+     * Handles basic scenario for append: object already known to be non-equal,
+     * equal pointers, and at least one null object
+     * @param lhs the left hand object
+     * @param rhs the right hand object
+     * @return true if a basic scenario, false otherwise
+     */
+    private boolean handleBasicAppendScenario(Object lhs, Object rhs) {
+        if (!isEquals) {
+            Coverage.reached("EqualsBuilder::append", 1);
+            return true;
+        } else {
+            Coverage.reached("EqualsBuilder::append", 2);
+        }
+        if (lhs == rhs) {
+            Coverage.reached("EqualsBuilder::append", 3);
+            return true;
+        } else {
+            Coverage.reached("EqualsBuilder::append", 4);
+        }
+        if (lhs == null || rhs == null) {
+            Coverage.reached("EqualsBuilder::append", 5);
+            this.setEquals(false);
+            return true;
+        } else {
+            Coverage.reached("EqualsBuilder::append", 6);
+        }
+        return false;
+    }
+
+    /**
+     * Handles the cases where lhs is not an array, or lhs and rhs are of different dimensions
+     * (e.g. int[] vs. int[][]).
+     * @param lhs the left hand object
+     * @param rhs the right hand object
+     * @return true if non array or different dimensions, false otherwise
+     */
+    private boolean handleNonArrayAndDifferentArrayDimensions(Object lhs, Object rhs) {
+        Class<?> lhsClass = lhs.getClass();
+        if (!lhsClass.isArray()) {
+            Coverage.reached("EqualsBuilder::append", 7);
+            if (lhs instanceof BigDecimal && rhs instanceof BigDecimal) {
+                Coverage.reached("EqualsBuilder::append", 8);
+                isEquals = (((BigDecimal) lhs).compareTo((BigDecimal) rhs) == 0);
+            } else {
+                Coverage.reached("EqualsBuilder::append", 9);
+                // The simple case, not an array, just test the element
+                isEquals = lhs.equals(rhs);
+            }
+            return true;
+        } else if (lhs.getClass() != rhs.getClass()) {
+            Coverage.reached("EqualsBuilder::append", 10);
+            // Here when we compare different dimensions, for example: a boolean[][] to a boolean[]
+            this.setEquals(false);
+            return true;
+        } else {
+            return false;
+        }
+
     }
 
     /**
