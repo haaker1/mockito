@@ -37,7 +37,7 @@ From this, we picked out four functions to count manually:
 | ------ | -------------------------- | ---------- | ---------- | ----------- | ----------- |
 | Alex   | SerializableMethod::equals | 14         | 25         | 13          | 13 (Anne)   |
 | Anne   | ArrayEquals::matches       | 21         | 21         | 11          | 11 (Alex)   |
-| Hugo   | EqualsBuilder::append      | 17         | 18         |             |             |
+| Hugo   | EqualsBuilder::append      | 17         | 18         | 18          |             |
 | Juan   | Matches::matches           | 2          | 3          | 2           | 2 (Hugo)    |
 | Juan   | Equality::AreEquals        | 6          | 7          | 3           | 3 (Hugo)    |
 
@@ -51,13 +51,13 @@ The length of the most complex functions differ. However, they seem to lean towa
 
 **What is the purpose of the functions?**
 
-| function                   | purpose                                                                                               |
-| -------------------------- | ----------------------------------------------------------------------------------------------------- |
-| SerializableMethod::equals | Check if the SerializableMethod object is equal to another object.                                    |
-| ArrayEquals::matches       | Check if a given object is an array, and is equal to another object that is an array of the same type |
-| EqualsBuilder::append      |                                                                                                       |
-| Matches::matches           | Checks if the provided object is a string and if it matches the pattern.                              |
-| Equality::AreEquals        | Compare two objects for equality, considering null. Returns a boolean indicating if are equal or not. |
+| function                              | purpose                                                                                               |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| SerializableMethod::equals            | Check if the SerializableMethod object is equal to another object.                                    |
+| ArrayEquals::matches                  | Check if a given object is an array, and is equal to another object that is an array of the same type |
+| EqualsBuilder::append(Object, Object) | Compare two Object, notably arrays of primitive types and return if they are equal in-depth.          |                                                                                                     |
+| Matches::matches                      | Checks if the provided object is a string and if it matches the pattern.                              |
+| Equality::AreEquals                   | Compare two objects for equality, considering null. Returns a boolean indicating if are equal or not. |
 
 **Are exceptions taken into account in the given measurements?**
 The chosen functions lack exceptions which makes it unclear whether or not the tools take these into account.
@@ -71,7 +71,7 @@ The documentation is lacking for all of the functions, and does not hold any inf
 
 * SerializableMethod::equals - The function has a lot of if-statements and different ways of figuring out if all necessary fields are equal between two objects. One initial thought is to split these up and handle different stages in different helper-functions. However, upon further inspection, it seems that there is a bit of dead code present; if-statements which are impossible to reach. For example, one branch is taken only if the return type of a function is null (which is not the same as void), which is impossible since every method needs a return type. Therefore, a refactoring plan is to remove the dead code and therefore reduce the complexity.
 * ArrayEquals::matches - 
-* EqualsBuilder::append - 
+* EqualsBuilder::append - The main part of the function, but also the one to induce most of the complexity, is a large switch-like structure to call the other `append` functions of correct type. This part cannot be refactored easily, attempts to modify it resulted in test failuers. Instead, we can refactor the first 2 parts, the one handling basic scenario (e.g. one or both objects being null; lines 342-351 in the original code), and the second handling non-array types and arrays of different dimensions (e.g. `int[]` and `int[][]`; lines 352-362 in the original code).
 * - 
 
 **Estimated impact of refactoring (lower CC, but other drawbacks?).**
@@ -80,12 +80,12 @@ The CC will be lower, but there will be more functions, which can sometimes be a
 
 **Carried out refactoring (optional, P+):**
 
-| Member | Refactor                     | Improvement                                            |
-| ------ | ---------------------------- | ------------------------------------------------------ |
-| Alex   | `git diff e7690c9^..e7690c9` | CCN reduced from 14 to 8 (lizard), or 13 to 7 (manual) |
-| Anne   | ``                           |                                                        |
-| Hugo   | ``                           |                                                        |
-| Juan   | ``                           |                                                        |
+| Member | Refactor                     | Improvement                                                         |
+| ------ | ---------------------------- | ------------------------------------------------------------------- |
+| Alex   | `git diff e7690c9^..e7690c9` | CCN reduced from 14 to 8 (lizard), or 13 to 7 (manual)              |
+| Anne   | ``                           |                                                                     |
+| Hugo   | `git diff dcc5154^..dcc5154` | CCN reduced from 17 to 11 (lizard and manual), or 18 to 11 (jacoco) |
+| Juan   | ``                           |                                                                     |
 
 ## Coverage
 
@@ -130,6 +130,7 @@ The table below shows the coverage in percentage.
 | Equality::AreEquals          | 91%             | 100%         |
 
 
+
 Report of old coverage: [./jacocoHtml - before](https://github.com/haaker1/mockito/tree/issue/6-report/jacocoHtml%20-%20before)
 
 Number of test cases added: two per team member (P) or at least four (P+).
@@ -138,14 +139,14 @@ Number of test cases added: two per team member (P) or at least four (P+).
 | ------ | ---------------------------- | ---------------------------- | ---------------------------- | ---------------------------- |
 | Alex   | `git diff a4fa4ce^..a4fa4ce` | `git diff 787f032^..787f032` | `git diff 8e7796c^..8e7796c` | `git diff 68919fb^..68919fb` |
 | Anne   | `git diff a10d43c^..a98781b` | `git diff 792aa0a^..792aa0a` |                              |                              |
-| Hugo   |                              |                              |                              |                              |
+| Hugo   | `git diff 114783c^..114783c` | `git diff 114783c^..114783c` | `git diff 114783c^..114783c` | `git diff 114783c^..114783c` |
 | Juan   | `git diff a10d43c^..8f2807b` | `git diff a10d43c^..9be7b8d` |                              |                              |
 
 **Requirements to increase coverage:**
 
 * SerializableMethod::equals - It has a few checks which are never reached, for example whether the other object is null or if they are not of the same class, which could be added as test case. Also, depending on the methods that the function is comparing, they must also have the same method names and parameter types, which are not tested and could be added. 
 * ArrayEquals::matches - The current test suite does not cover cases where the wanted object is an int array and the actual given object is something else. It also does not cover cases where the actual given object is null.
-* EqualsBuilder::append -
+* EqualsBuilder::append - The existing tests already reach full DIY coverage and as such the it cannot be improved. On the other hand the branch coverage as used by jacoco is not 100%. Coverage can be improved by testing an input with one instance of `BigDecimal` against one that is of another type (e.g. `int`). Another test to try two `BigDecimal` of the same value (but not the same variable) in the input increases the coverage further. 
 * Matches::matches - The actual tests does not cover case where object could be something diferent of a String object. This could be problematic if someone in the future remove the condition that validates that the object must be a String.
 * Equality::AreEquals - The current tests does not cover case where the sent array could not be an array.
 
@@ -154,7 +155,7 @@ Number of test cases added: two per team member (P) or at least four (P+).
 | -------------------------- | --------------- | ------------ |
 | SerializableMethod::equals | 61%             | 58.3%        |
 | ArrayEquals::matches       | 80%             | 100%         |
-| EqualsBuilder::append      |                 |              |
+| EqualsBuilder::append      | 97%             | 100%         |
 | Matches::matches           | 100%            | 100%         |
 | Equality::AreEquals        | 100%            | 100%         |
 
