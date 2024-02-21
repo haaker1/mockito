@@ -167,6 +167,4 @@ Our current state according to the Essence standard is 'in place'. Some tools th
 
 ## Overall experience
 
-**What are your main take-aways from this project? What did you learn?**
-
-**Is there something special you want to mention here?**
+Our main take-aways from this project is the complexity of onboarding an existing project, even if it is not extremely large. The lack of documentation of the code increased this complexity. In addition, we learned of the problem of refactoring code that is made by someone else that you cannot ask. There exists as many coding-styles as there are coders, so it can be hard to understand the reasons behind writing the code in that particular way. 
