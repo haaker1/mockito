@@ -104,15 +104,15 @@ Our tool checks if a branch has been reached. It technically supports all types 
 
 ### Evaluation
 
-1. How detailed is your coverage measurement?
+**How detailed is your coverage measurement?**
 
 The coverage tool outputs the coverage measurement as a percentage of branches visited. In addition, it outputs which branches have been visited and which have not as identified by the branch ID. The tool is dependent on the utilization by the programmer who uses it. The tool does not work well with ternaries, but can be turned into if-else statements which are properly supported. It does take exceptions into account since it counts the if- or catch-blocks leading up to exceptions being thrown. 
 
-2. What are the limitations of your own tool?
+**What are the limitations of your own tool?**
 
 There are some limitations of the tool. For example, in if-statements such as `if(a || b)`, it does not measure which of `a` or `b` was true, only if the inside of the if-statement was reached. In such cases there are two ways to reach the if-statement, but we cannot know which way we took. Functionally they are the same branch since it does not matter for the outcome of the if/else statement which of the variables was true. However, it could lead to limitations in testing and make it harder to spot bugs since the coverage tool does not tell us if we have tested both ways to reach the if-statement. To test this, we would have to split up such 'combined' conditionals into several different if-statements. Changing the code would require the instrumentation of the tool to change, to include counting of the new branches that may be created.
 
-3. Are the results of your tool consistent with existing coverage tools?
+**Are the results of your tool consistent with existing coverage tools?**
 
 There were some differences in results between our coverage tool and jacoco. One reason for the differences is that the two tools use different ways of counting. The jacoco tool is more detailed and counts cases such as `if(a || b)` as four different branches (a b, a !b, !a b, !a !b), whereas our tool only counts it as two branches. In addition, jacoco seems to include the coverage of lambda functions and other inner functions, which our tool does not. 
 
@@ -142,7 +142,7 @@ Number of test cases added: two per team member (P) or at least four (P+).
 
 
 
-Requirements to increase coverage:
+**Requirements to increase coverage:**
 * SerializableMethod::equals - It has a few checks which are never reached, for example whether the other object is null or if they are not of the same class, which could be added as test case. Also, depending on the methods that the function is comparing, they must also have the same method names and parameter types, which are not tested and could be added. 
 * ArrayEquals::matches - The current test suite does not cover cases where the wanted object is an int array and the actual given object is something else. It also does not cover cases where the actual given object is null.
 * EqualsBuilder::append -
