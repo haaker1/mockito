@@ -448,6 +448,20 @@ public class EqualsBuilderTest extends TestBase {
     }
 
     @Test
+    public void testEqualBigDecimal() {
+        BigDecimal o1 = new BigDecimal("42.0");
+        BigDecimal o2 = new BigDecimal("42.0");
+        assertTrue(new EqualsBuilder().append(o1, o2).isEquals());
+    }
+
+    @Test
+    public void testOneBigDecimal() {
+        BigDecimal o1 = new BigDecimal("42.0");
+        int o2 = 41;
+        assertFalse(new EqualsBuilder().append(o1, o2).isEquals());
+    }
+
+    @Test
     public void testAccessors() {
         EqualsBuilder equalsBuilder = new EqualsBuilder();
         assertTrue(equalsBuilder.isEquals());
@@ -529,6 +543,20 @@ public class EqualsBuilderTest extends TestBase {
         obj2 = null;
         assertTrue(!new EqualsBuilder().append(obj1, obj2).isEquals());
         obj1 = null;
+        assertTrue(new EqualsBuilder().append(obj1, obj2).isEquals());
+    }
+
+    @Test
+    public void testIntArrayOfDifferentLength() {
+        int[] obj1 = {1, 2, 3};
+        int[] obj2 = {1, 2, 3, 4, 5, 6, 7};
+        assertFalse(new EqualsBuilder().append(obj1, obj2).isEquals());
+    }
+
+    @Test
+    public void testIntArrayEmptyArrays() {
+        int[] obj1 = new int[0];
+        int[] obj2 = new int[0];
         assertTrue(new EqualsBuilder().append(obj1, obj2).isEquals());
     }
 
