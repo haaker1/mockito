@@ -9,12 +9,9 @@ import java.util.regex.Pattern;
 
 import org.mockito.ArgumentMatcher;
 
-import org.mockito.Coverage;
-
 public class Matches implements ArgumentMatcher<Object>, Serializable {
 
     private final Pattern pattern;
-
 
     public Matches(String regex) {
         this(Pattern.compile(regex));
@@ -26,8 +23,6 @@ public class Matches implements ArgumentMatcher<Object>, Serializable {
 
     @Override
     public boolean matches(Object actual) {
-        Coverage.setTotalBranches("Matches::matches", 1);
-        Coverage.reached("Matches::matches", 0);
         return (actual instanceof String) && pattern.matcher((String) actual).find();
     }
 

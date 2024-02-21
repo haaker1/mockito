@@ -6,26 +6,17 @@ package org.mockito.internal.matchers;
 
 import java.lang.reflect.Array;
 
-import org.mockito.Coverage;
-
 // stolen from hamcrest because I didn't want to have more dependency than Matcher class
 public final class Equality {
 
     public static boolean areEqual(Object o1, Object o2) {
-        Coverage.setTotalBranches("Equality::areEqual", 5);
-        Coverage.reached("Equality::areEqual", 0);
-
         if (o1 == o2) {
-            Coverage.reached("Equality::areEqual", 1);
             return true;
         } else if (o1 == null || o2 == null) {
-            Coverage.reached("Equality::areEqual", 2);
             return false;
         } else if (isArray(o1)) {
-            Coverage.reached("Equality::areEqual", 3);
             return isArray(o2) && areArraysEqual(o1, o2);
         } else {
-            Coverage.reached("Equality::areEqual", 4);
             return o1.equals(o2);
         }
     }
