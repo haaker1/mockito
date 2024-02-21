@@ -38,7 +38,8 @@ From this, we picked out four functions to count manually:
 | Alex   | SerializableMethod::equals | 14         | 25         | 13          | 13 (Anne)   |
 | Anne   | ArrayEquals::matches       | 21         | 21         | 11          | 11 (Alex)   |
 | Hugo   | EqualsBuilder::append      | 17         | 18         |             |             |
-| Juan   |                            |            |            |             |             |
+| Juan   | Matches::matches           | 2          | 3          | 2           | 2 (Hugo)    |
+| Juan   | Equality::AreEquals        | 6          | 7          | 3           | 3 (Hugo)    |
 
 **Did everyone get the same result? Is there something that is unclear? If you have a tool, is its result the same as yours?**
 
@@ -55,8 +56,8 @@ The length of the most complex functions differ. However, they seem to lean towa
 | SerializableMethod::equals | Check if the SerializableMethod object is equal to another object.                                    |
 | ArrayEquals::matches       | Check if a given object is an array, and is equal to another object that is an array of the same type |
 | EqualsBuilder::append      |                                                                                                       |
-| Matches::matches           |                                                                                                       |
-| Equality::AreEquals        |                                                                                                       |
+| Matches::matches           | Checks if the provided object is a string and if it matches the pattern.                              |
+| Equality::AreEquals        | Compare two objects for equality, considering null. Returns a boolean indicating if are equal or not. |
 
 **Are exceptions taken into account in the given measurements?**
 The chosen functions lack exceptions which makes it unclear whether or not the tools take these into account.
@@ -127,6 +128,7 @@ The table below shows the coverage in percentage.
 | EqualsBuilder::append        | 94%             | 100%         |
 | Matches::matches             | 70%             |              |
 | Equality::AreEquals          | 91%             |              |
+
 
 Report of old coverage: [./jacocoHtml - before](https://github.com/haaker1/mockito/tree/issue/6-report/jacocoHtml%20-%20before)
 
