@@ -37,7 +37,6 @@ public class EqualsTest extends TestBase {
     public void assertTrueWhenActualArrayIsNull(){
         assertFalse(new ArrayEquals(new double[] {2.7}).matches(null));
     }
-    
 
     @Test
     public void shouldDescribeWithExtraTypeInfo() throws Exception {
