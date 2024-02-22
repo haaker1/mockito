@@ -4,7 +4,7 @@
 
 Name: Anne Haaker, Alex Gunnarsson, Hugo Tricot, Juan Bautista Lavagnini Portela
 
-URL: https://github.com/haaker1/mockito 
+URL: https://github.com/haaker1/mockito
 
 The project is mockito, which is a tool used for mock-testing Java projects.
 
@@ -31,7 +31,7 @@ The complexity measurement tool lizard was run on the code base to identify four
 | 25   | 21  | ArrayEquals::matches@17-41                                                 | @src/main/java/org/mockito/internal/matchers/ArrayEquals.java                                |
 | 48   | 23  | ReturnsEmptyValues::returnValueFor@106-158                                 | @src/main/java/org/mockito/internal/stubbing/defaultanswers/ReturnsEmptyValues.java          |
 
-From this, we picked out four functions to count manually: 
+From this, we picked out four functions to count manually:
 
 | Member | function                   | lizard CCN | jacoco CCN | CCN manual1 | CCN manual2 |
 | ------ | -------------------------- | ---------- | ---------- | ----------- | ----------- |
@@ -63,7 +63,7 @@ The length of the most complex functions differ. However, they seem to lean towa
 The chosen functions lack exceptions which makes it unclear whether or not the tools take these into account.
 
 **Is the documentation clear w.r.t. all the possible outcomes?**
-The documentation is lacking for all of the functions, and does not hold any information about the possible outcomes of the functions. 
+The documentation is lacking for all of the functions, and does not hold any information about the possible outcomes of the functions.
 
 ## Refactoring
 
@@ -71,8 +71,8 @@ The documentation is lacking for all of the functions, and does not hold any inf
 
 * SerializableMethod::equals - The function has a lot of if-statements and different ways of figuring out if all necessary fields are equal between two objects. One initial thought is to split these up and handle different stages in different helper-functions. However, upon further inspection, it seems that there is a bit of dead code present; if-statements which are impossible to reach. For example, one branch is taken only if the return type of a function is null (which is not the same as void), which is impossible since every method needs a return type. Therefore, a refactoring plan is to remove the dead code and therefore reduce the complexity.
 * ArrayEquals::matches - The function consists of several if-statements checking if a given array and a target array both are of a specific type, to see if they match. So for every if-statement, two equality checks are performed. To refactor, an equality check between the types of the given and target arrays could be performed in the beginning. If this check passes and the arrays are of the same type, we can continue with only one equality check if the rest of the if-statements. One if-statement will be added, but ten checks, one for every existing if-statement, will be removed because there is no longer a need to use the and-logical operator to check several conditions. Therefore, the cyclomatic complexity of the function will decrease.
-* EqualsBuilder::append - The main part of the function, but also the one to induce most of the complexity, is a large switch-like structure to call the other `append` functions of correct type. This part cannot be refactored easily, attempts to modify it resulted in test failuers. Instead, we can refactor the first 2 parts, the one handling basic scenario (e.g. one or both objects being null; lines 342-351 in the original code), and the second handling non-array types and arrays of different dimensions (e.g. `int[]` and `int[][]`; lines 352-362 in the original code).
-* ModuleHandler::adjustModuleGraph: Some if and While statements could be extract into separates functions, decreasing the complexity of the adjustModuleGraph method. Also, it is not a responsability for this fuction to, for example, make the exports or make the read. There is a good practice to extract the method in the lines 247-260 and also, another case, in the lines 187-191.
+* EqualsBuilder::append - The main part of the function, but also the one to induce most of the complexity, is a large switch-like structure to call the other `append` functions of correct type. This part cannot be refactored easily, attempts to modify it resulted in test failures. Instead, we can refactor the first 2 parts, the one handling basic scenario (e.g. one or both objects being null; lines 342-351 in the original code), and the second handling non-array types and arrays of different dimensions (e.g. `int[]` and `int[][]`; lines 352-362 in the original code).
+* ModuleHandler::adjustModuleGraph: Some if and While statements could be extract into separates functions, decreasing the complexity of the adjustModuleGraph method. Also, it is not a responsibility for this function to, for example, make the exports or make the read. There is a good practice to extract the method in the lines 247-260 and also, another case, in the lines 187-191.
 
 **Estimated impact of refactoring (lower CC, but other drawbacks?).**
 
@@ -91,7 +91,7 @@ The CC will be lower, but there will be more functions, which can sometimes be a
 
 ### Tools
 
-The tool used to measure code coverage was jacoco. It was already integrated in the existing build environment which made it easy to use with the command `./gradlew coverageReport`, although it wasn't properly documented. This generated a html file with information about the coverage for all the functions in the project. 
+The tool used to measure code coverage was jacoco. It was already integrated in the existing build environment which made it easy to use with the command `./gradlew coverageReport`, although it wasn't properly documented. This generated a html file with information about the coverage for all the functions in the project.
 
 ### Your own coverage tool
 
@@ -101,13 +101,13 @@ git diff dd5de3f^..0a075f8
 
 **What kinds of constructs does your tool support, and how accurate is its output?**
 
-Our tool checks if a branch has been reached. It technically supports all types of branches, but they have to be conciously implemented by the programmer who seeks to measure the coverage. The branch logging is done via function calls, so ternaries have to be converted into if-else statements which call the function to log the branch.
+Our tool checks if a branch has been reached. It technically supports all types of branches, but they have to be consciously implemented by the programmer who seeks to measure the coverage. The branch logging is done via function calls, so ternaries have to be converted into if-else statements which call the function to log the branch.
 
 ### Evaluation
 
 **How detailed is your coverage measurement?**
 
-The coverage tool outputs the coverage measurement as a percentage of branches visited. In addition, it outputs which branches have been visited and which have not as identified by the branch ID. The tool is dependent on the utilization by the programmer who uses it. The tool does not work well with ternaries, but can be turned into if-else statements which are properly supported. It does take exceptions into account since it counts the if- or catch-blocks leading up to exceptions being thrown. 
+The coverage tool outputs the coverage measurement as a percentage of branches visited. In addition, it outputs which branches have been visited and which have not as identified by the branch ID. The tool is dependent on the utilization by the programmer who uses it. The tool does not work well with ternaries, but can be turned into if-else statements which are properly supported. It does take exceptions into account since it counts the if- or catch-blocks leading up to exceptions being thrown.
 
 **What are the limitations of your own tool?**
 
@@ -115,19 +115,20 @@ There are some limitations of the tool. For example, in if-statements such as `i
 
 **Are the results of your tool consistent with existing coverage tools?**
 
-There were some differences in results between our coverage tool and jacoco. One reason for the differences is that the two tools use different ways of counting. The jacoco tool is more detailed and counts cases such as `if(a || b)` as four different branches (a b, a !b, !a b, !a !b), whereas our tool only counts it as two branches. In addition, jacoco seems to include the coverage of lambda functions and other inner functions, which our tool does not. 
+There were some differences in results between our coverage tool and jacoco. One reason for the differences is that the two tools use different ways of counting. The jacoco tool is more detailed and counts cases such as `if(a || b)` as four different branches (a b, a !b, !a b, !a !b), whereas our tool only counts it as two branches. In addition, jacoco seems to include the coverage of lambda functions and other inner functions, which our tool does not.
 
 ## Coverage improvement
 
 The table below shows the coverage in percentage.
 
-| function (without new tests) | jacoco coverage | DIY coverage |
-| ---------------------------- | --------------- | ------------ |
-| SerializableMethod::equals   | 46%             | 41.7%        |
-| ArrayEquals::matches         | 72%             | 91.7%        |
-| EqualsBuilder::append        | 94%             | 100%         |
-| Matches::matches             | 70%             | 100%         |
-| Equality::AreEquals          | 91%             | 100%         |
+| function (without new tests)          | jacoco coverage | DIY coverage |
+| ------------------------------------- | --------------- | ------------ |
+| SerializableMethod::equals            | 46%             | 41.7%        |
+| ArrayEquals::matches                  | 72%             | 91.7%        |
+| EqualsBuilder::append(Object, Object) | 94%             | 100%         |
+| EqualsBuilder::append(int[], int[])   | 71%             | 80%          |
+| Matches::matches                      | 70%             | 100%         |
+| Equality::AreEquals                   | 91%             | 100%         |
 
 
 
@@ -144,20 +145,22 @@ Number of test cases added: two per team member (P) or at least four (P+).
 
 **Requirements to increase coverage:**
 
-* SerializableMethod::equals - It has a few checks which are never reached, for example whether the other object is null or if they are not of the same class, which could be added as test case. Also, depending on the methods that the function is comparing, they must also have the same method names and parameter types, which are not tested and could be added. 
+* SerializableMethod::equals - It has a few checks which are never reached, for example whether the other object is null or if they are not of the same class, which could be added as test case. Also, depending on the methods that the function is comparing, they must also have the same method names and parameter types, which are not tested and could be added.
 * ArrayEquals::matches - The current test suite does not cover cases where the wanted object is an int array and the actual given object is something else. It also does not cover cases where the actual given object is null.
-* EqualsBuilder::append - The existing tests already reach full DIY coverage and as such the it cannot be improved. On the other hand the branch coverage as used by jacoco is not 100%. Coverage can be improved by testing an input with one instance of `BigDecimal` against one that is of another type (e.g. `int`). Another test to try two `BigDecimal` of the same value (but not the same variable) in the input increases the coverage further. 
-* Matches::matches - The actual tests does not cover case where object could be something diferent of a String object. This could be problematic if someone in the future remove the condition that validates that the object must be a String.
+* EqualsBuilder::append(Object, Object) - The existing tests already reach full DIY coverage and as such the it cannot be improved. On the other hand the branch coverage as used by jacoco is not 100%. Coverage can be improved by testing an input with one instance of `BigDecimal` against one that is of another type (e.g. `int`). Another test to try two `BigDecimal` of the same value (but not the same variable) in the input increases the coverage further.
+* EqualsBuilder::append(int[], int[]) - The existing tests can be improved by adding a test with empty arrays, and one that tests the method with input arrays of different size (in terms of elements, not reserved space).
+* Matches::matches - The actual tests does not cover case where object could be something different of a String object. This could be problematic if someone in the future remove the condition that validates that the object must be a String.
 * Equality::AreEquals - The current tests does not cover case where the sent array could not be an array.
 
 
-| function (with new tests)  | jacoco coverage | DIY coverage |
-| -------------------------- | --------------- | ------------ |
-| SerializableMethod::equals | 61%             | 58.3%        |
-| ArrayEquals::matches       | 80%             | 100%         |
-| EqualsBuilder::append      | 97%             | 100%         |
-| Matches::matches           | 100%            | 100%         |
-| Equality::AreEquals        | 100%            | 100%         |
+| function (with new tests              | jacoco coverage | DIY coverage |
+| ------------------------------------- | --------------- | ------------ |
+| SerializableMethod::equals            | 61%             | 58.3%        |
+| ArrayEquals::matches                  | 80%             | 100%         |
+| EqualsBuilder::append(Object, Object) | 97%             | 100%         |
+| EqualsBuilder::append(int[], int[])   | 78%             | 90%          |
+| Matches::matches                      | 100%            | 100%         |
+| Equality::AreEquals                   | 100%            | 100%         |
 
 Report of new coverage:  [./jacocoHtml - After](https://github.com/haaker1/mockito/tree/issue/6-report/jacocoHtml%20-After)
 
@@ -167,4 +170,4 @@ Our current state according to the Essence standard is 'in place'. Some tools th
 
 ## Overall experience
 
-Our main take-aways from this project is the complexity of onboarding an existing project, even if it is not extremely large. The lack of documentation of the code increased this complexity. In addition, we learned of the problem of refactoring code that is made by someone else that you cannot ask. There exists as many coding-styles as there are coders, so it can be hard to understand the reasons behind writing the code in that particular way. 
+Our main take-aways from this project is the complexity of onboarding an existing project, even if it is not extremely large. The lack of documentation of the code increased this complexity. In addition, we learned of the problem of refactoring code that is made by someone else that you cannot ask. There exists as many coding-styles as there are coders, so it can be hard to understand the reasons behind writing the code in that particular way.
