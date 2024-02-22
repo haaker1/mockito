@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockNameImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.util</a> &gt; <span class="el_source">MockNameImpl.java</span></div><h1>MockNameImpl.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.util;
+
+import java.io.Serializable;
+
+import org.mockito.mock.MockName;
+import org.mockito.mock.MockType;
+
+public class MockNameImpl implements MockName, Serializable {
+
+    private static final long serialVersionUID = 8014974700844306925L;
+    private final String mockName;
+    private boolean defaultName;
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L19">    public MockNameImpl(String mockName, Class&lt;?&gt; type, MockType mockType) {</span>
+<span class="fc bfc" id="L20" title="All 2 branches covered.">        if (mockName == null) {</span>
+<span class="fc bfc" id="L21" title="All 2 branches covered.">            this.mockName = mockType == MockType.STATIC ? toClassName(type) : toInstanceName(type);</span>
+<span class="fc" id="L22">            this.defaultName = true;</span>
+        } else {
+<span class="fc" id="L24">            this.mockName = mockName;</span>
+        }
+<span class="fc" id="L26">    }</span>
+
+<span class="fc" id="L28">    public MockNameImpl(String mockName) {</span>
+<span class="fc" id="L29">        this.mockName = mockName;</span>
+<span class="fc" id="L30">    }</span>
+
+    private static String toInstanceName(Class&lt;?&gt; clazz) {
+<span class="fc" id="L33">        String className = clazz.getSimpleName();</span>
+<span class="fc bfc" id="L34" title="All 2 branches covered.">        if (className.length() == 0) {</span>
+            // it's an anonymous class, let's get name from the parent
+<span class="fc" id="L36">            className = clazz.getSuperclass().getSimpleName();</span>
+        }
+        // lower case first letter
+<span class="fc" id="L39">        return className.substring(0, 1).toLowerCase() + className.substring(1);</span>
+    }
+
+    private static String toClassName(Class&lt;?&gt; clazz) {
+<span class="fc" id="L43">        String className = clazz.getSimpleName();</span>
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        if (className.length() == 0) {</span>
+            // it's an anonymous class, let's get name from the parent
+<span class="fc" id="L46">            className = clazz.getSuperclass().getSimpleName() + &quot;$&quot;;</span>
+        }
+<span class="fc" id="L48">        return className + &quot;.class&quot;;</span>
+    }
+
+    @Override
+    public boolean isDefault() {
+<span class="fc" id="L53">        return defaultName;</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L58">        return mockName;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

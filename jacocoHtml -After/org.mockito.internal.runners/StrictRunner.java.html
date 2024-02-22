@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StrictRunner.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.runners</a> &gt; <span class="el_source">StrictRunner.java</span></div><h1>StrictRunner.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.runners;
+
+import org.junit.runner.Description;
+import org.junit.runner.manipulation.Filter;
+import org.junit.runner.manipulation.NoTestsRemainException;
+import org.junit.runner.notification.RunNotifier;
+import org.mockito.Mockito;
+import org.mockito.internal.junit.UnnecessaryStubbingsReporter;
+import org.mockito.internal.runners.util.FailureDetector;
+
+public class StrictRunner implements InternalRunner {
+
+    private final Class&lt;?&gt; testClass;
+    private final InternalRunner runner;
+    private boolean testsSkipped;
+
+    /**
+     * @param runner - the runner to wrap around
+     * @param testClass - for reporting purposes
+     */
+<span class="fc" id="L25">    public StrictRunner(InternalRunner runner, Class&lt;?&gt; testClass) {</span>
+<span class="fc" id="L26">        this.runner = runner;</span>
+<span class="fc" id="L27">        this.testClass = testClass;</span>
+<span class="fc" id="L28">        this.testsSkipped = false;</span>
+<span class="fc" id="L29">    }</span>
+
+    @Override
+    public void run(RunNotifier notifier) {
+        // TODO need to be able to opt in for full stack trace instead of just relying on the stack
+        // trace filter
+<span class="fc" id="L35">        UnnecessaryStubbingsReporter reporter = new UnnecessaryStubbingsReporter();</span>
+<span class="fc" id="L36">        FailureDetector listener = new FailureDetector();</span>
+
+<span class="fc" id="L38">        Mockito.framework().addListener(reporter);</span>
+        try {
+            // add listener that detects test failures
+<span class="fc" id="L41">            notifier.addListener(listener);</span>
+<span class="fc" id="L42">            runner.run(notifier);</span>
+        } finally {
+<span class="fc" id="L44">            Mockito.framework().removeListener(reporter);</span>
+        }
+
+<span class="fc bfc" id="L47" title="All 4 branches covered.">        if (!testsSkipped &amp;&amp; listener.isSuccessful()) {</span>
+            // only report when:
+            // 1. if all tests from given test have ran (tests skipped is false)
+            //   Otherwise we would report unnecessary stubs even if the user runs just single test
+            // from the class
+            // 2. tests are successful (we don't want to add an extra failure on top of any existing
+            // failure, to avoid confusion)
+<span class="fc" id="L54">            reporter.validateUnusedStubs(testClass, notifier);</span>
+        }
+<span class="fc" id="L56">    }</span>
+
+    @Override
+    public Description getDescription() {
+<span class="fc" id="L60">        return runner.getDescription();</span>
+    }
+
+    @Override
+    public void filter(Filter filter) throws NoTestsRemainException {
+<span class="fc" id="L65">        Filter recordingFilter = new RecordingFilter(filter);</span>
+<span class="fc" id="L66">        runner.filter(recordingFilter);</span>
+<span class="fc" id="L67">    }</span>
+
+    private class RecordingFilter extends Filter {
+
+        private final Filter delegate;
+
+<span class="fc" id="L73">        public RecordingFilter(Filter delegate) {</span>
+<span class="fc" id="L74">            this.delegate = delegate;</span>
+<span class="fc" id="L75">        }</span>
+
+        @Override
+        public void apply(Object child) throws NoTestsRemainException {
+<span class="fc" id="L79">            delegate.apply(child);</span>
+<span class="fc" id="L80">        }</span>
+
+        @Override
+        public Filter intersect(Filter second) {
+<span class="nc" id="L84">            return delegate.intersect(second);</span>
+        }
+
+        @Override
+        public boolean shouldRun(Description description) {
+<span class="fc" id="L89">            boolean result = delegate.shouldRun(description);</span>
+<span class="fc bfc" id="L90" title="All 2 branches covered.">            if (!result) {</span>
+<span class="fc" id="L91">                testsSkipped = true;</span>
+            }
+<span class="fc" id="L93">            return result;</span>
+        }
+
+        @Override
+        public String describe() {
+<span class="nc" id="L98">            return delegate.describe();</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

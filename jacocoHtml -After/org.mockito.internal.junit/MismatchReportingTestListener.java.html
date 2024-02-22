@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MismatchReportingTestListener.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.junit</a> &gt; <span class="el_source">MismatchReportingTestListener.java</span></div><h1>MismatchReportingTestListener.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2018 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.junit;
+
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
+
+import org.mockito.mock.MockCreationSettings;
+import org.mockito.plugins.MockitoLogger;
+
+/**
+ * Reports stubbing argument mismatches to the supplied logger
+ */
+public class MismatchReportingTestListener implements MockitoTestListener {
+
+    private final MockitoLogger logger;
+<span class="fc" id="L20">    private List&lt;Object&gt; mocks = new LinkedList&lt;&gt;();</span>
+
+<span class="fc" id="L22">    public MismatchReportingTestListener(MockitoLogger logger) {</span>
+<span class="fc" id="L23">        this.logger = logger;</span>
+<span class="fc" id="L24">    }</span>
+
+    @Override
+    public void testFinished(TestFinishedEvent event) {
+<span class="fc" id="L28">        Collection&lt;Object&gt; createdMocks = mocks;</span>
+        // At this point, we don't need the mocks any more and we can mark all collected mocks for
+        // gc
+        // TODO make it better, it's easy to forget to clean up mocks and we still create new
+        // instance of list that nobody will read, it's also duplicated
+<span class="fc" id="L33">        mocks = new LinkedList&lt;&gt;();</span>
+
+<span class="fc bfc" id="L35" title="All 2 branches covered.">        if (event.getFailure() != null) {</span>
+            // print unused stubbings only when test succeeds to avoid reporting multiple problems
+            // and confusing users
+<span class="fc" id="L38">            new ArgMismatchFinder()</span>
+<span class="fc" id="L39">                    .getStubbingArgMismatches(createdMocks)</span>
+<span class="fc" id="L40">                    .format(event.getTestName(), logger);</span>
+        }
+<span class="fc" id="L42">    }</span>
+
+    @Override
+    public void onMockCreated(Object mock, MockCreationSettings settings) {
+<span class="fc" id="L46">        this.mocks.add(mock);</span>
+<span class="fc" id="L47">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockitoExtension.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.junit.jupiter</a> &gt; <span class="el_source">MockitoExtension.java</span></div><h1>MockitoExtension.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2018 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.junit.jupiter;
+
+import static org.junit.jupiter.api.extension.ExtensionContext.Namespace.create;
+import static org.junit.platform.commons.support.AnnotationSupport.findAnnotation;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import org.junit.jupiter.api.extension.AfterEachCallback;
+import org.junit.jupiter.api.extension.BeforeEachCallback;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.ExtensionContext.Namespace;
+import org.junit.jupiter.api.extension.ParameterContext;
+import org.junit.jupiter.api.extension.ParameterResolutionException;
+import org.junit.jupiter.api.extension.ParameterResolver;
+import org.mockito.Mockito;
+import org.mockito.MockitoSession;
+import org.mockito.ScopedMock;
+import org.mockito.internal.configuration.plugins.Plugins;
+import org.mockito.internal.session.MockitoSessionLoggerAdapter;
+import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.resolver.CaptorParameterResolver;
+import org.mockito.junit.jupiter.resolver.CompositeParameterResolver;
+import org.mockito.junit.jupiter.resolver.MockParameterResolver;
+import org.mockito.quality.Strictness;
+
+/**
+ * Extension that initializes mocks and handles strict stubbings. This extension is the JUnit Jupiter equivalent
+ * of our JUnit4 {@link MockitoJUnitRunner}.
+ *
+ * Example usage:
+ *
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ * &lt;b&gt;&amp;#064;ExtendWith(MockitoExtension.class)&lt;/b&gt;
+ * public class ExampleTest {
+ *
+ *     &amp;#064;Mock
+ *     private List&amp;lt;Integer&amp;gt; list;
+ *
+ *     &amp;#064;Test
+ *     public void shouldDoSomething() {
+ *         list.add(100);
+ *     }
+ * }
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * If you would like to configure the used strictness for the test class, use {@link MockitoSettings}.
+ *
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ * &lt;b&gt;&amp;#064;MockitoSettings(strictness = Strictness.STRICT_STUBS)&lt;/b&gt;
+ * public class ExampleTest {
+ *
+ *     &amp;#064;Mock
+ *     private List&amp;lt;Integer&amp;gt; list;
+ *
+ *     &amp;#064;Test
+ *     public void shouldDoSomething() {
+ *         list.add(100);
+ *     }
+ * }
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * This extension also supports JUnit Jupiter's method parameters.
+ * Use parameters for initialization of mocks that you use only in that specific test method.
+ * In other words, where you would initialize local mocks in JUnit 4 by calling {@link Mockito#mock(Class)},
+ * use the method parameter. This is especially beneficial when initializing a mock with generics, as you no
+ * longer get a warning about &quot;Unchecked assignment&quot;.
+ * Please refer to JUnit Jupiter's documentation to learn when method parameters are useful.
+ *
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ * &lt;b&gt;&amp;#064;ExtendWith(MockitoExtension.class)&lt;/b&gt;
+ * public class ExampleTest {
+ *
+ *     &amp;#064;Mock
+ *     private List&amp;lt;Integer&amp;gt; sharedList;
+ *
+ *     &amp;#064;Test
+ *     public void shouldDoSomething() {
+ *         sharedList.add(100);
+ *     }
+ *
+ *     &amp;#064;Test
+ *     public void hasLocalMockInThisTest(@Mock List&amp;lt;Integer&amp;gt; localList) {
+ *         localList.add(100);
+ *         sharedList.add(100);
+ *     }
+ * }
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * Lastly, the extension supports JUnit Jupiter's constructor parameters.
+ * This allows you to do setup work in the constructor and set
+ * your fields to &lt;code&gt;final&lt;/code&gt;.
+ * Please refer to JUnit Jupiter's documentation to learn when constructor parameters are useful.
+ *
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ * &lt;b&gt;&amp;#064;ExtendWith(MockitoExtension.class)&lt;/b&gt;
+ * public class ExampleTest {
+ *
+ *      private final List&amp;lt;Integer&amp;gt; sharedList;
+ *
+ *      ExampleTest(&amp;#064;Mock sharedList) {
+ *          this.sharedList = sharedList;
+ *      }
+ *
+ *      &amp;#064;Test
+ *      public void shouldDoSomething() {
+ *          sharedList.add(100);
+ *      }
+ * }
+ * &lt;/code&gt;&lt;/pre&gt;
+ */
+public class MockitoExtension implements BeforeEachCallback, AfterEachCallback, ParameterResolver {
+
+<span class="fc" id="L120">    private static final Namespace MOCKITO = create(&quot;org.mockito&quot;);</span>
+
+    private static final String SESSION = &quot;session&quot;, MOCKS = &quot;mocks&quot;;
+
+    private final Strictness strictness;
+
+    private final ParameterResolver parameterResolver;
+
+    // This constructor is invoked by JUnit Jupiter via reflection or ServiceLoader
+    @SuppressWarnings(&quot;unused&quot;)
+    public MockitoExtension() {
+<span class="fc" id="L131">        this(Strictness.STRICT_STUBS);</span>
+<span class="fc" id="L132">    }</span>
+
+<span class="fc" id="L134">    private MockitoExtension(Strictness strictness) {</span>
+<span class="fc" id="L135">        this.strictness = strictness;</span>
+<span class="fc" id="L136">        this.parameterResolver =</span>
+                new CompositeParameterResolver(
+                        new MockParameterResolver(), new CaptorParameterResolver());
+<span class="fc" id="L139">    }</span>
+
+    /**
+     * Callback that is invoked &lt;em&gt;before&lt;/em&gt; each test is invoked.
+     *
+     * @param context the current extension context; never {@code null}
+     */
+    @Override
+    public void beforeEach(final ExtensionContext context) {
+<span class="fc" id="L148">        List&lt;Object&gt; testInstances = context.getRequiredTestInstances().getAllInstances();</span>
+
+<span class="fc" id="L150">        Strictness actualStrictness =</span>
+<span class="fc" id="L151">                this.retrieveAnnotationFromTestClasses(context)</span>
+<span class="fc" id="L152">                        .map(MockitoSettings::strictness)</span>
+<span class="fc" id="L153">                        .orElse(strictness);</span>
+
+        MockitoSession session =
+<span class="fc" id="L156">                Mockito.mockitoSession()</span>
+<span class="fc" id="L157">                        .initMocks(testInstances.toArray())</span>
+<span class="fc" id="L158">                        .strictness(actualStrictness)</span>
+<span class="fc" id="L159">                        .logger(new MockitoSessionLoggerAdapter(Plugins.getMockitoLogger()))</span>
+<span class="fc" id="L160">                        .startMocking();</span>
+
+<span class="fc" id="L162">        context.getStore(MOCKITO).put(MOCKS, new HashSet&lt;&gt;());</span>
+<span class="fc" id="L163">        context.getStore(MOCKITO).put(SESSION, session);</span>
+<span class="fc" id="L164">    }</span>
+
+    private Optional&lt;MockitoSettings&gt; retrieveAnnotationFromTestClasses(
+            final ExtensionContext context) {
+<span class="fc" id="L168">        ExtensionContext currentContext = context;</span>
+        Optional&lt;MockitoSettings&gt; annotation;
+
+        do {
+<span class="fc" id="L172">            annotation = findAnnotation(currentContext.getElement(), MockitoSettings.class);</span>
+
+<span class="pc bpc" id="L174" title="1 of 2 branches missed.">            if (currentContext.getParent().isEmpty()) {</span>
+<span class="nc" id="L175">                break;</span>
+            }
+
+<span class="fc" id="L178">            currentContext = currentContext.getParent().get();</span>
+<span class="fc bfc" id="L179" title="All 4 branches covered.">        } while (annotation.isEmpty() &amp;&amp; currentContext != context.getRoot());</span>
+
+<span class="fc" id="L181">        return annotation;</span>
+    }
+
+    /**
+     * Callback that is invoked &lt;em&gt;after&lt;/em&gt; each test has been invoked.
+     *
+     * @param context the current extension context; never {@code null}
+     */
+    @Override
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public void afterEach(ExtensionContext context) {
+<span class="fc" id="L192">        context.getStore(MOCKITO)</span>
+<span class="fc" id="L193">                .remove(MOCKS, Set.class)</span>
+<span class="fc" id="L194">                .forEach(mock -&gt; ((ScopedMock) mock).closeOnDemand());</span>
+<span class="fc" id="L195">        context.getStore(MOCKITO)</span>
+<span class="fc" id="L196">                .remove(SESSION, MockitoSession.class)</span>
+<span class="fc" id="L197">                .finishMocking(context.getExecutionException().orElse(null));</span>
+<span class="fc" id="L198">    }</span>
+
+    @Override
+    public boolean supportsParameter(ParameterContext parameterContext, ExtensionContext context)
+            throws ParameterResolutionException {
+<span class="fc" id="L203">        return parameterResolver.supportsParameter(parameterContext, context);</span>
+    }
+
+    @Override
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public Object resolveParameter(ParameterContext parameterContext, ExtensionContext context)
+            throws ParameterResolutionException {
+<span class="fc" id="L210">        Object resolvedParameter = parameterResolver.resolveParameter(parameterContext, context);</span>
+<span class="fc bfc" id="L211" title="All 2 branches covered.">        if (resolvedParameter instanceof ScopedMock) {</span>
+<span class="fc" id="L212">            context.getStore(MOCKITO).get(MOCKS, Set.class).add(resolvedParameter);</span>
+        }
+<span class="fc" id="L214">        return resolvedParameter;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

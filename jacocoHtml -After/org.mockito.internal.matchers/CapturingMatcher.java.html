@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CapturingMatcher.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.matchers</a> &gt; <span class="el_source">CapturingMatcher.java</span></div><h1>CapturingMatcher.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.matchers;
+
+import static org.mockito.internal.exceptions.Reporter.noArgumentValueWasCaptured;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import org.mockito.ArgumentMatcher;
+import org.mockito.internal.util.Primitives;
+
+public class CapturingMatcher&lt;T&gt; implements ArgumentMatcher&lt;T&gt;, CapturesArguments, Serializable {
+
+    private final Class&lt;? extends T&gt; clazz;
+<span class="fc" id="L23">    private final List&lt;T&gt; arguments = new ArrayList&lt;&gt;();</span>
+
+<span class="fc" id="L25">    private final ReadWriteLock lock = new ReentrantReadWriteLock();</span>
+<span class="fc" id="L26">    private final Lock readLock = lock.readLock();</span>
+<span class="fc" id="L27">    private final Lock writeLock = lock.writeLock();</span>
+
+<span class="fc" id="L29">    public CapturingMatcher(final Class&lt;? extends T&gt; clazz) {</span>
+<span class="fc" id="L30">        this.clazz = Objects.requireNonNull(clazz);</span>
+<span class="fc" id="L31">    }</span>
+
+    @Override
+    public boolean matches(Object argument) {
+<span class="fc bfc" id="L35" title="All 2 branches covered.">        if (argument == null) {</span>
+<span class="fc" id="L36">            return true;</span>
+        }
+
+<span class="fc bfc" id="L39" title="All 2 branches covered.">        if (Primitives.isPrimitiveOrWrapper(clazz)) {</span>
+<span class="fc" id="L40">            return Primitives.isAssignableFromWrapper(clazz, argument.getClass());</span>
+        }
+
+<span class="fc" id="L43">        return clazz.isAssignableFrom(argument.getClass());</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L48">        return &quot;&lt;Capturing argument: &quot; + clazz.getSimpleName() + &quot;&gt;&quot;;</span>
+    }
+
+    public T getLastValue() {
+<span class="fc" id="L52">        readLock.lock();</span>
+        try {
+<span class="fc bfc" id="L54" title="All 2 branches covered.">            if (arguments.isEmpty()) {</span>
+<span class="fc" id="L55">                throw noArgumentValueWasCaptured();</span>
+            }
+
+<span class="fc" id="L58">            return arguments.get(arguments.size() - 1);</span>
+        } finally {
+<span class="fc" id="L60">            readLock.unlock();</span>
+        }
+    }
+
+    public List&lt;T&gt; getAllValues() {
+<span class="fc" id="L65">        readLock.lock();</span>
+        try {
+<span class="fc" id="L67">            return new ArrayList&lt;&gt;(arguments);</span>
+        } finally {
+<span class="fc" id="L69">            readLock.unlock();</span>
+        }
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    @Override
+    public void captureFrom(Object argument) {
+<span class="fc" id="L76">        writeLock.lock();</span>
+        try {
+<span class="fc" id="L78">            this.arguments.add((T) argument);</span>
+        } finally {
+<span class="fc" id="L80">            writeLock.unlock();</span>
+        }
+<span class="fc" id="L82">    }</span>
+
+    @Override
+    public Class&lt;?&gt; type() {
+<span class="fc" id="L86">        return clazz;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

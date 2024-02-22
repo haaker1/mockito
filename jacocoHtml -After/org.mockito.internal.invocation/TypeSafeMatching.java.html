@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TypeSafeMatching.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.invocation</a> &gt; <span class="el_source">TypeSafeMatching.java</span></div><h1>TypeSafeMatching.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.invocation;
+
+import org.mockito.ArgumentMatcher;
+
+import java.lang.reflect.Method;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+@SuppressWarnings({&quot;unchecked&quot;, &quot;rawtypes&quot;})
+public class TypeSafeMatching implements ArgumentMatcherAction {
+
+<span class="fc" id="L16">    private static final ArgumentMatcherAction TYPE_SAFE_MATCHING_ACTION = new TypeSafeMatching();</span>
+
+    /**
+     * This cache is in theory unbounded. However, its max size is bounded by the number of types of argument matchers
+     * that are both in the system and being used, which is expected to bound the cache's size to a low number
+     * (&lt;200) in all but the most contrived cases, and form a small percentage of the overall memory usage of those
+     * classes.
+     */
+<span class="fc" id="L24">    private static final ConcurrentMap&lt;Class&lt;?&gt;, Class&lt;?&gt;&gt; argumentTypeCache =</span>
+            new ConcurrentHashMap&lt;&gt;();
+
+    private TypeSafeMatching() {}
+
+    public static ArgumentMatcherAction matchesTypeSafe() {
+<span class="fc" id="L30">        return TYPE_SAFE_MATCHING_ACTION;</span>
+    }
+
+    @Override
+    public boolean apply(ArgumentMatcher matcher, Object argument) {
+<span class="fc bfc" id="L35" title="All 4 branches covered.">        return isCompatible(matcher, argument) &amp;&amp; matcher.matches(argument);</span>
+    }
+
+    /**
+     * Returns &lt;code&gt;true&lt;/code&gt; if the given &lt;b&gt;argument&lt;/b&gt; can be passed to
+     * the given &lt;code&gt;argumentMatcher&lt;/code&gt; without causing a
+     * {@link ClassCastException}.
+     */
+    private static boolean isCompatible(ArgumentMatcher&lt;?&gt; argumentMatcher, Object argument) {
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        if (argument == null) {</span>
+<span class="fc" id="L45">            return true;</span>
+        }
+
+<span class="fc" id="L48">        Class&lt;?&gt; expectedArgumentType = getArgumentType(argumentMatcher);</span>
+
+<span class="fc" id="L50">        return expectedArgumentType.isInstance(argument);</span>
+    }
+
+    private static Class&lt;?&gt; getArgumentType(ArgumentMatcher&lt;?&gt; matcher) {
+<span class="fc" id="L54">        Class&lt;?&gt; argumentMatcherType = matcher.getClass();</span>
+<span class="fc" id="L55">        Class&lt;?&gt; cached = argumentTypeCache.get(argumentMatcherType);</span>
+        // Avoids a lambda allocation on invocations &gt;=2 for worse perf on invocation 1.
+<span class="fc bfc" id="L57" title="All 2 branches covered.">        if (cached != null) {</span>
+<span class="fc" id="L58">            return cached;</span>
+        } else {
+<span class="fc" id="L60">            return argumentTypeCache.computeIfAbsent(</span>
+<span class="fc" id="L61">                    argumentMatcherType, unusedKey -&gt; getArgumentTypeUncached(matcher));</span>
+        }
+    }
+
+    /**
+     * Returns the type of {@link ArgumentMatcher#matches(Object)} of the given
+     * {@link ArgumentMatcher} implementation.
+     */
+    private static Class&lt;?&gt; getArgumentTypeUncached(ArgumentMatcher&lt;?&gt; argumentMatcher) {
+<span class="fc" id="L70">        Method[] methods = argumentMatcher.getClass().getMethods();</span>
+
+<span class="pc bpc" id="L72" title="1 of 2 branches missed.">        for (Method method : methods) {</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">            if (isMatchesMethod(method)) {</span>
+<span class="fc" id="L74">                return method.getParameterTypes()[0];</span>
+            }
+        }
+<span class="nc" id="L77">        throw new NoSuchMethodError(</span>
+                &quot;Method 'matches(T)' not found in ArgumentMatcher: &quot;
+                        + argumentMatcher
+                        + &quot; !\r\n Please file a bug with this stack trace at: https://github.com/mockito/mockito/issues/new &quot;);
+    }
+
+    /**
+     * Returns &lt;code&gt;true&lt;/code&gt; if the given method is
+     * {@link ArgumentMatcher#matches(Object)}
+     */
+    private static boolean isMatchesMethod(Method method) {
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        if (method.getParameterTypes().length != 1) {</span>
+<span class="fc" id="L89">            return false;</span>
+        }
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        if (method.isBridge()) {</span>
+<span class="fc" id="L92">            return false;</span>
+        }
+<span class="fc" id="L94">        return &quot;matches&quot;.equals(method.getName());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

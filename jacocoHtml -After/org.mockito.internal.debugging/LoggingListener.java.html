@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LoggingListener.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.debugging</a> &gt; <span class="el_source">LoggingListener.java</span></div><h1>LoggingListener.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.debugging;
+
+import static org.mockito.internal.util.StringUtil.join;
+
+import java.util.LinkedList;
+import java.util.List;
+
+import org.mockito.internal.invocation.InvocationMatcher;
+import org.mockito.invocation.Invocation;
+
+public class LoggingListener implements FindingsListener {
+    private final boolean warnAboutUnstubbed;
+
+<span class="fc" id="L18">    private final List&lt;String&gt; argMismatchStubs = new LinkedList&lt;&gt;();</span>
+<span class="fc" id="L19">    private final List&lt;String&gt; unusedStubs = new LinkedList&lt;&gt;();</span>
+<span class="fc" id="L20">    private final List&lt;String&gt; unstubbedCalls = new LinkedList&lt;&gt;();</span>
+
+<span class="fc" id="L22">    public LoggingListener(boolean warnAboutUnstubbed) {</span>
+<span class="fc" id="L23">        this.warnAboutUnstubbed = warnAboutUnstubbed;</span>
+<span class="fc" id="L24">    }</span>
+
+    @Override
+    public void foundStubCalledWithDifferentArgs(Invocation unused, InvocationMatcher unstubbed) {
+        // TODO there is not good reason we should get Invocation and InvocationMatcher here
+        // we should pass 2 InvocationMatchers and testing is easier
+        // it's also confusing that unstubbed invocation is passed as InvocationMatcher (should be
+        // rather Invocation)
+
+        // this information comes in pairs
+<span class="fc" id="L34">        String index = Integer.toString(indexOfNextPair(argMismatchStubs.size()));</span>
+        // making sure indentation is correct
+<span class="fc" id="L36">        String padding = index.replaceAll(&quot;\\d&quot;, &quot; &quot;);</span>
+<span class="fc" id="L37">        argMismatchStubs.add(index + &quot;. Stubbed &quot; + unused.getLocation());</span>
+<span class="fc" id="L38">        argMismatchStubs.add(padding + &quot;  Invoked &quot; + unstubbed.getInvocation().getLocation());</span>
+<span class="fc" id="L39">    }</span>
+
+    static int indexOfNextPair(int collectionSize) {
+<span class="fc" id="L42">        return (collectionSize / 2) + 1;</span>
+    }
+
+    @Override
+    public void foundUnusedStub(Invocation unused) {
+<span class="fc" id="L47">        unusedStubs.add((unusedStubs.size() + 1) + &quot;. &quot; + unused.getLocation());</span>
+<span class="fc" id="L48">    }</span>
+
+    @Override
+    public void foundUnstubbed(InvocationMatcher unstubbed) {
+<span class="fc bfc" id="L52" title="All 2 branches covered.">        if (warnAboutUnstubbed) {</span>
+<span class="fc" id="L53">            unstubbedCalls.add(</span>
+<span class="fc" id="L54">                    (unstubbedCalls.size() + 1) + &quot;. &quot; + unstubbed.getInvocation().getLocation());</span>
+        }
+<span class="fc" id="L56">    }</span>
+
+    public String getStubbingInfo() {
+<span class="fc bfc" id="L59" title="All 6 branches covered.">        if (argMismatchStubs.isEmpty() &amp;&amp; unusedStubs.isEmpty() &amp;&amp; unstubbedCalls.isEmpty()) {</span>
+<span class="fc" id="L60">            return &quot;&quot;;</span>
+        }
+
+<span class="fc" id="L63">        List&lt;String&gt; lines = new LinkedList&lt;&gt;();</span>
+<span class="fc" id="L64">        lines.add(</span>
+                &quot;[Mockito] Additional stubbing information (see javadoc for StubbingInfo class):&quot;);
+
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        if (!argMismatchStubs.isEmpty()) {</span>
+<span class="fc" id="L68">            lines.add(&quot;[Mockito]&quot;);</span>
+<span class="fc" id="L69">            lines.add(</span>
+                    &quot;[Mockito] Argument mismatch between stubbing and actual invocation (is stubbing correct in the test?):&quot;);
+<span class="fc" id="L71">            lines.add(&quot;[Mockito]&quot;);</span>
+<span class="fc" id="L72">            addOrderedList(lines, argMismatchStubs);</span>
+        }
+
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        if (!unusedStubs.isEmpty()) {</span>
+<span class="fc" id="L76">            lines.add(&quot;[Mockito]&quot;);</span>
+<span class="fc" id="L77">            lines.add(&quot;[Mockito] Unused stubbing (perhaps can be removed from the test?):&quot;);</span>
+<span class="fc" id="L78">            lines.add(&quot;[Mockito]&quot;);</span>
+<span class="fc" id="L79">            addOrderedList(lines, unusedStubs);</span>
+        }
+
+<span class="fc bfc" id="L82" title="All 2 branches covered.">        if (!unstubbedCalls.isEmpty()) {</span>
+<span class="fc" id="L83">            lines.add(&quot;[Mockito]&quot;);</span>
+<span class="fc" id="L84">            lines.add(</span>
+                    &quot;[Mockito] Un-stubbed method invocations (perhaps missing stubbing in the test?):&quot;);
+<span class="fc" id="L86">            lines.add(&quot;[Mockito]&quot;);</span>
+<span class="fc" id="L87">            addOrderedList(lines, unstubbedCalls);</span>
+        }
+<span class="fc" id="L89">        return join(&quot;&quot;, lines);</span>
+    }
+
+    private void addOrderedList(List&lt;String&gt; target, List&lt;String&gt; additions) {
+<span class="fc bfc" id="L93" title="All 2 branches covered.">        for (String a : additions) {</span>
+<span class="fc" id="L94">            target.add(&quot;[Mockito] &quot; + a);</span>
+<span class="fc" id="L95">        }</span>
+<span class="fc" id="L96">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

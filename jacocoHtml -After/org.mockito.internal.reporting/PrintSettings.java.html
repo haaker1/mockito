@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PrintSettings.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.reporting</a> &gt; <span class="el_source">PrintSettings.java</span></div><h1>PrintSettings.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.reporting;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+
+import org.mockito.ArgumentMatcher;
+import org.mockito.internal.matchers.text.MatchersPrinter;
+import org.mockito.internal.util.MockUtil;
+import org.mockito.invocation.Invocation;
+import org.mockito.invocation.MatchableInvocation;
+
+<span class="fc" id="L19">public class PrintSettings {</span>
+
+    public static final int MAX_LINE_LENGTH = 45;
+    private boolean multiline;
+<span class="fc" id="L23">    private List&lt;Integer&gt; withTypeInfo = new LinkedList&lt;&gt;();</span>
+<span class="fc" id="L24">    private Set&lt;String&gt; withFullyQualifiedName = Collections.emptySet();</span>
+
+    public void setMultiline(boolean multiline) {
+<span class="fc" id="L27">        this.multiline = multiline;</span>
+<span class="fc" id="L28">    }</span>
+
+    public boolean isMultiline() {
+<span class="fc" id="L31">        return multiline;</span>
+    }
+
+    public static PrintSettings verboseMatchers(Integer... indexesOfMatchers) {
+<span class="fc" id="L35">        PrintSettings settings = new PrintSettings();</span>
+<span class="fc" id="L36">        settings.setMatchersToBeDescribedWithExtraTypeInfo(indexesOfMatchers);</span>
+<span class="fc" id="L37">        return settings;</span>
+    }
+
+    public boolean extraTypeInfoFor(int argumentIndex) {
+<span class="fc" id="L41">        return withTypeInfo.contains(argumentIndex);</span>
+    }
+
+    public boolean fullyQualifiedNameFor(String simpleClassName) {
+<span class="fc" id="L45">        return withFullyQualifiedName.contains(simpleClassName);</span>
+    }
+
+    public void setMatchersToBeDescribedWithExtraTypeInfo(Integer[] indexesOfMatchers) {
+<span class="fc" id="L49">        this.withTypeInfo = Arrays.asList(indexesOfMatchers);</span>
+<span class="fc" id="L50">    }</span>
+
+    public void setMatchersToBeDescribedWithFullName(Set&lt;String&gt; indexesOfMatchers) {
+<span class="fc" id="L53">        this.withFullyQualifiedName = indexesOfMatchers;</span>
+<span class="fc" id="L54">    }</span>
+
+    public String print(List&lt;ArgumentMatcher&gt; matchers, Invocation invocation) {
+<span class="fc" id="L57">        MatchersPrinter matchersPrinter = new MatchersPrinter();</span>
+<span class="fc" id="L58">        String qualifiedName =</span>
+<span class="fc" id="L59">                MockUtil.getMockName(invocation.getMock()) + &quot;.&quot; + invocation.getMethod().getName();</span>
+<span class="fc" id="L60">        String invocationString = qualifiedName + matchersPrinter.getArgumentsLine(matchers, this);</span>
+<span class="fc bfc" id="L61" title="All 6 branches covered.">        if (isMultiline() || (!matchers.isEmpty() &amp;&amp; invocationString.length() &gt; MAX_LINE_LENGTH)) {</span>
+<span class="fc" id="L62">            return qualifiedName + matchersPrinter.getArgumentsBlock(matchers, this);</span>
+        } else {
+<span class="fc" id="L64">            return invocationString;</span>
+        }
+    }
+
+    public String print(Invocation invocation) {
+<span class="fc" id="L69">        return print(invocation.getArgumentsAsMatchers(), invocation);</span>
+    }
+
+    public String print(MatchableInvocation invocation) {
+<span class="fc" id="L73">        return print(invocation.getMatchers(), invocation.getInvocation());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

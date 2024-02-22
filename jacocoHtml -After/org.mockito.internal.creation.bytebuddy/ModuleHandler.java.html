@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ModuleHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.creation.bytebuddy</a> &gt; <span class="el_source">ModuleHandler.java</span></div><h1>ModuleHandler.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.creation.bytebuddy;
+
+import net.bytebuddy.ByteBuddy;
+import net.bytebuddy.description.modifier.Ownership;
+import net.bytebuddy.description.modifier.Visibility;
+import net.bytebuddy.dynamic.scaffold.subclass.ConstructorStrategy;
+import net.bytebuddy.implementation.Implementation;
+import net.bytebuddy.implementation.MethodCall;
+import net.bytebuddy.implementation.StubMethod;
+import net.bytebuddy.utility.GraalImageCode;
+import net.bytebuddy.utility.RandomString;
+
+import org.mockito.Mockito;
+import org.mockito.codegen.InjectionBase;
+import org.mockito.exceptions.base.MockitoException;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+
+import static net.bytebuddy.matcher.ElementMatchers.isTypeInitializer;
+import static org.mockito.internal.util.StringUtil.join;
+
+<span class="fc" id="L27">abstract class ModuleHandler {</span>
+
+    abstract boolean isOpened(Class&lt;?&gt; source, Class&lt;?&gt; target);
+
+    abstract boolean canRead(Class&lt;?&gt; source, Class&lt;?&gt; target);
+
+    abstract boolean isExported(Class&lt;?&gt; source);
+
+    abstract boolean isExported(Class&lt;?&gt; source, Class&lt;?&gt; target);
+
+    abstract Class&lt;?&gt; injectionBase(ClassLoader classLoader, String tyoeName);
+
+    abstract void adjustModuleGraph(Class&lt;?&gt; source, Class&lt;?&gt; target, boolean export, boolean read);
+
+    static ModuleHandler make(ByteBuddy byteBuddy, SubclassLoader loader) {
+        try {
+<span class="fc" id="L43">            return new ModuleSystemFound(byteBuddy, loader);</span>
+<span class="nc" id="L44">        } catch (Exception ignored) {</span>
+<span class="nc" id="L45">            return new NoModuleSystemFound();</span>
+        }
+    }
+
+    private static class ModuleSystemFound extends ModuleHandler {
+
+        private final ByteBuddy byteBuddy;
+        private final SubclassLoader loader;
+
+        private final int injectonBaseSuffix;
+
+        private final Method getModule,
+                isOpen,
+                isExported,
+                isExportedUnqualified,
+                canRead,
+                addExports,
+                addReads,
+                forName;
+
+<span class="fc" id="L65">        private ModuleSystemFound(ByteBuddy byteBuddy, SubclassLoader loader) throws Exception {</span>
+<span class="fc" id="L66">            this.byteBuddy = byteBuddy;</span>
+<span class="fc" id="L67">            this.loader = loader;</span>
+<span class="fc" id="L68">            injectonBaseSuffix =</span>
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">                    GraalImageCode.getCurrent().isDefined()</span>
+<span class="nc" id="L70">                            ? 0</span>
+<span class="fc" id="L71">                            : Math.abs(Mockito.class.hashCode());</span>
+<span class="fc" id="L72">            Class&lt;?&gt; moduleType = Class.forName(&quot;java.lang.Module&quot;);</span>
+<span class="fc" id="L73">            getModule = Class.class.getMethod(&quot;getModule&quot;);</span>
+<span class="fc" id="L74">            isOpen = moduleType.getMethod(&quot;isOpen&quot;, String.class, moduleType);</span>
+<span class="fc" id="L75">            isExported = moduleType.getMethod(&quot;isExported&quot;, String.class, moduleType);</span>
+<span class="fc" id="L76">            isExportedUnqualified = moduleType.getMethod(&quot;isExported&quot;, String.class);</span>
+<span class="fc" id="L77">            canRead = moduleType.getMethod(&quot;canRead&quot;, moduleType);</span>
+<span class="fc" id="L78">            addExports = moduleType.getMethod(&quot;addExports&quot;, String.class, moduleType);</span>
+<span class="fc" id="L79">            addReads = moduleType.getMethod(&quot;addReads&quot;, moduleType);</span>
+<span class="fc" id="L80">            forName = Class.class.getMethod(&quot;forName&quot;, String.class);</span>
+<span class="fc" id="L81">        }</span>
+
+        @Override
+        boolean isOpened(Class&lt;?&gt; source, Class&lt;?&gt; target) {
+<span class="nc bnc" id="L85" title="All 2 branches missed.">            if (source.getPackage() == null) {</span>
+<span class="nc" id="L86">                return true;</span>
+            }
+<span class="nc" id="L88">            return (Boolean)</span>
+<span class="nc" id="L89">                    invoke(</span>
+                            isOpen,
+<span class="nc" id="L91">                            invoke(getModule, source),</span>
+<span class="nc" id="L92">                            source.getPackage().getName(),</span>
+<span class="nc" id="L93">                            invoke(getModule, target));</span>
+        }
+
+        @Override
+        boolean canRead(Class&lt;?&gt; source, Class&lt;?&gt; target) {
+<span class="fc" id="L98">            return (Boolean) invoke(canRead, invoke(getModule, source), invoke(getModule, target));</span>
+        }
+
+        @Override
+        boolean isExported(Class&lt;?&gt; source) {
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">            if (source.getPackage() == null) {</span>
+<span class="nc" id="L104">                return true;</span>
+            }
+<span class="fc" id="L106">            return (Boolean)</span>
+<span class="fc" id="L107">                    invoke(</span>
+                            isExportedUnqualified,
+<span class="fc" id="L109">                            invoke(getModule, source),</span>
+<span class="fc" id="L110">                            source.getPackage().getName());</span>
+        }
+
+        @Override
+        boolean isExported(Class&lt;?&gt; source, Class&lt;?&gt; target) {
+<span class="pc bpc" id="L115" title="1 of 2 branches missed.">            if (source.getPackage() == null) {</span>
+<span class="nc" id="L116">                return true;</span>
+            }
+<span class="fc" id="L118">            return (Boolean)</span>
+<span class="fc" id="L119">                    invoke(</span>
+                            isExported,
+<span class="fc" id="L121">                            invoke(getModule, source),</span>
+<span class="fc" id="L122">                            source.getPackage().getName(),</span>
+<span class="fc" id="L123">                            invoke(getModule, target));</span>
+        }
+
+        @Override
+        Class&lt;?&gt; injectionBase(ClassLoader classLoader, String typeName) {
+<span class="nc" id="L128">            String packageName = typeName.substring(0, typeName.lastIndexOf('.'));</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">            if (classLoader == InjectionBase.class.getClassLoader()</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">                    &amp;&amp; InjectionBase.class.getPackage().getName().equals(packageName)) {</span>
+<span class="nc" id="L131">                return InjectionBase.class;</span>
+            } else {
+<span class="nc" id="L133">                synchronized (this) {</span>
+                    String name;
+<span class="nc" id="L135">                    int suffix = injectonBaseSuffix;</span>
+                    do {
+<span class="nc" id="L137">                        name =</span>
+                                packageName
+                                        + &quot;.&quot;
+<span class="nc" id="L140">                                        + InjectionBase.class.getSimpleName()</span>
+                                        + &quot;$&quot;
+                                        + suffix++;
+                        try {
+<span class="nc" id="L144">                            Class&lt;?&gt; type = Class.forName(name, false, classLoader);</span>
+                            // The injected type must be defined in the class loader that is target
+                            // of the injection. Otherwise,
+                            // the class's unnamed module would differ from the intended module. To
+                            // avoid conflicts, we increment
+                            // the suffix until we hit a class with a known name and generate one if
+                            // it does not exist.
+<span class="nc bnc" id="L151" title="All 2 branches missed.">                            if (type.getClassLoader() == classLoader) {</span>
+<span class="nc" id="L152">                                return type;</span>
+                            }
+<span class="nc" id="L154">                        } catch (ClassNotFoundException ignored) {</span>
+<span class="nc" id="L155">                            break;</span>
+<span class="nc" id="L156">                        }</span>
+                    } while (true);
+<span class="nc" id="L158">                    return byteBuddy</span>
+<span class="nc" id="L159">                            .subclass(Object.class, ConstructorStrategy.Default.NO_CONSTRUCTORS)</span>
+<span class="nc" id="L160">                            .name(name)</span>
+<span class="nc" id="L161">                            .make()</span>
+<span class="nc" id="L162">                            .load(</span>
+                                    classLoader,
+<span class="nc" id="L164">                                    loader.resolveStrategy(InjectionBase.class, classLoader, false))</span>
+<span class="nc" id="L165">                            .getLoaded();</span>
+                }
+            }
+        }
+
+        @Override
+        void adjustModuleGraph(Class&lt;?&gt; source, Class&lt;?&gt; target, boolean export, boolean read) {
+<span class="pc bpc" id="L172" title="1 of 4 branches missed.">            boolean needsExport = export &amp;&amp; !isExported(source, target);</span>
+<span class="pc bpc" id="L173" title="1 of 4 branches missed.">            boolean needsRead = read &amp;&amp; !canRead(source, target);</span>
+<span class="pc bpc" id="L174" title="2 of 4 branches missed.">            if (!needsExport &amp;&amp; !needsRead) {</span>
+<span class="fc" id="L175">                return;</span>
+            }
+<span class="nc" id="L177">            ClassLoader classLoader = source.getClassLoader();</span>
+<span class="nc bnc" id="L178" title="All 2 branches missed.">            if (classLoader == null) {</span>
+<span class="nc" id="L179">                throw new MockitoException(</span>
+<span class="nc" id="L180">                        join(</span>
+                                &quot;Cannot adjust module graph for modules in the bootstrap loader&quot;,
+                                &quot;&quot;,
+                                source
+                                        + &quot; is declared by the bootstrap loader and cannot be adjusted&quot;,
+                                &quot;Requires package export to &quot; + target + &quot;: &quot; + needsExport,
+                                &quot;Requires adjusted reading of &quot; + target + &quot;: &quot; + needsRead));
+            }
+<span class="nc bnc" id="L188" title="All 2 branches missed.">            boolean targetVisible = classLoader == target.getClassLoader();</span>
+<span class="nc bnc" id="L189" title="All 4 branches missed.">            while (!targetVisible &amp;&amp; classLoader != null) {</span>
+<span class="nc" id="L190">                classLoader = classLoader.getParent();</span>
+<span class="nc bnc" id="L191" title="All 2 branches missed.">                targetVisible = classLoader == target.getClassLoader();</span>
+            }
+            MethodCall targetLookup;
+            Implementation.Composable implementation;
+<span class="nc bnc" id="L195" title="All 2 branches missed.">            if (targetVisible) {</span>
+<span class="nc" id="L196">                targetLookup =</span>
+<span class="nc" id="L197">                        MethodCall.invoke(getModule)</span>
+<span class="nc" id="L198">                                .onMethodCall(MethodCall.invoke(forName).with(target.getName()));</span>
+<span class="nc" id="L199">                implementation = StubMethod.INSTANCE;</span>
+            } else {
+                Class&lt;?&gt; intermediate;
+                Field field;
+                try {
+<span class="nc" id="L204">                    intermediate =</span>
+                            byteBuddy
+<span class="nc" id="L206">                                    .subclass(</span>
+                                            Object.class,
+                                            ConstructorStrategy.Default.NO_CONSTRUCTORS)
+<span class="nc" id="L209">                                    .name(</span>
+<span class="nc" id="L210">                                            String.format(</span>
+                                                    &quot;%s$%s%s&quot;,
+                                                    &quot;org.mockito.codegen.MockitoTypeCarrier&quot;,
+<span class="nc" id="L213">                                                    RandomString.hashOf(</span>
+<span class="nc" id="L214">                                                            source.getName().hashCode()),</span>
+<span class="nc" id="L215">                                                    RandomString.hashOf(</span>
+<span class="nc" id="L216">                                                            target.getName().hashCode())))</span>
+<span class="nc" id="L217">                                    .defineField(</span>
+                                            &quot;mockitoType&quot;,
+                                            Class.class,
+                                            Visibility.PUBLIC,
+                                            Ownership.STATIC)
+<span class="nc" id="L222">                                    .make()</span>
+<span class="nc" id="L223">                                    .load(</span>
+<span class="nc" id="L224">                                            source.getClassLoader(),</span>
+<span class="nc" id="L225">                                            loader.resolveStrategy(</span>
+<span class="nc" id="L226">                                                    source, source.getClassLoader(), false))</span>
+<span class="nc" id="L227">                                    .getLoaded();</span>
+<span class="nc" id="L228">                    field = intermediate.getField(&quot;mockitoType&quot;);</span>
+<span class="nc" id="L229">                    field.set(null, target);</span>
+<span class="nc" id="L230">                } catch (Exception e) {</span>
+<span class="nc" id="L231">                    throw new MockitoException(</span>
+<span class="nc" id="L232">                            join(</span>
+                                    &quot;Could not create a carrier for making the Mockito type visible to &quot;
+                                            + source,
+                                    &quot;&quot;,
+                                    &quot;This is required to adjust the module graph to enable mock creation&quot;),
+                            e);
+<span class="nc" id="L238">                }</span>
+<span class="nc" id="L239">                targetLookup = MethodCall.invoke(getModule).onField(field);</span>
+<span class="nc" id="L240">                implementation =</span>
+<span class="nc" id="L241">                        MethodCall.invoke(getModule)</span>
+<span class="nc" id="L242">                                .onMethodCall(</span>
+<span class="nc" id="L243">                                        MethodCall.invoke(forName).with(intermediate.getName()));</span>
+            }
+<span class="nc" id="L245">            MethodCall sourceLookup =</span>
+<span class="nc" id="L246">                    MethodCall.invoke(getModule)</span>
+<span class="nc" id="L247">                            .onMethodCall(MethodCall.invoke(forName).with(source.getName()));</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">            if (needsExport) {</span>
+<span class="nc" id="L249">                implementation =</span>
+<span class="nc" id="L250">                        implementation.andThen(</span>
+<span class="nc" id="L251">                                MethodCall.invoke(addExports)</span>
+<span class="nc" id="L252">                                        .onMethodCall(sourceLookup)</span>
+<span class="nc" id="L253">                                        .with(target.getPackage().getName())</span>
+<span class="nc" id="L254">                                        .withMethodCall(targetLookup));</span>
+            }
+<span class="nc bnc" id="L256" title="All 2 branches missed.">            if (needsRead) {</span>
+<span class="nc" id="L257">                implementation =</span>
+<span class="nc" id="L258">                        implementation.andThen(</span>
+<span class="nc" id="L259">                                MethodCall.invoke(addReads)</span>
+<span class="nc" id="L260">                                        .onMethodCall(sourceLookup)</span>
+<span class="nc" id="L261">                                        .withMethodCall(targetLookup));</span>
+            }
+            try {
+<span class="nc" id="L264">                Class.forName(</span>
+                        byteBuddy
+<span class="nc" id="L266">                                .subclass(Object.class)</span>
+<span class="nc" id="L267">                                .name(</span>
+<span class="nc" id="L268">                                        String.format(</span>
+                                                &quot;%s$%s$%s%s&quot;,
+<span class="nc" id="L270">                                                source.getName(),</span>
+                                                &quot;MockitoModuleProbe&quot;,
+<span class="nc" id="L272">                                                RandomString.hashOf(source.getName().hashCode()),</span>
+<span class="nc" id="L273">                                                RandomString.hashOf(target.getName().hashCode())))</span>
+<span class="nc" id="L274">                                .invokable(isTypeInitializer())</span>
+<span class="nc" id="L275">                                .intercept(implementation)</span>
+<span class="nc" id="L276">                                .make()</span>
+<span class="nc" id="L277">                                .load(</span>
+<span class="nc" id="L278">                                        source.getClassLoader(),</span>
+<span class="nc" id="L279">                                        loader.resolveStrategy(</span>
+<span class="nc" id="L280">                                                source, source.getClassLoader(), false))</span>
+<span class="nc" id="L281">                                .getLoaded()</span>
+<span class="nc" id="L282">                                .getName(),</span>
+                        true,
+<span class="nc" id="L284">                        source.getClassLoader());</span>
+<span class="nc" id="L285">            } catch (Exception e) {</span>
+<span class="nc" id="L286">                throw new MockitoException(</span>
+<span class="nc" id="L287">                        join(</span>
+                                &quot;Could not force module adjustment of the module of &quot; + source,
+                                &quot;&quot;,
+                                &quot;This is required to adjust the module graph to enable mock creation&quot;),
+                        e);
+<span class="nc" id="L292">            }</span>
+<span class="nc" id="L293">        }</span>
+
+        private static Object invoke(Method method, Object target, Object... args) {
+            try {
+<span class="fc" id="L297">                return method.invoke(target, args);</span>
+<span class="nc" id="L298">            } catch (Exception e) {</span>
+<span class="nc" id="L299">                throw new MockitoException(</span>
+<span class="nc" id="L300">                        join(</span>
+                                &quot;Could not invoke &quot; + method + &quot; using reflection&quot;,
+                                &quot;&quot;,
+                                &quot;Mockito attempted to interact with the Java module system but an unexpected method behavior was encountered&quot;),
+                        e);
+            }
+        }
+    }
+
+    private static class NoModuleSystemFound extends ModuleHandler {
+
+        @Override
+        boolean isOpened(Class&lt;?&gt; source, Class&lt;?&gt; target) {
+<span class="nc" id="L313">            return true;</span>
+        }
+
+        @Override
+        boolean canRead(Class&lt;?&gt; source, Class&lt;?&gt; target) {
+<span class="nc" id="L318">            return true;</span>
+        }
+
+        @Override
+        boolean isExported(Class&lt;?&gt; source) {
+<span class="nc" id="L323">            return true;</span>
+        }
+
+        @Override
+        boolean isExported(Class&lt;?&gt; source, Class&lt;?&gt; target) {
+<span class="nc" id="L328">            return true;</span>
+        }
+
+        @Override
+        Class&lt;?&gt; injectionBase(ClassLoader classLoader, String tyoeName) {
+<span class="nc" id="L333">            return InjectionBase.class;</span>
+        }
+
+        @Override
+        void adjustModuleGraph(Class&lt;?&gt; source, Class&lt;?&gt; target, boolean export, boolean read) {
+            // empty
+<span class="nc" id="L339">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

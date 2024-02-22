@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockitoInternalUsage.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.errorprone.bugpatterns</a> &gt; <span class="el_source">MockitoInternalUsage.java</span></div><h1>MockitoInternalUsage.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.errorprone.bugpatterns;
+
+import static com.google.errorprone.matchers.Matchers.packageStartsWith;
+
+import com.google.auto.service.AutoService;
+import com.google.errorprone.BugPattern;
+import com.google.errorprone.BugPattern.SeverityLevel;
+import com.google.errorprone.VisitorState;
+import com.google.errorprone.bugpatterns.BugChecker;
+import com.google.errorprone.bugpatterns.BugChecker.MemberSelectTreeMatcher;
+import com.google.errorprone.matchers.Description;
+import com.google.errorprone.matchers.Matcher;
+import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.Tree;
+import com.sun.tools.javac.code.Symbol;
+
+/**
+ * {@link com.google.errorprone.bugpatterns.BugChecker} that detects usages of
+ * org.mockito.internal.*
+ */
+@AutoService(BugChecker.class)
+@BugPattern(
+        name = &quot;MockitoInternalUsage&quot;,
+        summary = &quot;org.mockito.internal.* is a private API and should not be used by clients&quot;,
+        explanation =
+                &quot;Classes under `org.mockito.internal.*` are internal implementation details and are&quot;
+                        + &quot; not part of Mockito's public API. Mockito team does not support them, and they&quot;
+                        + &quot; may change at any time. Depending on them may break your code when you upgrade&quot;
+                        + &quot; to new versions of Mockito.&quot;
+                        + &quot;This checker ensures that your code will not break with future Mockito upgrades.&quot;
+                        + &quot;Mockito's public API is documented at&quot;
+                        + &quot; https://www.javadoc.io/doc/org.mockito/mockito-core/. If you believe that there&quot;
+                        + &quot; is no replacement available in the public API for your use-case, contact the&quot;
+                        + &quot; Mockito team at https://github.com/mockito/mockito/issues.&quot;,
+        severity = SeverityLevel.WARNING)
+<span class="fc" id="L41">public class MockitoInternalUsage extends BugChecker implements MemberSelectTreeMatcher {</span>
+
+<span class="fc" id="L43">    private static final Matcher&lt;Tree&gt; INSIDE_MOCKITO = packageStartsWith(&quot;org.mockito&quot;);</span>
+
+    @Override
+    public Description matchMemberSelect(MemberSelectTree tree, VisitorState state) {
+<span class="fc bfc" id="L47" title="All 2 branches covered.">        if (INSIDE_MOCKITO.matches(tree, state)) {</span>
+<span class="fc" id="L48">            return Description.NO_MATCH;</span>
+        }
+<span class="fc" id="L50">        Symbol symbol = ASTHelpers.getSymbol(tree);</span>
+<span class="fc bfc" id="L51" title="All 2 branches covered.">        if (symbol != null</span>
+<span class="fc bfc" id="L52" title="All 2 branches covered.">                &amp;&amp; symbol.getQualifiedName().toString().startsWith(&quot;org.mockito.internal&quot;)) {</span>
+<span class="fc" id="L53">            return describeMatch(tree);</span>
+        }
+<span class="fc" id="L55">        return Description.NO_MATCH;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

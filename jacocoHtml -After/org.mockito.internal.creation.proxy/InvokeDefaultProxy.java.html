@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InvokeDefaultProxy.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.creation.proxy</a> &gt; <span class="el_source">InvokeDefaultProxy.java</span></div><h1>InvokeDefaultProxy.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2021 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.creation.proxy;
+
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.internal.invocation.RealMethod;
+import org.mockito.internal.invocation.SerializableMethod;
+import org.mockito.internal.util.Platform;
+
+import java.io.Serializable;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
+import static org.mockito.internal.util.StringUtil.join;
+
+class InvokeDefaultProxy implements ProxyRealMethod {
+
+    private final Method invokeDefault;
+
+<span class="fc" id="L23">    InvokeDefaultProxy() throws Throwable {</span>
+<span class="fc" id="L24">        invokeDefault =</span>
+<span class="fc" id="L25">                InvocationHandler.class.getMethod(</span>
+                        &quot;invokeDefault&quot;, Object.class, Method.class, Object[].class);
+<span class="fc" id="L27">    }</span>
+
+    @Override
+    public RealMethod resolve(Object proxy, Method method, Object[] args) {
+<span class="fc" id="L31">        return new InvokeDefaultRealMethod(proxy, method, args);</span>
+    }
+
+    private class InvokeDefaultRealMethod implements RealMethod, Serializable {
+
+        private static final long serialVersionUID = -1;
+
+        private final Object proxy;
+        private final SerializableMethod serializableMethod;
+        private final Object[] args;
+
+<span class="fc" id="L42">        private InvokeDefaultRealMethod(Object proxy, Method method, Object[] args) {</span>
+<span class="fc" id="L43">            this.proxy = proxy;</span>
+<span class="fc" id="L44">            this.serializableMethod = new SerializableMethod(method);</span>
+<span class="fc" id="L45">            this.args = args;</span>
+<span class="fc" id="L46">        }</span>
+
+        @Override
+        public boolean isInvokable() {
+<span class="fc" id="L50">            return true;</span>
+        }
+
+        @Override
+        public Object invoke() throws Throwable {
+            try {
+<span class="fc" id="L56">                return invokeDefault.invoke(null, proxy, serializableMethod.getJavaMethod(), args);</span>
+<span class="nc" id="L57">            } catch (InvocationTargetException e) {</span>
+<span class="nc" id="L58">                throw e.getTargetException();</span>
+<span class="nc" id="L59">            } catch (IllegalAccessException | IllegalArgumentException e) {</span>
+<span class="nc" id="L60">                throw new MockitoException(</span>
+<span class="nc" id="L61">                        join(</span>
+                                &quot;Failed to access default method or invoked method with illegal arguments&quot;,
+                                &quot;&quot;,
+                                &quot;Method &quot;
+<span class="nc" id="L65">                                        + serializableMethod.getJavaMethod()</span>
+                                        + &quot; could not be delegated, this is not supposed to happen&quot;,
+<span class="nc" id="L67">                                Platform.describe()),</span>
+                        e);
+            }
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

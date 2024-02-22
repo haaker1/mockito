@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultMockingDetails.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.util</a> &gt; <span class="el_source">DefaultMockingDetails.java</span></div><h1>DefaultMockingDetails.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.util;
+
+import java.util.Collection;
+
+import org.mockito.MockingDetails;
+import org.mockito.exceptions.misusing.NotAMockException;
+import org.mockito.internal.debugging.InvocationsPrinter;
+import org.mockito.internal.stubbing.InvocationContainerImpl;
+import org.mockito.invocation.Invocation;
+import org.mockito.invocation.MockHandler;
+import org.mockito.mock.MockCreationSettings;
+import org.mockito.stubbing.Stubbing;
+
+/**
+ * Class to inspect any object, and identify whether a particular object is either a mock or a spy.  This is
+ * a wrapper for {@link org.mockito.internal.util.MockUtil}.
+ */
+public class DefaultMockingDetails implements MockingDetails {
+
+    private final Object toInspect;
+
+<span class="fc" id="L26">    public DefaultMockingDetails(Object toInspect) {</span>
+<span class="fc" id="L27">        this.toInspect = toInspect;</span>
+<span class="fc" id="L28">    }</span>
+
+    @Override
+    public boolean isMock() {
+<span class="fc" id="L32">        return MockUtil.isMock(toInspect);</span>
+    }
+
+    @Override
+    public boolean isSpy() {
+<span class="fc" id="L37">        return MockUtil.isSpy(toInspect);</span>
+    }
+
+    @Override
+    public Collection&lt;Invocation&gt; getInvocations() {
+<span class="fc" id="L42">        return getInvocationContainer().getInvocations();</span>
+    }
+
+    private InvocationContainerImpl getInvocationContainer() {
+<span class="fc" id="L46">        assertGoodMock();</span>
+<span class="fc" id="L47">        return MockUtil.getInvocationContainer(toInspect);</span>
+    }
+
+    @Override
+    public MockCreationSettings&lt;?&gt; getMockCreationSettings() {
+<span class="fc" id="L52">        return mockHandler().getMockSettings();</span>
+    }
+
+    @Override
+    public Collection&lt;Stubbing&gt; getStubbings() {
+<span class="fc" id="L57">        return getInvocationContainer().getStubbingsAscending();</span>
+    }
+
+    @Override
+    public String printInvocations() {
+<span class="fc" id="L62">        assertGoodMock();</span>
+<span class="fc" id="L63">        return new InvocationsPrinter().printInvocations(toInspect);</span>
+    }
+
+    @Override
+    public MockHandler getMockHandler() {
+<span class="fc" id="L68">        return mockHandler();</span>
+    }
+
+    @Override
+    public Object getMock() {
+<span class="fc" id="L73">        return toInspect;</span>
+    }
+
+    private MockHandler&lt;?&gt; mockHandler() {
+<span class="fc" id="L77">        assertGoodMock();</span>
+<span class="fc" id="L78">        return MockUtil.getMockHandler(toInspect);</span>
+    }
+
+    private void assertGoodMock() {
+<span class="fc bfc" id="L82" title="All 2 branches covered.">        if (toInspect == null) {</span>
+<span class="fc" id="L83">            throw new NotAMockException(</span>
+                    &quot;Argument passed to Mockito.mockingDetails() should be a mock, but is null!&quot;);
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        } else if (!isMock()) {</span>
+<span class="fc" id="L86">            throw new NotAMockException(</span>
+                    &quot;Argument passed to Mockito.mockingDetails() should be a mock, but is an instance of &quot;
+<span class="fc" id="L88">                            + toInspect.getClass()</span>
+                            + &quot;!&quot;);
+        }
+<span class="fc" id="L91">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

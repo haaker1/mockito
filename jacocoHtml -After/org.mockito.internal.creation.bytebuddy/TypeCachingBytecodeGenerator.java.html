@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TypeCachingBytecodeGenerator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.creation.bytebuddy</a> &gt; <span class="el_source">TypeCachingBytecodeGenerator.java</span></div><h1>TypeCachingBytecodeGenerator.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.creation.bytebuddy;
+
+import java.lang.ref.ReferenceQueue;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import net.bytebuddy.TypeCache;
+import org.mockito.mock.SerializableMode;
+
+class TypeCachingBytecodeGenerator extends ReferenceQueue&lt;ClassLoader&gt;
+        implements BytecodeGenerator {
+    /**
+     * The size of the {@link #cacheLocks}.
+     * &lt;p&gt;Caution: This must match the {@link #CACHE_LOCK_MASK}.
+     */
+    private static final int CACHE_LOCK_SIZE = 16;
+
+    /**
+     * The mask to use to mask out the {@link MockitoMockKey#hashCode()} to find the {@link #cacheLocks}.
+     * &lt;p&gt;Caution: this must match the bits of the {@link #CACHE_LOCK_SIZE}.
+     */
+    private static final int CACHE_LOCK_MASK = 0x0F;
+
+    private final BytecodeGenerator bytecodeGenerator;
+
+    private final TypeCache&lt;MockitoMockKey&gt; typeCache;
+
+<span class="fc" id="L34">    private final ReadWriteLock lock = new ReentrantReadWriteLock();</span>
+
+    /**
+     * This array contains {@link TypeCachingLock} instances, which are used as java monitor locks for
+     * {@link TypeCache#findOrInsert(ClassLoader, Object, Callable, Object)}.
+     * The locks spread the lock to acquire over multiple locks instead of using a single lock
+     * {@code BOOTSTRAP_LOCK} for all {@link MockitoMockKey}.
+     *
+     * &lt;p&gt;Note: We can't simply use the mockedType class lock as a lock,
+     * because the {@link MockitoMockKey}, will be the same for different mockTypes + interfaces.
+     *
+     * &lt;p&gt;#3035: Excessive locking in TypeCachingBytecodeGenerator#BOOTSTRAP_LOCK
+     */
+    private final TypeCachingLock[] cacheLocks;
+
+<span class="fc" id="L49">    public TypeCachingBytecodeGenerator(BytecodeGenerator bytecodeGenerator, boolean weak) {</span>
+<span class="fc" id="L50">        this.bytecodeGenerator = bytecodeGenerator;</span>
+<span class="fc" id="L51">        typeCache =</span>
+                new TypeCache.WithInlineExpunction&lt;&gt;(
+<span class="fc bfc" id="L53" title="All 2 branches covered.">                        weak ? TypeCache.Sort.WEAK : TypeCache.Sort.SOFT);</span>
+
+<span class="fc" id="L55">        this.cacheLocks = new TypeCachingLock[CACHE_LOCK_SIZE];</span>
+<span class="fc bfc" id="L56" title="All 2 branches covered.">        for (int i = 0; i &lt; CACHE_LOCK_SIZE; i++) {</span>
+<span class="fc" id="L57">            cacheLocks[i] = new TypeCachingLock();</span>
+        }
+<span class="fc" id="L59">    }</span>
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    @Override
+    public &lt;T&gt; Class&lt;T&gt; mockClass(final MockFeatures&lt;T&gt; params) {
+<span class="fc" id="L64">        lock.readLock().lock();</span>
+        try {
+<span class="fc" id="L66">            Class&lt;T&gt; mockedType = params.mockedType;</span>
+<span class="fc" id="L67">            ClassLoader classLoader = mockedType.getClassLoader();</span>
+<span class="fc" id="L68">            MockitoMockKey key =</span>
+                    new MockitoMockKey(
+                            mockedType,
+                            params.interfaces,
+                            params.serializableMode,
+                            params.stripAnnotations);
+<span class="fc" id="L74">            return (Class&lt;T&gt;)</span>
+<span class="fc" id="L75">                    typeCache.findOrInsert(</span>
+                            classLoader,
+                            key,
+<span class="fc" id="L78">                            () -&gt; bytecodeGenerator.mockClass(params),</span>
+<span class="fc" id="L79">                            getCacheLockForKey(key));</span>
+<span class="fc" id="L80">        } catch (IllegalArgumentException exception) {</span>
+<span class="fc" id="L81">            Throwable cause = exception.getCause();</span>
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">            if (cause instanceof RuntimeException) {</span>
+<span class="fc" id="L83">                throw (RuntimeException) cause;</span>
+            } else {
+<span class="nc" id="L85">                throw exception;</span>
+            }
+        } finally {
+<span class="fc" id="L88">            lock.readLock().unlock();</span>
+        }
+    }
+
+    /**
+     * Returns a {@link TypeCachingLock}, which locks the {@link TypeCache#findOrInsert(ClassLoader, Object, Callable, Object)}.
+     *
+     * @param key the key to lock
+     * @return the {@link TypeCachingLock} to use to lock the {@link TypeCache}
+     */
+    private TypeCachingLock getCacheLockForKey(MockitoMockKey key) {
+<span class="fc" id="L99">        int hashCode = key.hashCode();</span>
+        // Try to spread some higher bits with XOR to lower bits, because we only use lower bits.
+<span class="fc" id="L101">        hashCode = hashCode ^ (hashCode &gt;&gt;&gt; 16);</span>
+<span class="fc" id="L102">        int index = hashCode &amp; CACHE_LOCK_MASK;</span>
+<span class="fc" id="L103">        return cacheLocks[index];</span>
+    }
+
+    @Override
+    public void mockClassStatic(Class&lt;?&gt; type) {
+<span class="fc" id="L108">        bytecodeGenerator.mockClassStatic(type);</span>
+<span class="fc" id="L109">    }</span>
+
+    @Override
+    public void mockClassConstruction(Class&lt;?&gt; type) {
+<span class="fc" id="L113">        bytecodeGenerator.mockClassConstruction(type);</span>
+<span class="fc" id="L114">    }</span>
+
+    @Override
+    public void clearAllCaches() {
+<span class="fc" id="L118">        lock.writeLock().lock();</span>
+        try {
+<span class="fc" id="L120">            typeCache.clear();</span>
+<span class="fc" id="L121">            bytecodeGenerator.clearAllCaches();</span>
+        } finally {
+<span class="fc" id="L123">            lock.writeLock().unlock();</span>
+        }
+<span class="fc" id="L125">    }</span>
+
+    private static final class TypeCachingLock {}
+
+    private static class MockitoMockKey extends TypeCache.SimpleKey {
+
+        private final SerializableMode serializableMode;
+        private final boolean stripAnnotations;
+
+        private MockitoMockKey(
+                Class&lt;?&gt; type,
+                Set&lt;Class&lt;?&gt;&gt; additionalType,
+                SerializableMode serializableMode,
+                boolean stripAnnotations) {
+<span class="fc" id="L139">            super(type, additionalType);</span>
+<span class="fc" id="L140">            this.serializableMode = serializableMode;</span>
+<span class="fc" id="L141">            this.stripAnnotations = stripAnnotations;</span>
+<span class="fc" id="L142">        }</span>
+
+        @Override
+        public boolean equals(Object object) {
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">            if (this == object) {</span>
+<span class="nc" id="L147">                return true;</span>
+            }
+<span class="pc bpc" id="L149" title="2 of 4 branches missed.">            if (object == null || getClass() != object.getClass()) {</span>
+<span class="nc" id="L150">                return false;</span>
+            }
+<span class="pc bpc" id="L152" title="1 of 2 branches missed.">            if (!super.equals(object)) {</span>
+<span class="nc" id="L153">                return false;</span>
+            }
+<span class="fc" id="L155">            MockitoMockKey that = (MockitoMockKey) object;</span>
+<span class="pc bpc" id="L156" title="1 of 2 branches missed.">            return stripAnnotations == that.stripAnnotations</span>
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">                    &amp;&amp; serializableMode.equals(that.serializableMode);</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="fc" id="L162">            int result = super.hashCode();</span>
+<span class="fc bfc" id="L163" title="All 2 branches covered.">            result = 31 * result + (stripAnnotations ? 1 : 0);</span>
+<span class="fc" id="L164">            result = 31 * result + serializableMode.hashCode();</span>
+<span class="fc" id="L165">            return result;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

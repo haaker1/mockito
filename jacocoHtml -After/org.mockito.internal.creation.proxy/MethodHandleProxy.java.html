@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MethodHandleProxy.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.creation.proxy</a> &gt; <span class="el_source">MethodHandleProxy.java</span></div><h1>MethodHandleProxy.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2021 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.creation.proxy;
+
+import org.mockito.internal.SuppressSignatureCheck;
+import org.mockito.internal.invocation.RealMethod;
+
+import java.io.Serializable;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+
+@SuppressSignatureCheck
+class MethodHandleProxy implements ProxyRealMethod {
+
+    private final MethodHandles.Lookup lookup;
+
+<span class="nc" id="L22">    MethodHandleProxy() throws Throwable {</span>
+<span class="nc" id="L23">        lookup = MethodHandles.lookup();</span>
+<span class="nc" id="L24">    }</span>
+
+    @Override
+    public RealMethod resolve(Object proxy, Method method, Object[] args) {
+        try {
+<span class="nc" id="L29">            return new MethodHandleRealMethod(</span>
+<span class="nc" id="L30">                    lookup.findSpecial(</span>
+<span class="nc" id="L31">                                    method.getDeclaringClass(),</span>
+<span class="nc" id="L32">                                    method.getName(),</span>
+<span class="nc" id="L33">                                    MethodType.methodType(</span>
+<span class="nc" id="L34">                                            method.getReturnType(), method.getParameterTypes()),</span>
+<span class="nc" id="L35">                                    method.getDeclaringClass())</span>
+<span class="nc" id="L36">                            .bindTo(proxy),</span>
+                    args);
+<span class="nc" id="L38">        } catch (Throwable ignored) {</span>
+<span class="nc" id="L39">            return RealMethod.IsIllegal.INSTANCE;</span>
+        }
+    }
+
+    @SuppressSignatureCheck
+    static class LegacyVersion implements ProxyRealMethod {
+
+        private final Constructor&lt;MethodHandles.Lookup&gt; constructor;
+
+<span class="nc" id="L48">        LegacyVersion() throws Throwable {</span>
+            try {
+<span class="nc" id="L50">                Class.forName(&quot;java.lang.Module&quot;);</span>
+<span class="nc" id="L51">                throw new RuntimeException(&quot;Must not be used when modules are available&quot;);</span>
+<span class="nc" id="L52">            } catch (ClassNotFoundException ignored) {</span>
+            }
+<span class="nc" id="L54">            constructor = MethodHandles.Lookup.class.getDeclaredConstructor(Class.class);</span>
+<span class="nc" id="L55">            constructor.setAccessible(true);</span>
+<span class="nc" id="L56">        }</span>
+
+        @Override
+        public RealMethod resolve(Object proxy, Method method, Object[] args) {
+            try {
+<span class="nc" id="L61">                return new MethodHandleRealMethod(</span>
+                        constructor
+<span class="nc" id="L63">                                .newInstance(method.getDeclaringClass())</span>
+<span class="nc" id="L64">                                .in(method.getDeclaringClass())</span>
+<span class="nc" id="L65">                                .unreflectSpecial(method, method.getDeclaringClass())</span>
+<span class="nc" id="L66">                                .bindTo(proxy),</span>
+                        args);
+<span class="nc" id="L68">            } catch (Throwable ignored) {</span>
+<span class="nc" id="L69">                return RealMethod.IsIllegal.INSTANCE;</span>
+            }
+        }
+    }
+
+    @SuppressSignatureCheck
+    private static class MethodHandleRealMethod implements RealMethod, Serializable {
+
+        private static final long serialVersionUID = -1;
+
+        private final MethodHandle handle;
+        private final Object[] args;
+
+<span class="nc" id="L82">        private MethodHandleRealMethod(MethodHandle handle, Object[] args) {</span>
+<span class="nc" id="L83">            this.handle = handle;</span>
+<span class="nc" id="L84">            this.args = args;</span>
+<span class="nc" id="L85">        }</span>
+
+        @Override
+        public boolean isInvokable() {
+<span class="nc" id="L89">            return true;</span>
+        }
+
+        @Override
+        public Object invoke() throws Throwable {
+<span class="nc" id="L94">            return handle.invokeWithArguments(args);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

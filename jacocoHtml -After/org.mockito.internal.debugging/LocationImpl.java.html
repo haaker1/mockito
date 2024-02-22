@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LocationImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.debugging</a> &gt; <span class="el_source">LocationImpl.java</span></div><h1>LocationImpl.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.debugging;
+
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.exceptions.stacktrace.StackTraceCleaner;
+import org.mockito.exceptions.stacktrace.StackTraceCleaner.StackFrameMetadata;
+import org.mockito.internal.configuration.plugins.Plugins;
+import org.mockito.internal.exceptions.stacktrace.DefaultStackTraceCleaner;
+import org.mockito.invocation.Location;
+
+import java.io.Serializable;
+import java.lang.StackWalker.Option;
+import java.lang.StackWalker.StackFrame;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+class LocationImpl implements Location, Serializable {
+    private static final long serialVersionUID = 2954388321980069195L;
+
+    private static final String UNEXPECTED_ERROR_SUFFIX =
+            &quot;\nThis is unexpected and is likely due to a change in either Java's StackWalker or Reflection APIs.&quot;
+                    + &quot;\nIt's worth trying to upgrade to a newer version of Mockito, or otherwise to file a bug report.&quot;;
+
+    /**
+     * This is an unfortunate buffer. Inside StackWalker, a buffer is created, which is resized by
+     * doubling. The resizing also allocates a tonne of StackFrame elements. If we traverse more than
+     * BUFFER_SIZE elements, the resulting resize can significantly affect the overall cost of the operation.
+     * If we traverse fewer than this number, we are inefficient. Empirically, 16 is enough stack frames
+     * for a simple stub+call operation to succeed without resizing, as measured on Java 11.
+     */
+    private static final int BUFFER_SIZE = 16;
+
+<span class="fc" id="L40">    private static final StackWalker STACK_WALKER = stackWalker();</span>
+
+    private static final String PREFIX = &quot;-&gt; at &quot;;
+
+    private static final StackTraceCleaner CLEANER =
+<span class="fc" id="L45">            Plugins.getStackTraceCleanerProvider()</span>
+<span class="fc" id="L46">                    .getStackTraceCleaner(new DefaultStackTraceCleaner());</span>
+
+    /**
+     * In Java, allocating lambdas is cheap, but not free. stream.map(this::doSomething)
+     * will allocate a Function object each time the function is called (although not
+     * per element). By assigning these Functions and Predicates to variables, we can
+     * avoid the memory allocation.
+     */
+<span class="fc" id="L54">    private static final Function&lt;StackFrame, StackFrameMetadata&gt; toStackFrameMetadata =</span>
+<span class="fc" id="L55">            MetadataShim::new;</span>
+
+<span class="fc" id="L57">    private static final Predicate&lt;StackFrameMetadata&gt; cleanerIsIn = CLEANER::isIn;</span>
+
+<span class="fc" id="L59">    private static final int FRAMES_TO_SKIP = framesToSkip();</span>
+
+    private final StackFrameMetadata sfm;
+    private volatile String stackTraceLine;
+
+<span class="fc" id="L64">    LocationImpl(boolean isInline) {</span>
+<span class="fc" id="L65">        this.sfm = getStackFrame(isInline);</span>
+<span class="fc" id="L66">    }</span>
+
+    @Override
+    public String getSourceFile() {
+<span class="fc" id="L70">        return sfm.getFileName();</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L75">        return stackTraceLine();</span>
+    }
+
+    private String stackTraceLine() {
+<span class="fc bfc" id="L79" title="All 2 branches covered.">        if (stackTraceLine == null) {</span>
+<span class="fc" id="L80">            synchronized (this) {</span>
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">                if (stackTraceLine == null) {</span>
+<span class="fc" id="L82">                    stackTraceLine = PREFIX + sfm.toString();</span>
+                }
+<span class="fc" id="L84">            }</span>
+        }
+<span class="fc" id="L86">        return stackTraceLine;</span>
+    }
+
+    private static StackFrameMetadata getStackFrame(boolean isInline) {
+<span class="fc" id="L90">        return stackWalk(</span>
+                stream -&gt;
+<span class="fc" id="L92">                        stream.map(toStackFrameMetadata)</span>
+<span class="fc" id="L93">                                .skip(FRAMES_TO_SKIP)</span>
+<span class="fc" id="L94">                                .filter(cleanerIsIn)</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">                                .skip(isInline ? 1 : 0)</span>
+<span class="fc" id="L96">                                .findFirst()</span>
+<span class="fc" id="L97">                                .orElseThrow(</span>
+<span class="nc" id="L98">                                        () -&gt; new MockitoException(noStackTraceFailureMessage())));</span>
+    }
+
+    private static boolean usingDefaultStackTraceCleaner() {
+<span class="nc" id="L102">        return CLEANER instanceof DefaultStackTraceCleaner;</span>
+    }
+
+    private static String noStackTraceFailureMessage() {
+<span class="nc bnc" id="L106" title="All 2 branches missed.">        if (usingDefaultStackTraceCleaner()) {</span>
+<span class="nc" id="L107">            return &quot;Mockito could not find the first non-Mockito stack frame.&quot;</span>
+                    + UNEXPECTED_ERROR_SUFFIX;
+        } else {
+<span class="nc" id="L110">            String cleanerType = CLEANER.getClass().getName();</span>
+<span class="nc" id="L111">            String fmt =</span>
+                    &quot;Mockito could not find the first non-Mockito stack frame. A custom stack frame cleaner \n&quot;
+                            + &quot;(type %s) is in use and this has mostly likely filtered out all the relevant stack frames.&quot;;
+<span class="nc" id="L114">            return String.format(fmt, cleanerType);</span>
+        }
+    }
+
+    /**
+     * In order to trigger the stack walker, we create some reflective frames. These need to be skipped so as to
+     * ensure there are no non-Mockito frames at the top of the stack trace.
+     */
+    private static int framesToSkip() {
+<span class="fc" id="L123">        return stackWalk(</span>
+                stream -&gt; {
+<span class="fc" id="L125">                    List&lt;String&gt; metadata =</span>
+<span class="fc" id="L126">                            stream.map(toStackFrameMetadata)</span>
+<span class="fc" id="L127">                                    .map(StackFrameMetadata::getClassName)</span>
+<span class="fc" id="L128">                                    .collect(Collectors.toList());</span>
+<span class="fc" id="L129">                    return metadata.indexOf(LocationImpl.class.getName());</span>
+                });
+    }
+
+    private static &lt;T&gt; T stackWalk(Function&lt;Stream&lt;StackFrame&gt;, T&gt; function) {
+<span class="fc" id="L134">        return (T) STACK_WALKER.walk(function);</span>
+    }
+
+    private static StackWalker stackWalker() {
+<span class="fc" id="L138">        return StackWalker.getInstance(</span>
+<span class="fc" id="L139">                Collections.singleton(Option.SHOW_REFLECT_FRAMES), BUFFER_SIZE);</span>
+    }
+
+    private static final class MetadataShim implements StackFrameMetadata, Serializable {
+        private static final long serialVersionUID = 8491903719411428648L;
+        private final StackFrame stackFrame;
+
+<span class="fc" id="L146">        private MetadataShim(StackFrame stackFrame) {</span>
+<span class="fc" id="L147">            this.stackFrame = stackFrame;</span>
+<span class="fc" id="L148">        }</span>
+
+        @Override
+        public String getClassName() {
+<span class="fc" id="L152">            return stackFrame.getClassName();</span>
+        }
+
+        @Override
+        public String getMethodName() {
+<span class="fc" id="L157">            return stackFrame.getMethodName();</span>
+        }
+
+        @Override
+        public String getFileName() {
+<span class="fc" id="L162">            return stackFrame.getFileName();</span>
+        }
+
+        @Override
+        public int getLineNumber() {
+<span class="fc" id="L167">            return stackFrame.getLineNumber();</span>
+        }
+
+        @Override
+        public String toString() {
+<span class="fc" id="L172">            return stackFrame.toString();</span>
+        }
+
+        /**
+         * Ensure that this type remains serializable.
+         */
+        private Object writeReplace() {
+<span class="fc" id="L179">            return new SerializableShim(stackFrame.toStackTraceElement());</span>
+        }
+    }
+
+    private static final class SerializableShim implements StackFrameMetadata, Serializable {
+        private static final long serialVersionUID = 7908320459080898690L;
+        private final StackTraceElement ste;
+
+<span class="fc" id="L187">        private SerializableShim(StackTraceElement ste) {</span>
+<span class="fc" id="L188">            this.ste = ste;</span>
+<span class="fc" id="L189">        }</span>
+
+        @Override
+        public String getClassName() {
+<span class="nc" id="L193">            return ste.getClassName();</span>
+        }
+
+        @Override
+        public String getMethodName() {
+<span class="nc" id="L198">            return ste.getMethodName();</span>
+        }
+
+        @Override
+        public String getFileName() {
+<span class="nc" id="L203">            return ste.getFileName();</span>
+        }
+
+        @Override
+        public int getLineNumber() {
+<span class="nc" id="L208">            return ste.getLineNumber();</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

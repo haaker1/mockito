@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ModuleMemberAccessor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.util.reflection</a> &gt; <span class="el_source">ModuleMemberAccessor.java</span></div><h1>ModuleMemberAccessor.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2020 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.util.reflection;
+
+import net.bytebuddy.ClassFileVersion;
+import org.mockito.plugins.MemberAccessor;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
+public class ModuleMemberAccessor implements MemberAccessor {
+
+    private final MemberAccessor delegate;
+
+<span class="fc" id="L19">    public ModuleMemberAccessor() {</span>
+        MemberAccessor delegate;
+        try {
+<span class="fc" id="L22">            delegate = delegate();</span>
+<span class="fc" id="L23">        } catch (Throwable ignored) {</span>
+            // Fallback in case Byte Buddy is not used as a mock maker and not available on the
+            // class loader.
+<span class="fc" id="L26">            delegate = new ReflectionMemberAccessor();</span>
+<span class="fc" id="L27">        }</span>
+<span class="fc" id="L28">        this.delegate = delegate;</span>
+<span class="fc" id="L29">    }</span>
+
+    private static MemberAccessor delegate() {
+<span class="pc bpc" id="L32" title="1 of 2 branches missed.">        if (ClassFileVersion.ofThisVm().isAtLeast(ClassFileVersion.JAVA_V9)) {</span>
+<span class="fc" id="L33">            return new InstrumentationMemberAccessor();</span>
+        } else {
+<span class="nc" id="L35">            return new ReflectionMemberAccessor();</span>
+        }
+    }
+
+    @Override
+    public Object newInstance(Constructor&lt;?&gt; constructor, Object... arguments)
+            throws InstantiationException, InvocationTargetException, IllegalAccessException {
+<span class="fc" id="L42">        return delegate.newInstance(constructor, arguments);</span>
+    }
+
+    @Override
+    public Object newInstance(
+            Constructor&lt;?&gt; constructor, OnConstruction onConstruction, Object... arguments)
+            throws InstantiationException, InvocationTargetException, IllegalAccessException {
+<span class="fc" id="L49">        return delegate.newInstance(constructor, onConstruction, arguments);</span>
+    }
+
+    @Override
+    public Object invoke(Method method, Object target, Object... arguments)
+            throws InvocationTargetException, IllegalAccessException {
+<span class="fc" id="L55">        return delegate.invoke(method, target, arguments);</span>
+    }
+
+    @Override
+    public Object get(Field field, Object target) throws IllegalAccessException {
+<span class="fc" id="L60">        return delegate.get(field, target);</span>
+    }
+
+    @Override
+    public void set(Field field, Object target, Object value) throws IllegalAccessException {
+<span class="fc" id="L65">        delegate.set(field, target, value);</span>
+<span class="fc" id="L66">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

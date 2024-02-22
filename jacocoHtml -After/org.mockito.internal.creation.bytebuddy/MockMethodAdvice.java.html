@@ -1,0 +1,765 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockMethodAdvice.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.creation.bytebuddy</a> &gt; <span class="el_source">MockMethodAdvice.java</span></div><h1>MockMethodAdvice.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.creation.bytebuddy;
+
+import static net.bytebuddy.matcher.ElementMatchers.isVisibleTo;
+import static net.bytebuddy.matcher.ElementMatchers.isConstructor;
+import static net.bytebuddy.matcher.ElementMatchers.isStatic;
+import static net.bytebuddy.matcher.ElementMatchers.not;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.Serializable;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.ref.SoftReference;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Map;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.concurrent.Callable;
+import java.util.function.Predicate;
+
+import net.bytebuddy.ClassFileVersion;
+import net.bytebuddy.asm.Advice;
+import net.bytebuddy.asm.AsmVisitorWrapper;
+import net.bytebuddy.description.field.FieldDescription;
+import net.bytebuddy.description.field.FieldList;
+import net.bytebuddy.description.method.MethodDescription;
+import net.bytebuddy.description.method.MethodList;
+import net.bytebuddy.description.method.ParameterDescription;
+import net.bytebuddy.description.type.TypeDefinition;
+import net.bytebuddy.description.type.TypeDescription;
+import net.bytebuddy.dynamic.scaffold.MethodGraph;
+import net.bytebuddy.implementation.Implementation;
+import net.bytebuddy.implementation.bind.annotation.Argument;
+import net.bytebuddy.implementation.bind.annotation.This;
+import net.bytebuddy.implementation.bytecode.StackSize;
+import net.bytebuddy.implementation.bytecode.assign.Assigner;
+import net.bytebuddy.jar.asm.Label;
+import net.bytebuddy.jar.asm.MethodVisitor;
+import net.bytebuddy.jar.asm.Opcodes;
+import net.bytebuddy.jar.asm.Type;
+import net.bytebuddy.pool.TypePool;
+import net.bytebuddy.utility.OpenedClassReader;
+
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.internal.configuration.plugins.Plugins;
+import org.mockito.internal.creation.bytebuddy.inject.MockMethodDispatcher;
+import org.mockito.internal.debugging.LocationFactory;
+import org.mockito.internal.exceptions.stacktrace.ConditionalStackTraceFilter;
+import org.mockito.internal.invocation.RealMethod;
+import org.mockito.internal.invocation.SerializableMethod;
+import org.mockito.internal.invocation.mockref.MockReference;
+import org.mockito.internal.invocation.mockref.MockWeakReference;
+import org.mockito.internal.util.concurrent.DetachedThreadLocal;
+import org.mockito.internal.util.concurrent.WeakConcurrentMap;
+import org.mockito.plugins.MemberAccessor;
+
+public class MockMethodAdvice extends MockMethodDispatcher {
+
+    private final WeakConcurrentMap&lt;Object, MockMethodInterceptor&gt; interceptors;
+    private final DetachedThreadLocal&lt;Map&lt;Class&lt;?&gt;, MockMethodInterceptor&gt;&gt; mockedStatics;
+
+    private final String identifier;
+
+<span class="fc" id="L71">    private final SelfCallInfo selfCallInfo = new SelfCallInfo();</span>
+<span class="fc" id="L72">    private final MethodGraph.Compiler compiler = MethodGraph.Compiler.Default.forJavaHierarchy();</span>
+<span class="fc" id="L73">    private final WeakConcurrentMap&lt;Class&lt;?&gt;, SoftReference&lt;MethodGraph&gt;&gt; graphs =</span>
+            new WeakConcurrentMap.WithInlinedExpunction&lt;&gt;();
+
+    private final Predicate&lt;Class&lt;?&gt;&gt; isMockConstruction;
+    private final ConstructionCallback onConstruction;
+
+    public MockMethodAdvice(
+            WeakConcurrentMap&lt;Object, MockMethodInterceptor&gt; interceptors,
+            DetachedThreadLocal&lt;Map&lt;Class&lt;?&gt;, MockMethodInterceptor&gt;&gt; mockedStatics,
+            String identifier,
+            Predicate&lt;Class&lt;?&gt;&gt; isMockConstruction,
+<span class="fc" id="L84">            ConstructionCallback onConstruction) {</span>
+<span class="fc" id="L85">        this.interceptors = interceptors;</span>
+<span class="fc" id="L86">        this.mockedStatics = mockedStatics;</span>
+<span class="fc" id="L87">        this.onConstruction = onConstruction;</span>
+<span class="fc" id="L88">        this.identifier = identifier;</span>
+<span class="fc" id="L89">        this.isMockConstruction = isMockConstruction;</span>
+<span class="fc" id="L90">    }</span>
+
+    @SuppressWarnings(&quot;unused&quot;)
+    @Advice.OnMethodEnter(skipOn = Advice.OnNonDefaultValue.class)
+    private static Callable&lt;?&gt; enter(
+            @Identifier String identifier,
+            @Advice.This Object mock,
+            @Advice.Origin Method origin,
+            @Advice.AllArguments Object[] arguments)
+            throws Throwable {
+<span class="nc" id="L100">        MockMethodDispatcher dispatcher = MockMethodDispatcher.get(identifier, mock);</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        if (dispatcher == null</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">                || !dispatcher.isMocked(mock)</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">                || dispatcher.isOverridden(mock, origin)) {</span>
+<span class="nc" id="L104">            return null;</span>
+        } else {
+<span class="nc" id="L106">            return dispatcher.handle(mock, origin, arguments);</span>
+        }
+    }
+
+    @SuppressWarnings({&quot;unused&quot;, &quot;UnusedAssignment&quot;})
+    @Advice.OnMethodExit
+    private static void exit(
+            @Advice.Return(readOnly = false, typing = Assigner.Typing.DYNAMIC) Object returned,
+            @Advice.Enter Callable&lt;?&gt; mocked)
+            throws Throwable {
+<span class="nc bnc" id="L116" title="All 2 branches missed.">        if (mocked != null) {</span>
+<span class="nc" id="L117">            returned = mocked.call();</span>
+        }
+<span class="nc" id="L119">    }</span>
+
+    @Override
+    public Callable&lt;?&gt; handle(Object instance, Method origin, Object[] arguments) throws Throwable {
+<span class="fc" id="L123">        MockMethodInterceptor interceptor = interceptors.get(instance);</span>
+<span class="pc bpc" id="L124" title="1 of 2 branches missed.">        if (interceptor == null) {</span>
+<span class="nc" id="L125">            return null;</span>
+        }
+        RealMethod realMethod;
+<span class="fc bfc" id="L128" title="All 2 branches covered.">        if (instance instanceof Serializable) {</span>
+<span class="fc" id="L129">            realMethod = new SerializableRealMethodCall(identifier, origin, instance, arguments);</span>
+        } else {
+<span class="fc" id="L131">            realMethod = new RealMethodCall(selfCallInfo, origin, instance, arguments);</span>
+        }
+<span class="fc" id="L133">        return new ReturnValueWrapper(</span>
+<span class="fc" id="L134">                interceptor.doIntercept(</span>
+<span class="fc" id="L135">                        instance, origin, arguments, realMethod, LocationFactory.create(true)));</span>
+    }
+
+    @Override
+    public Callable&lt;?&gt; handleStatic(Class&lt;?&gt; type, Method origin, Object[] arguments)
+            throws Throwable {
+<span class="fc" id="L141">        Map&lt;Class&lt;?&gt;, MockMethodInterceptor&gt; interceptors = mockedStatics.get();</span>
+<span class="pc bpc" id="L142" title="2 of 4 branches missed.">        if (interceptors == null || !interceptors.containsKey(type)) {</span>
+<span class="nc" id="L143">            return null;</span>
+        }
+<span class="fc" id="L145">        return new ReturnValueWrapper(</span>
+                interceptors
+<span class="fc" id="L147">                        .get(type)</span>
+<span class="fc" id="L148">                        .doIntercept(</span>
+                                type,
+                                origin,
+                                arguments,
+                                new StaticMethodCall(selfCallInfo, type, origin, arguments),
+<span class="fc" id="L153">                                LocationFactory.create(true)));</span>
+    }
+
+    @Override
+    public Object handleConstruction(
+            Class&lt;?&gt; type, Object object, Object[] arguments, String[] parameterTypeNames) {
+<span class="fc" id="L159">        return onConstruction.apply(type, object, arguments, parameterTypeNames);</span>
+    }
+
+    @Override
+    public boolean isMock(Object instance) {
+        // We need to exclude 'interceptors.target' explicitly to avoid a recursive check on whether
+        // the map is a mock object what requires reading from the map.
+<span class="fc bfc" id="L166" title="All 4 branches covered.">        return instance != interceptors.target &amp;&amp; interceptors.containsKey(instance);</span>
+    }
+
+    @Override
+    public boolean isMocked(Object instance) {
+<span class="fc bfc" id="L171" title="All 4 branches covered.">        return isMock(instance) &amp;&amp; selfCallInfo.checkSelfCall(instance);</span>
+    }
+
+    @Override
+    public boolean isMockedStatic(Class&lt;?&gt; type) {
+<span class="fc bfc" id="L176" title="All 2 branches covered.">        if (!selfCallInfo.checkSelfCall(type)) {</span>
+<span class="fc" id="L177">            return false;</span>
+        }
+<span class="fc" id="L179">        Map&lt;Class&lt;?&gt;, ?&gt; interceptors = mockedStatics.get();</span>
+<span class="fc bfc" id="L180" title="All 4 branches covered.">        return interceptors != null &amp;&amp; interceptors.containsKey(type);</span>
+    }
+
+    @Override
+    public boolean isOverridden(Object instance, Method origin) {
+<span class="fc" id="L185">        SoftReference&lt;MethodGraph&gt; reference = graphs.get(instance.getClass());</span>
+<span class="fc bfc" id="L186" title="All 2 branches covered.">        MethodGraph methodGraph = reference == null ? null : reference.get();</span>
+<span class="fc bfc" id="L187" title="All 2 branches covered.">        if (methodGraph == null) {</span>
+<span class="fc" id="L188">            methodGraph =</span>
+<span class="fc" id="L189">                    compiler.compile(</span>
+<span class="fc" id="L190">                            (TypeDefinition) TypeDescription.ForLoadedType.of(instance.getClass()));</span>
+<span class="fc" id="L191">            graphs.put(instance.getClass(), new SoftReference&lt;&gt;(methodGraph));</span>
+        }
+<span class="fc" id="L193">        MethodGraph.Node node =</span>
+<span class="fc" id="L194">                methodGraph.locate(</span>
+<span class="fc" id="L195">                        new MethodDescription.ForLoadedMethod(origin).asSignatureToken());</span>
+<span class="pc bpc" id="L196" title="1 of 2 branches missed.">        return !node.getSort().isResolved()</span>
+<span class="fc" id="L197">                || !node.getRepresentative()</span>
+<span class="fc" id="L198">                        .asDefined()</span>
+<span class="fc" id="L199">                        .getDeclaringType()</span>
+<span class="fc bfc" id="L200" title="All 2 branches covered.">                        .represents(origin.getDeclaringClass());</span>
+    }
+
+    @Override
+    public boolean isConstructorMock(Class&lt;?&gt; type) {
+<span class="fc" id="L205">        return isMockConstruction.test(type);</span>
+    }
+
+    private static class RealMethodCall implements RealMethod {
+
+        private final SelfCallInfo selfCallInfo;
+
+        private final Method origin;
+
+        private final MockWeakReference&lt;Object&gt; instanceRef;
+
+        private final Object[] arguments;
+
+        private RealMethodCall(
+<span class="fc" id="L219">                SelfCallInfo selfCallInfo, Method origin, Object instance, Object[] arguments) {</span>
+<span class="fc" id="L220">            this.selfCallInfo = selfCallInfo;</span>
+<span class="fc" id="L221">            this.origin = origin;</span>
+<span class="fc" id="L222">            this.instanceRef = new MockWeakReference&lt;&gt;(instance);</span>
+<span class="fc" id="L223">            this.arguments = arguments;</span>
+<span class="fc" id="L224">        }</span>
+
+        @Override
+        public boolean isInvokable() {
+<span class="fc" id="L228">            return true;</span>
+        }
+
+        @Override
+        public Object invoke() throws Throwable {
+<span class="fc" id="L233">            selfCallInfo.set(instanceRef.get());</span>
+<span class="fc" id="L234">            return tryInvoke(origin, instanceRef.get(), arguments);</span>
+        }
+    }
+
+    private static class SerializableRealMethodCall implements RealMethod {
+
+        private final String identifier;
+
+        private final SerializableMethod origin;
+
+        private final MockReference&lt;Object&gt; instanceRef;
+
+        private final Object[] arguments;
+
+        private SerializableRealMethodCall(
+<span class="fc" id="L249">                String identifier, Method origin, Object instance, Object[] arguments) {</span>
+<span class="fc" id="L250">            this.origin = new SerializableMethod(origin);</span>
+<span class="fc" id="L251">            this.identifier = identifier;</span>
+<span class="fc" id="L252">            this.instanceRef = new MockWeakReference&lt;&gt;(instance);</span>
+<span class="fc" id="L253">            this.arguments = arguments;</span>
+<span class="fc" id="L254">        }</span>
+
+        @Override
+        public boolean isInvokable() {
+<span class="fc" id="L258">            return true;</span>
+        }
+
+        @Override
+        public Object invoke() throws Throwable {
+<span class="fc" id="L263">            Method method = origin.getJavaMethod();</span>
+<span class="fc" id="L264">            MockMethodDispatcher mockMethodDispatcher =</span>
+<span class="fc" id="L265">                    MockMethodDispatcher.get(identifier, instanceRef.get());</span>
+<span class="pc bpc" id="L266" title="1 of 2 branches missed.">            if (!(mockMethodDispatcher instanceof MockMethodAdvice)) {</span>
+<span class="nc" id="L267">                throw new MockitoException(&quot;Unexpected dispatcher for advice-based super call&quot;);</span>
+            }
+<span class="fc" id="L269">            Object previous =</span>
+                    ((MockMethodAdvice) mockMethodDispatcher)
+<span class="fc" id="L271">                            .selfCallInfo.replace(instanceRef.get());</span>
+            try {
+<span class="fc" id="L273">                return tryInvoke(method, instanceRef.get(), arguments);</span>
+            } finally {
+<span class="fc" id="L275">                ((MockMethodAdvice) mockMethodDispatcher).selfCallInfo.set(previous);</span>
+            }
+        }
+    }
+
+    private static class StaticMethodCall implements RealMethod {
+
+        private final SelfCallInfo selfCallInfo;
+
+        private final Class&lt;?&gt; type;
+
+        private final Method origin;
+
+        private final Object[] arguments;
+
+        private StaticMethodCall(
+<span class="fc" id="L291">                SelfCallInfo selfCallInfo, Class&lt;?&gt; type, Method origin, Object[] arguments) {</span>
+<span class="fc" id="L292">            this.selfCallInfo = selfCallInfo;</span>
+<span class="fc" id="L293">            this.type = type;</span>
+<span class="fc" id="L294">            this.origin = origin;</span>
+<span class="fc" id="L295">            this.arguments = arguments;</span>
+<span class="fc" id="L296">        }</span>
+
+        @Override
+        public boolean isInvokable() {
+<span class="fc" id="L300">            return true;</span>
+        }
+
+        @Override
+        public Object invoke() throws Throwable {
+<span class="fc" id="L305">            selfCallInfo.set(type);</span>
+<span class="fc" id="L306">            return tryInvoke(origin, null, arguments);</span>
+        }
+    }
+
+    private static Object tryInvoke(Method origin, Object instance, Object[] arguments)
+            throws Throwable {
+<span class="fc" id="L312">        MemberAccessor accessor = Plugins.getMemberAccessor();</span>
+        try {
+<span class="fc" id="L314">            return accessor.invoke(origin, instance, arguments);</span>
+<span class="fc" id="L315">        } catch (InvocationTargetException exception) {</span>
+<span class="fc" id="L316">            Throwable cause = exception.getCause();</span>
+<span class="fc" id="L317">            new ConditionalStackTraceFilter()</span>
+<span class="fc" id="L318">                    .filter(removeRecursiveCalls(cause, origin.getDeclaringClass()));</span>
+<span class="fc" id="L319">            throw cause;</span>
+        }
+    }
+
+    static Throwable removeRecursiveCalls(final Throwable cause, final Class&lt;?&gt; declaringClass) {
+<span class="fc" id="L324">        final List&lt;String&gt; uniqueStackTraceItems = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L325">        final List&lt;Integer&gt; indexesToBeRemoved = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L326" title="All 2 branches covered.">        for (StackTraceElement element : cause.getStackTrace()) {</span>
+<span class="fc" id="L327">            final String key = element.getClassName() + element.getLineNumber();</span>
+<span class="fc" id="L328">            final int elementIndex = uniqueStackTraceItems.lastIndexOf(key);</span>
+<span class="fc" id="L329">            uniqueStackTraceItems.add(key);</span>
+
+<span class="fc bfc" id="L331" title="All 4 branches covered.">            if (elementIndex &gt; -1 &amp;&amp; declaringClass.getName().equals(element.getClassName())) {</span>
+<span class="fc" id="L332">                indexesToBeRemoved.add(elementIndex);</span>
+            }
+        }
+<span class="fc" id="L335">        final List&lt;StackTraceElement&gt; adjustedList =</span>
+<span class="fc" id="L336">                new ArrayList&lt;&gt;(Arrays.asList(cause.getStackTrace()));</span>
+<span class="fc" id="L337">        indexesToBeRemoved.stream()</span>
+<span class="fc" id="L338">                .sorted(Comparator.reverseOrder())</span>
+<span class="fc" id="L339">                .mapToInt(Integer::intValue)</span>
+<span class="fc" id="L340">                .forEach(adjustedList::remove);</span>
+<span class="fc" id="L341">        cause.setStackTrace(adjustedList.toArray(new StackTraceElement[] {}));</span>
+<span class="fc" id="L342">        return cause;</span>
+    }
+
+    private static class ReturnValueWrapper implements Callable&lt;Object&gt; {
+
+        private final Object returned;
+
+<span class="fc" id="L349">        private ReturnValueWrapper(Object returned) {</span>
+<span class="fc" id="L350">            this.returned = returned;</span>
+<span class="fc" id="L351">        }</span>
+
+        @Override
+        public Object call() {
+<span class="fc" id="L355">            return returned;</span>
+        }
+    }
+
+    private static class SelfCallInfo extends ThreadLocal&lt;Object&gt; {
+
+        Object replace(Object value) {
+<span class="fc" id="L362">            Object current = get();</span>
+<span class="fc" id="L363">            set(value);</span>
+<span class="fc" id="L364">            return current;</span>
+        }
+
+        boolean checkSelfCall(Object value) {
+<span class="fc bfc" id="L368" title="All 2 branches covered.">            if (value == get()) {</span>
+<span class="fc" id="L369">                set(null);</span>
+<span class="fc" id="L370">                return false;</span>
+            } else {
+<span class="fc" id="L372">                return true;</span>
+            }
+        }
+    }
+
+    static class ConstructorShortcut
+            implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisitorWrapper {
+
+        private final String identifier;
+
+<span class="fc" id="L382">        ConstructorShortcut(String identifier) {</span>
+<span class="fc" id="L383">            this.identifier = identifier;</span>
+<span class="fc" id="L384">        }</span>
+
+        @Override
+        public MethodVisitor wrap(
+                TypeDescription instrumentedType,
+                MethodDescription instrumentedMethod,
+                MethodVisitor methodVisitor,
+                Implementation.Context implementationContext,
+                TypePool typePool,
+                int writerFlags,
+                int readerFlags) {
+<span class="pc bpc" id="L395" title="1 of 4 branches missed.">            if (instrumentedMethod.isConstructor() &amp;&amp; !instrumentedType.represents(Object.class)) {</span>
+<span class="fc" id="L396">                MethodList&lt;MethodDescription.InDefinedShape&gt; constructors =</span>
+                        instrumentedType
+<span class="fc" id="L398">                                .getSuperClass()</span>
+<span class="fc" id="L399">                                .asErasure()</span>
+<span class="fc" id="L400">                                .getDeclaredMethods()</span>
+<span class="fc" id="L401">                                .filter(isConstructor().and(isVisibleTo(instrumentedType)));</span>
+<span class="fc" id="L402">                int arguments = Integer.MAX_VALUE;</span>
+<span class="fc" id="L403">                boolean packagePrivate = true;</span>
+<span class="fc" id="L404">                MethodDescription.InDefinedShape current = null;</span>
+<span class="fc bfc" id="L405" title="All 2 branches covered.">                for (MethodDescription.InDefinedShape constructor : constructors) {</span>
+                    // We are choosing the shortest constructor with regards to arguments.
+                    // Yet, we prefer a non-package-private constructor since they require
+                    // the super class to be on the same class loader.
+<span class="fc bfc" id="L409" title="All 4 branches covered.">                    if (constructor.getParameters().size() &lt; arguments</span>
+<span class="pc bpc" id="L410" title="1 of 2 branches missed.">                            &amp;&amp; (packagePrivate || !constructor.isPackagePrivate())) {</span>
+<span class="fc" id="L411">                        arguments = constructor.getParameters().size();</span>
+<span class="fc" id="L412">                        packagePrivate = constructor.isPackagePrivate();</span>
+<span class="fc" id="L413">                        current = constructor;</span>
+                    }
+<span class="fc" id="L415">                }</span>
+<span class="pc bpc" id="L416" title="1 of 2 branches missed.">                if (current != null) {</span>
+<span class="fc" id="L417">                    final MethodDescription.InDefinedShape selected = current;</span>
+<span class="fc" id="L418">                    return new MethodVisitor(OpenedClassReader.ASM_API, methodVisitor) {</span>
+                        @Override
+                        public void visitCode() {
+<span class="fc" id="L421">                            super.visitCode();</span>
+                            /*
+                             * The byte code that is added to the start of the method is roughly equivalent to
+                             * the following byte code for a hypothetical constructor of class Current:
+                             *
+                             * if (MockMethodDispatcher.isConstructorMock(&lt;identifier&gt;, Current.class) {
+                             *   super(&lt;default arguments&gt;);
+                             *   Current o = (Current) MockMethodDispatcher.handleConstruction(Current.class,
+                             *       this,
+                             *       new Object[] {argument1, argument2, ...},
+                             *       new String[] {argumentType1, argumentType2, ...});
+                             *   if (o != null) {
+                             *     this.field = o.field; // for each declared field
+                             *   }
+                             *   return;
+                             * }
+                             *
+                             * This avoids the invocation of the original constructor chain but fullfils the
+                             * verifier requirement to invoke a super constructor.
+                             */
+<span class="fc" id="L441">                            Label label = new Label();</span>
+<span class="fc" id="L442">                            super.visitLdcInsn(identifier);</span>
+<span class="fc" id="L443">                            if (implementationContext</span>
+<span class="fc" id="L444">                                    .getClassFileVersion()</span>
+<span class="pc bpc" id="L445" title="1 of 2 branches missed.">                                    .isAtLeast(ClassFileVersion.JAVA_V5)) {</span>
+<span class="fc" id="L446">                                super.visitLdcInsn(Type.getType(instrumentedType.getDescriptor()));</span>
+                            } else {
+<span class="nc" id="L448">                                super.visitLdcInsn(instrumentedType.getName());</span>
+<span class="nc" id="L449">                                super.visitMethodInsn(</span>
+                                        Opcodes.INVOKESTATIC,
+<span class="nc" id="L451">                                        Type.getInternalName(Class.class),</span>
+                                        &quot;forName&quot;,
+<span class="nc" id="L453">                                        Type.getMethodDescriptor(</span>
+<span class="nc" id="L454">                                                Type.getType(Class.class),</span>
+<span class="nc" id="L455">                                                Type.getType(String.class)),</span>
+                                        false);
+                            }
+<span class="fc" id="L458">                            super.visitMethodInsn(</span>
+                                    Opcodes.INVOKESTATIC,
+<span class="fc" id="L460">                                    Type.getInternalName(MockMethodDispatcher.class),</span>
+                                    &quot;isConstructorMock&quot;,
+<span class="fc" id="L462">                                    Type.getMethodDescriptor(</span>
+                                            Type.BOOLEAN_TYPE,
+<span class="fc" id="L464">                                            Type.getType(String.class),</span>
+<span class="fc" id="L465">                                            Type.getType(Class.class)),</span>
+                                    false);
+<span class="fc" id="L467">                            super.visitInsn(Opcodes.ICONST_0);</span>
+<span class="fc" id="L468">                            super.visitJumpInsn(Opcodes.IF_ICMPEQ, label);</span>
+<span class="fc" id="L469">                            super.visitVarInsn(Opcodes.ALOAD, 0);</span>
+                            for (TypeDescription type :
+<span class="fc bfc" id="L471" title="All 2 branches covered.">                                    selected.getParameters().asTypeList().asErasures()) {</span>
+<span class="pc bpc" id="L472" title="1 of 2 branches missed.">                                if (type.represents(boolean.class)</span>
+<span class="pc bpc" id="L473" title="1 of 2 branches missed.">                                        || type.represents(byte.class)</span>
+<span class="pc bpc" id="L474" title="1 of 2 branches missed.">                                        || type.represents(short.class)</span>
+<span class="pc bpc" id="L475" title="1 of 2 branches missed.">                                        || type.represents(char.class)</span>
+<span class="fc bfc" id="L476" title="All 2 branches covered.">                                        || type.represents(int.class)) {</span>
+<span class="fc" id="L477">                                    super.visitInsn(Opcodes.ICONST_0);</span>
+<span class="pc bpc" id="L478" title="1 of 2 branches missed.">                                } else if (type.represents(long.class)) {</span>
+<span class="nc" id="L479">                                    super.visitInsn(Opcodes.LCONST_0);</span>
+<span class="pc bpc" id="L480" title="1 of 2 branches missed.">                                } else if (type.represents(float.class)) {</span>
+<span class="nc" id="L481">                                    super.visitInsn(Opcodes.FCONST_0);</span>
+<span class="pc bpc" id="L482" title="1 of 2 branches missed.">                                } else if (type.represents(double.class)) {</span>
+<span class="nc" id="L483">                                    super.visitInsn(Opcodes.DCONST_0);</span>
+                                } else {
+<span class="fc" id="L485">                                    super.visitInsn(Opcodes.ACONST_NULL);</span>
+                                }
+<span class="fc" id="L487">                            }</span>
+<span class="fc" id="L488">                            super.visitMethodInsn(</span>
+                                    Opcodes.INVOKESPECIAL,
+<span class="fc" id="L490">                                    selected.getDeclaringType().getInternalName(),</span>
+<span class="fc" id="L491">                                    selected.getInternalName(),</span>
+<span class="fc" id="L492">                                    selected.getDescriptor(),</span>
+                                    false);
+<span class="fc" id="L494">                            super.visitLdcInsn(identifier);</span>
+<span class="fc" id="L495">                            if (implementationContext</span>
+<span class="fc" id="L496">                                    .getClassFileVersion()</span>
+<span class="pc bpc" id="L497" title="1 of 2 branches missed.">                                    .isAtLeast(ClassFileVersion.JAVA_V5)) {</span>
+<span class="fc" id="L498">                                super.visitLdcInsn(Type.getType(instrumentedType.getDescriptor()));</span>
+                            } else {
+<span class="nc" id="L500">                                super.visitLdcInsn(instrumentedType.getName());</span>
+<span class="nc" id="L501">                                super.visitMethodInsn(</span>
+                                        Opcodes.INVOKESTATIC,
+<span class="nc" id="L503">                                        Type.getInternalName(Class.class),</span>
+                                        &quot;forName&quot;,
+<span class="nc" id="L505">                                        Type.getMethodDescriptor(</span>
+<span class="nc" id="L506">                                                Type.getType(Class.class),</span>
+<span class="nc" id="L507">                                                Type.getType(String.class)),</span>
+                                        false);
+                            }
+<span class="fc" id="L510">                            super.visitVarInsn(Opcodes.ALOAD, 0);</span>
+<span class="fc" id="L511">                            super.visitLdcInsn(instrumentedMethod.getParameters().size());</span>
+<span class="fc" id="L512">                            super.visitTypeInsn(</span>
+<span class="fc" id="L513">                                    Opcodes.ANEWARRAY, Type.getInternalName(Object.class));</span>
+<span class="fc" id="L514">                            int index = 0;</span>
+                            for (ParameterDescription parameter :
+<span class="fc bfc" id="L516" title="All 2 branches covered.">                                    instrumentedMethod.getParameters()) {</span>
+<span class="fc" id="L517">                                super.visitInsn(Opcodes.DUP);</span>
+<span class="fc" id="L518">                                super.visitLdcInsn(index++);</span>
+<span class="fc" id="L519">                                Type type =</span>
+<span class="fc" id="L520">                                        Type.getType(</span>
+<span class="fc" id="L521">                                                parameter.getType().asErasure().getDescriptor());</span>
+<span class="fc" id="L522">                                super.visitVarInsn(</span>
+<span class="fc" id="L523">                                        type.getOpcode(Opcodes.ILOAD), parameter.getOffset());</span>
+<span class="fc bfc" id="L524" title="All 2 branches covered.">                                if (parameter.getType().isPrimitive()) {</span>
+<span class="fc" id="L525">                                    Type wrapper =</span>
+<span class="fc" id="L526">                                            Type.getType(</span>
+                                                    parameter
+<span class="fc" id="L528">                                                            .getType()</span>
+<span class="fc" id="L529">                                                            .asErasure()</span>
+<span class="fc" id="L530">                                                            .asBoxed()</span>
+<span class="fc" id="L531">                                                            .getDescriptor());</span>
+<span class="fc" id="L532">                                    super.visitMethodInsn(</span>
+                                            Opcodes.INVOKESTATIC,
+<span class="fc" id="L534">                                            wrapper.getInternalName(),</span>
+                                            &quot;valueOf&quot;,
+<span class="fc" id="L536">                                            Type.getMethodDescriptor(wrapper, type),</span>
+                                            false);
+                                }
+<span class="fc" id="L539">                                super.visitInsn(Opcodes.AASTORE);</span>
+<span class="fc" id="L540">                            }</span>
+<span class="fc" id="L541">                            index = 0;</span>
+<span class="fc" id="L542">                            super.visitLdcInsn(instrumentedMethod.getParameters().size());</span>
+<span class="fc" id="L543">                            super.visitTypeInsn(</span>
+<span class="fc" id="L544">                                    Opcodes.ANEWARRAY, Type.getInternalName(String.class));</span>
+                            for (TypeDescription typeDescription :
+<span class="fc bfc" id="L546" title="All 2 branches covered.">                                    instrumentedMethod.getParameters().asTypeList().asErasures()) {</span>
+<span class="fc" id="L547">                                super.visitInsn(Opcodes.DUP);</span>
+<span class="fc" id="L548">                                super.visitLdcInsn(index++);</span>
+<span class="fc" id="L549">                                super.visitLdcInsn(typeDescription.getName());</span>
+<span class="fc" id="L550">                                super.visitInsn(Opcodes.AASTORE);</span>
+<span class="fc" id="L551">                            }</span>
+<span class="fc" id="L552">                            super.visitMethodInsn(</span>
+                                    Opcodes.INVOKESTATIC,
+<span class="fc" id="L554">                                    Type.getInternalName(MockMethodDispatcher.class),</span>
+                                    &quot;handleConstruction&quot;,
+<span class="fc" id="L556">                                    Type.getMethodDescriptor(</span>
+<span class="fc" id="L557">                                            Type.getType(Object.class),</span>
+<span class="fc" id="L558">                                            Type.getType(String.class),</span>
+<span class="fc" id="L559">                                            Type.getType(Class.class),</span>
+<span class="fc" id="L560">                                            Type.getType(Object.class),</span>
+<span class="fc" id="L561">                                            Type.getType(Object[].class),</span>
+<span class="fc" id="L562">                                            Type.getType(String[].class)),</span>
+                                    false);
+<span class="fc" id="L564">                            FieldList&lt;FieldDescription.InDefinedShape&gt; fields =</span>
+<span class="fc" id="L565">                                    instrumentedType.getDeclaredFields().filter(not(isStatic()));</span>
+<span class="fc" id="L566">                            super.visitTypeInsn(</span>
+<span class="fc" id="L567">                                    Opcodes.CHECKCAST, instrumentedType.getInternalName());</span>
+<span class="fc" id="L568">                            super.visitInsn(Opcodes.DUP);</span>
+<span class="fc" id="L569">                            Label noSpy = new Label();</span>
+<span class="fc" id="L570">                            super.visitJumpInsn(Opcodes.IFNULL, noSpy);</span>
+<span class="fc bfc" id="L571" title="All 2 branches covered.">                            for (FieldDescription field : fields) {</span>
+<span class="fc" id="L572">                                super.visitInsn(Opcodes.DUP);</span>
+<span class="fc" id="L573">                                super.visitFieldInsn(</span>
+                                        Opcodes.GETFIELD,
+<span class="fc" id="L575">                                        instrumentedType.getInternalName(),</span>
+<span class="fc" id="L576">                                        field.getInternalName(),</span>
+<span class="fc" id="L577">                                        field.getDescriptor());</span>
+<span class="fc" id="L578">                                super.visitVarInsn(Opcodes.ALOAD, 0);</span>
+<span class="fc" id="L579">                                super.visitInsn(</span>
+<span class="fc bfc" id="L580" title="All 2 branches covered.">                                        field.getType().getStackSize() == StackSize.DOUBLE</span>
+<span class="fc" id="L581">                                                ? Opcodes.DUP_X2</span>
+<span class="fc" id="L582">                                                : Opcodes.DUP_X1);</span>
+<span class="fc" id="L583">                                super.visitInsn(Opcodes.POP);</span>
+<span class="fc" id="L584">                                super.visitFieldInsn(</span>
+                                        Opcodes.PUTFIELD,
+<span class="fc" id="L586">                                        instrumentedType.getInternalName(),</span>
+<span class="fc" id="L587">                                        field.getInternalName(),</span>
+<span class="fc" id="L588">                                        field.getDescriptor());</span>
+<span class="fc" id="L589">                            }</span>
+<span class="fc" id="L590">                            super.visitLabel(noSpy);</span>
+<span class="fc" id="L591">                            if (implementationContext</span>
+<span class="fc" id="L592">                                    .getClassFileVersion()</span>
+<span class="fc bfc" id="L593" title="All 2 branches covered.">                                    .isAtLeast(ClassFileVersion.JAVA_V6)) {</span>
+<span class="fc" id="L594">                                Object[] locals =</span>
+<span class="fc" id="L595">                                        toFrames(</span>
+<span class="fc" id="L596">                                                instrumentedType.getInternalName(),</span>
+                                                instrumentedMethod
+<span class="fc" id="L598">                                                        .getParameters()</span>
+<span class="fc" id="L599">                                                        .asTypeList()</span>
+<span class="fc" id="L600">                                                        .asErasures());</span>
+<span class="fc" id="L601">                                super.visitFrame(</span>
+                                        Opcodes.F_FULL,
+                                        locals.length,
+                                        locals,
+                                        1,
+<span class="fc" id="L606">                                        new Object[] {instrumentedType.getInternalName()});</span>
+                            }
+<span class="fc" id="L608">                            super.visitInsn(Opcodes.POP);</span>
+<span class="fc" id="L609">                            super.visitInsn(Opcodes.RETURN);</span>
+<span class="fc" id="L610">                            super.visitLabel(label);</span>
+<span class="fc" id="L611">                            if (implementationContext</span>
+<span class="fc" id="L612">                                    .getClassFileVersion()</span>
+<span class="fc bfc" id="L613" title="All 2 branches covered.">                                    .isAtLeast(ClassFileVersion.JAVA_V6)) {</span>
+<span class="fc" id="L614">                                Object[] locals =</span>
+<span class="fc" id="L615">                                        toFrames(</span>
+                                                Opcodes.UNINITIALIZED_THIS,
+                                                instrumentedMethod
+<span class="fc" id="L618">                                                        .getParameters()</span>
+<span class="fc" id="L619">                                                        .asTypeList()</span>
+<span class="fc" id="L620">                                                        .asErasures());</span>
+<span class="fc" id="L621">                                super.visitFrame(</span>
+                                        Opcodes.F_FULL, locals.length, locals, 0, new Object[0]);
+                            }
+<span class="fc" id="L624">                        }</span>
+
+                        @Override
+                        public void visitMaxs(int maxStack, int maxLocals) {
+<span class="fc" id="L628">                            int prequel = Math.max(5, selected.getStackSize());</span>
+                            for (ParameterDescription parameter :
+<span class="fc bfc" id="L630" title="All 2 branches covered.">                                    instrumentedMethod.getParameters()) {</span>
+<span class="fc" id="L631">                                prequel =</span>
+<span class="fc" id="L632">                                        Math.max(</span>
+                                                prequel,
+<span class="fc" id="L634">                                                6 + parameter.getType().getStackSize().getSize());</span>
+<span class="fc" id="L635">                                prequel = Math.max(prequel, 8);</span>
+<span class="fc" id="L636">                            }</span>
+<span class="fc" id="L637">                            super.visitMaxs(Math.max(maxStack, prequel), maxLocals);</span>
+<span class="fc" id="L638">                        }</span>
+                    };
+                }
+            }
+<span class="fc" id="L642">            return methodVisitor;</span>
+        }
+
+        private static Object[] toFrames(Object self, List&lt;TypeDescription&gt; types) {
+<span class="fc" id="L646">            Object[] frames = new Object[1 + types.size()];</span>
+<span class="fc" id="L647">            frames[0] = self;</span>
+<span class="fc" id="L648">            int index = 0;</span>
+<span class="fc bfc" id="L649" title="All 2 branches covered.">            for (TypeDescription type : types) {</span>
+                Object frame;
+<span class="fc bfc" id="L651" title="All 2 branches covered.">                if (type.represents(boolean.class)</span>
+<span class="fc bfc" id="L652" title="All 2 branches covered.">                        || type.represents(byte.class)</span>
+<span class="fc bfc" id="L653" title="All 2 branches covered.">                        || type.represents(short.class)</span>
+<span class="fc bfc" id="L654" title="All 2 branches covered.">                        || type.represents(char.class)</span>
+<span class="fc bfc" id="L655" title="All 2 branches covered.">                        || type.represents(int.class)) {</span>
+<span class="fc" id="L656">                    frame = Opcodes.INTEGER;</span>
+<span class="fc bfc" id="L657" title="All 2 branches covered.">                } else if (type.represents(long.class)) {</span>
+<span class="fc" id="L658">                    frame = Opcodes.LONG;</span>
+<span class="fc bfc" id="L659" title="All 2 branches covered.">                } else if (type.represents(float.class)) {</span>
+<span class="fc" id="L660">                    frame = Opcodes.FLOAT;</span>
+<span class="fc bfc" id="L661" title="All 2 branches covered.">                } else if (type.represents(double.class)) {</span>
+<span class="fc" id="L662">                    frame = Opcodes.DOUBLE;</span>
+                } else {
+<span class="fc" id="L664">                    frame = type.getInternalName();</span>
+                }
+<span class="fc" id="L666">                frames[++index] = frame;</span>
+<span class="fc" id="L667">            }</span>
+<span class="fc" id="L668">            return frames;</span>
+        }
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Identifier {}
+
+<span class="nc" id="L675">    static class ForHashCode {</span>
+
+        @SuppressWarnings(&quot;unused&quot;)
+        @Advice.OnMethodEnter(skipOn = Advice.OnNonDefaultValue.class)
+        private static boolean enter(@Identifier String id, @Advice.This Object self) {
+<span class="nc" id="L680">            MockMethodDispatcher dispatcher = MockMethodDispatcher.get(id, self);</span>
+<span class="nc bnc" id="L681" title="All 4 branches missed.">            return dispatcher != null &amp;&amp; dispatcher.isMock(self);</span>
+        }
+
+        @SuppressWarnings({&quot;unused&quot;, &quot;UnusedAssignment&quot;})
+        @Advice.OnMethodExit
+        private static void enter(
+                @Advice.This Object self,
+                @Advice.Return(readOnly = false) int hashCode,
+                @Advice.Enter boolean skipped) {
+<span class="nc bnc" id="L690" title="All 2 branches missed.">            if (skipped) {</span>
+<span class="nc" id="L691">                hashCode = System.identityHashCode(self);</span>
+            }
+<span class="nc" id="L693">        }</span>
+    }
+
+<span class="nc" id="L696">    static class ForEquals {</span>
+
+        @SuppressWarnings(&quot;unused&quot;)
+        @Advice.OnMethodEnter(skipOn = Advice.OnNonDefaultValue.class)
+        private static boolean enter(@Identifier String identifier, @Advice.This Object self) {
+<span class="nc" id="L701">            MockMethodDispatcher dispatcher = MockMethodDispatcher.get(identifier, self);</span>
+<span class="nc bnc" id="L702" title="All 4 branches missed.">            return dispatcher != null &amp;&amp; dispatcher.isMock(self);</span>
+        }
+
+        @SuppressWarnings({&quot;unused&quot;, &quot;UnusedAssignment&quot;})
+        @Advice.OnMethodExit
+        private static void enter(
+                @Advice.This Object self,
+                @Advice.Argument(0) Object other,
+                @Advice.Return(readOnly = false) boolean equals,
+                @Advice.Enter boolean skipped) {
+<span class="nc bnc" id="L712" title="All 2 branches missed.">            if (skipped) {</span>
+<span class="nc bnc" id="L713" title="All 2 branches missed.">                equals = self == other;</span>
+            }
+<span class="nc" id="L715">        }</span>
+    }
+
+<span class="nc" id="L718">    static class ForStatic {</span>
+
+        @SuppressWarnings(&quot;unused&quot;)
+        @Advice.OnMethodEnter(skipOn = Advice.OnNonDefaultValue.class)
+        private static Callable&lt;?&gt; enter(
+                @Identifier String identifier,
+                @Advice.Origin Class&lt;?&gt; type,
+                @Advice.Origin Method origin,
+                @Advice.AllArguments Object[] arguments)
+                throws Throwable {
+<span class="nc" id="L728">            MockMethodDispatcher dispatcher = MockMethodDispatcher.getStatic(identifier, type);</span>
+<span class="nc bnc" id="L729" title="All 4 branches missed.">            if (dispatcher == null || !dispatcher.isMockedStatic(type)) {</span>
+<span class="nc" id="L730">                return null;</span>
+            } else {
+<span class="nc" id="L732">                return dispatcher.handleStatic(type, origin, arguments);</span>
+            }
+        }
+
+        @SuppressWarnings({&quot;unused&quot;, &quot;UnusedAssignment&quot;})
+        @Advice.OnMethodExit
+        private static void exit(
+                @Advice.Return(readOnly = false, typing = Assigner.Typing.DYNAMIC) Object returned,
+                @Advice.Enter Callable&lt;?&gt; mocked)
+                throws Throwable {
+<span class="nc bnc" id="L742" title="All 2 branches missed.">            if (mocked != null) {</span>
+<span class="nc" id="L743">                returned = mocked.call();</span>
+            }
+<span class="nc" id="L745">        }</span>
+    }
+
+<span class="nc" id="L748">    public static class ForReadObject {</span>
+
+        @SuppressWarnings({&quot;unused&quot;, &quot;BanSerializableRead&quot;})
+        public static void doReadObject(
+                @Identifier String identifier,
+                @This MockAccess thiz,
+                @Argument(0) ObjectInputStream objectInputStream)
+                throws IOException, ClassNotFoundException {
+<span class="fc" id="L756">            objectInputStream.defaultReadObject();</span>
+<span class="fc" id="L757">            MockMethodAdvice mockMethodAdvice =</span>
+<span class="fc" id="L758">                    (MockMethodAdvice) MockMethodDispatcher.get(identifier, thiz);</span>
+<span class="pc bpc" id="L759" title="1 of 2 branches missed.">            if (mockMethodAdvice != null) {</span>
+<span class="fc" id="L760">                mockMethodAdvice.interceptors.put(thiz, thiz.getMockitoInterceptor());</span>
+            }
+<span class="fc" id="L762">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

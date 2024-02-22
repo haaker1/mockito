@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PotentialStubbingProblem.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.exceptions.misusing</a> &gt; <span class="el_source">PotentialStubbingProblem.java</span></div><h1>PotentialStubbingProblem.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.exceptions.misusing;
+
+import org.mockito.Mockito;
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.quality.Strictness;
+
+/**
+ * {@code PotentialStubbingProblem} improves productivity by failing the test early when the user
+ * misconfigures mock's stubbing.
+ * &lt;p&gt;
+ * {@code PotentialStubbingProblem} exception is a part of &quot;strict stubbing&quot; Mockito API
+ * intended to drive cleaner tests and better productivity with Mockito mocks.
+ * For more information see {@link Strictness}.
+ * &lt;p&gt;
+ * {@code PotentialStubbingProblem} is thrown when mocked method is stubbed with some argument in test
+ * but then invoked with &lt;strong&gt;different&lt;/strong&gt; argument in the code.
+ * This scenario is called &quot;stubbing argument mismatch&quot;.
+ * &lt;p&gt;
+ * Example:
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ * //test method:
+ * given(mock.getSomething(100)).willReturn(something);
+ *
+ * //code under test:
+ * Something something = mock.getSomething(50); // &amp;lt;-- stubbing argument mismatch
+ * &lt;/code&gt;&lt;/pre&gt;
+ * The stubbing argument mismatch typically indicates:
+ * &lt;ol&gt;
+ *     &lt;li&gt;Mistake, typo or misunderstanding in the test code, the argument(s) used when declaring stubbing are different by mistake&lt;/li&gt;
+ *     &lt;li&gt;Mistake, typo or misunderstanding in the code under test, the argument(s) used when invoking stubbed method are different by mistake&lt;/li&gt;
+ *     &lt;li&gt;Intentional use of stubbed method with different argument, either in the test (more stubbing) or in code under test&lt;/li&gt;
+ * &lt;/ol&gt;
+ * User mistake (use case 1 and 2) make up 95% of the stubbing argument mismatch cases.
+ * {@code PotentialStubbingProblem} improves productivity in those scenarios
+ * by failing early with clean message pointing out the incorrect stubbing or incorrect invocation of stubbed method.
+ * In remaining 5% of the cases (use case 3) {@code PotentialStubbingProblem} can give false negative signal
+ * indicating non-existing problem. The exception message contains information how to opt-out from the feature.
+ * Mockito optimizes for enhanced productivity of 95% of the cases while offering opt-out for remaining 5%.
+ * False negative signal for edge cases is a trade-off for general improvement of productivity.
+ * &lt;p&gt;
+ * What to do if you fall into use case 3 (false negative signal)? You have 2 options:
+ * &lt;ol&gt;
+ *  &lt;li&gt;Do you see this exception because you're stubbing the same method multiple times in the same test?
+ *  In that case, please use {@link org.mockito.BDDMockito#willReturn(Object)} or {@link Mockito#doReturn(Object)}
+ *  family of methods for stubbing.
+ *  Convenient stubbing via {@link Mockito#when(Object)} has its drawbacks: the framework cannot distinguish between
+ *  actual invocation on mock (real code) and the stubbing declaration (test code).
+ *  Hence the need to use {@link org.mockito.BDDMockito#willReturn(Object)} or {@link Mockito#doReturn(Object)} for certain edge cases.
+ *  It is a well known limitation of Mockito API and another example how Mockito optimizes its clean API for 95% of the cases
+ *  while still supporting edge cases.
+ *  &lt;/li&gt;
+ *  &lt;li&gt;Reduce the strictness level per stubbing, per mock or per test - see {@link Mockito#lenient()}&lt;/li&gt;
+ *  &lt;li&gt;To opt-out in Mockito 2.x, simply remove the strict stubbing setting in the test class.&lt;/li&gt;
+ * &lt;/ol&gt;
+ * &lt;p&gt;
+ * Mockito team is very eager to hear feedback about &quot;strict stubbing&quot; feature, let us know by commenting on GitHub
+ * &lt;a href=&quot;https://github.com/mockito/mockito/issues/769&quot;&gt;issue 769&lt;/a&gt;.
+ * Strict stubbing is an attempt to improve testability and productivity with Mockito. Tell us what you think!
+ *
+ * @since 2.3.0
+ */
+public class PotentialStubbingProblem extends MockitoException {
+    public PotentialStubbingProblem(String message) {
+<span class="fc" id="L68">        super(message);</span>
+<span class="fc" id="L69">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

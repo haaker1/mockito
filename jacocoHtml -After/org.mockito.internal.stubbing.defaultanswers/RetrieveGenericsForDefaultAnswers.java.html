@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RetrieveGenericsForDefaultAnswers.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.stubbing.defaultanswers</a> &gt; <span class="el_source">RetrieveGenericsForDefaultAnswers.java</span></div><h1>RetrieveGenericsForDefaultAnswers.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.stubbing.defaultanswers;
+
+import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+
+import org.mockito.internal.util.MockUtil;
+import org.mockito.internal.util.reflection.GenericMetadataSupport;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.mock.MockCreationSettings;
+
+final class RetrieveGenericsForDefaultAnswers {
+
+    static Object returnTypeForMockWithCorrectGenerics(
+            InvocationOnMock invocation, AnswerCallback answerCallback) {
+<span class="fc" id="L20">        Class&lt;?&gt; type = invocation.getMethod().getReturnType();</span>
+
+<span class="fc" id="L22">        final Type returnType = invocation.getMethod().getGenericReturnType();</span>
+
+<span class="fc" id="L24">        Object defaultReturnValue = null;</span>
+
+<span class="fc bfc" id="L26" title="All 2 branches covered.">        if (returnType instanceof TypeVariable) {</span>
+<span class="fc" id="L27">            type = findTypeFromGeneric(invocation, (TypeVariable) returnType);</span>
+<span class="fc bfc" id="L28" title="All 2 branches covered.">            if (type != null) {</span>
+<span class="fc" id="L29">                defaultReturnValue = delegateChains(type);</span>
+            }
+        }
+
+<span class="fc bfc" id="L33" title="All 2 branches covered.">        if (defaultReturnValue != null) {</span>
+<span class="fc" id="L34">            return defaultReturnValue;</span>
+        }
+
+<span class="fc bfc" id="L37" title="All 2 branches covered.">        if (type != null) {</span>
+<span class="fc" id="L38">            final MockCreationSettings&lt;?&gt; mockSettings =</span>
+<span class="fc" id="L39">                    MockUtil.getMockSettings(invocation.getMock());</span>
+<span class="fc bfc" id="L40" title="All 2 branches covered.">            if (!MockUtil.typeMockabilityOf(type, mockSettings.getMockMaker()).mockable()) {</span>
+<span class="fc" id="L41">                return null;</span>
+            }
+
+<span class="fc" id="L44">            return answerCallback.apply(type);</span>
+        }
+
+<span class="fc" id="L47">        return answerCallback.apply(null);</span>
+    }
+
+    /**
+     * Try to resolve the result value using {@link ReturnsEmptyValues} and {@link ReturnsMoreEmptyValues}.
+     *
+     * This will try to use all parent class (superclass and interfaces) to retrieve the value..
+     *
+     * @param type the return type of the method
+     * @return a non-null instance if the type has been resolve. Null otherwise.
+     */
+    private static Object delegateChains(final Class&lt;?&gt; type) {
+<span class="fc" id="L59">        final ReturnsEmptyValues returnsEmptyValues = new ReturnsEmptyValues();</span>
+<span class="fc" id="L60">        Object result = returnsEmptyValues.returnValueFor(type);</span>
+
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (result == null) {</span>
+<span class="fc" id="L63">            Class&lt;?&gt; emptyValueForClass = type;</span>
+<span class="fc bfc" id="L64" title="All 4 branches covered.">            while (emptyValueForClass != null &amp;&amp; result == null) {</span>
+<span class="fc" id="L65">                final Class&lt;?&gt;[] classes = emptyValueForClass.getInterfaces();</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">                for (Class&lt;?&gt; clazz : classes) {</span>
+<span class="fc" id="L67">                    result = returnsEmptyValues.returnValueFor(clazz);</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">                    if (result != null) {</span>
+<span class="fc" id="L69">                        break;</span>
+                    }
+                }
+<span class="fc" id="L72">                emptyValueForClass = emptyValueForClass.getSuperclass();</span>
+<span class="fc" id="L73">            }</span>
+        }
+
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        if (result == null) {</span>
+<span class="fc" id="L77">            result = new ReturnsMoreEmptyValues().returnValueFor(type);</span>
+        }
+
+<span class="fc" id="L80">        return result;</span>
+    }
+
+    /**
+     * Retrieve the expected type when it came from a primitive. If the type cannot be retrieve, return null.
+     *
+     * @param invocation the current invocation
+     * @param returnType the expected return type
+     * @return the type or null if not found
+     */
+    private static Class&lt;?&gt; findTypeFromGeneric(
+            final InvocationOnMock invocation, final TypeVariable returnType) {
+        // Class level
+<span class="fc" id="L93">        final MockCreationSettings mockSettings =</span>
+<span class="fc" id="L94">                MockUtil.getMockHandler(invocation.getMock()).getMockSettings();</span>
+<span class="fc" id="L95">        final GenericMetadataSupport returnTypeSupport =</span>
+<span class="fc" id="L96">                GenericMetadataSupport.inferFrom(mockSettings.getTypeToMock())</span>
+<span class="fc" id="L97">                        .resolveGenericReturnType(invocation.getMethod());</span>
+<span class="fc" id="L98">        final Class&lt;?&gt; rawType = returnTypeSupport.rawType();</span>
+
+        // Method level
+<span class="fc bfc" id="L101" title="All 2 branches covered.">        if (rawType == Object.class) {</span>
+<span class="fc" id="L102">            return findTypeFromGenericInArguments(invocation, returnType);</span>
+        }
+<span class="fc" id="L104">        return rawType;</span>
+    }
+
+    /**
+     * Find a return type using generic arguments provided by the calling method.
+     *
+     * @param invocation the current invocation
+     * @param returnType the expected return type
+     * @return the return type or null if the return type cannot be found
+     */
+    private static Class&lt;?&gt; findTypeFromGenericInArguments(
+            final InvocationOnMock invocation, final TypeVariable returnType) {
+<span class="fc" id="L116">        final Type[] parameterTypes = invocation.getMethod().getGenericParameterTypes();</span>
+<span class="fc bfc" id="L117" title="All 2 branches covered.">        for (int i = 0; i &lt; parameterTypes.length; i++) {</span>
+<span class="fc" id="L118">            Type argType = parameterTypes[i];</span>
+<span class="fc bfc" id="L119" title="All 2 branches covered.">            if (returnType.equals(argType)) {</span>
+<span class="fc" id="L120">                Object argument = invocation.getArgument(i);</span>
+
+<span class="fc bfc" id="L122" title="All 2 branches covered.">                if (argument == null) {</span>
+<span class="fc" id="L123">                    return null;</span>
+                }
+
+<span class="fc" id="L126">                return argument.getClass();</span>
+            }
+<span class="fc bfc" id="L128" title="All 2 branches covered.">            if (argType instanceof GenericArrayType) {</span>
+<span class="fc" id="L129">                argType = ((GenericArrayType) argType).getGenericComponentType();</span>
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">                if (returnType.equals(argType)) {</span>
+<span class="fc" id="L131">                    return invocation.getArgument(i).getClass();</span>
+                }
+            }
+        }
+<span class="fc" id="L135">        return null;</span>
+    }
+
+    interface AnswerCallback {
+        Object apply(Class&lt;?&gt; type);
+    }
+
+    private RetrieveGenericsForDefaultAnswers() {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

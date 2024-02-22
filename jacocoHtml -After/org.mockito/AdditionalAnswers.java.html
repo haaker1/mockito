@@ -1,0 +1,522 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AdditionalAnswers.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito</a> &gt; <span class="el_source">AdditionalAnswers.java</span></div><h1>AdditionalAnswers.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito;
+
+import static org.mockito.internal.stubbing.answers.AnswerFunctionalInterfaces.toAnswer;
+
+import java.util.Collection;
+
+import org.mockito.internal.stubbing.answers.AnswersWithDelay;
+import org.mockito.internal.stubbing.answers.ReturnsArgumentAt;
+import org.mockito.internal.stubbing.answers.ReturnsElementsOf;
+import org.mockito.internal.stubbing.defaultanswers.ForwardsInvocations;
+import org.mockito.stubbing.Answer;
+import org.mockito.stubbing.Answer1;
+import org.mockito.stubbing.Answer2;
+import org.mockito.stubbing.Answer3;
+import org.mockito.stubbing.Answer4;
+import org.mockito.stubbing.Answer5;
+import org.mockito.stubbing.Answer6;
+import org.mockito.stubbing.VoidAnswer1;
+import org.mockito.stubbing.VoidAnswer2;
+import org.mockito.stubbing.VoidAnswer3;
+import org.mockito.stubbing.VoidAnswer4;
+import org.mockito.stubbing.VoidAnswer5;
+import org.mockito.stubbing.VoidAnswer6;
+
+/**
+ * Additional answers provides factory methods for answers.
+ *
+ * &lt;p&gt;Currently offer answers that can return the parameter of an invocation at a certain position,
+ * along with answers that draw on a strongly typed interface to provide a neater way to write custom answers
+ * that either return a value or are void (see answer interfaces in org.mockito.stubbing).
+ *
+ * &lt;p&gt;See factory methods for more information : {@link #returnsFirstArg}, {@link #returnsSecondArg},
+ * {@link #returnsLastArg}, {@link #returnsArgAt}, {@link #answer} and {@link #answerVoid}
+ *
+ * @since 1.9.5
+ */
+@SuppressWarnings(&quot;unchecked&quot;)
+public final class AdditionalAnswers {
+    /**
+     * Returns the first parameter of an invocation.
+     *
+     * &lt;p&gt;
+     *     This additional answer could be used at stub time using the
+     *     &lt;code&gt;then|do|will{@link org.mockito.stubbing.Answer}&lt;/code&gt; methods. For example :
+     *
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     * given(carKeyFob.authenticate(carKey)).will(returnsFirstArg());
+     * doAnswer(returnsFirstArg()).when(carKeyFob).authenticate(carKey);
+     * &lt;/code&gt;&lt;/pre&gt;
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * This methods works with varargs as well, mockito will expand the vararg to return the argument
+     * at the given position. Suppose the following signature :
+     *
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     * interface Person {
+     *     Dream remember(Dream... dreams);
+     * }
+     *
+     * // returns dream1
+     * given(person.remember(dream1, dream2, dream3, dream4)).will(returnsFirstArg());
+     * &lt;/code&gt;&lt;/pre&gt;
+     *
+     * Mockito will return the vararg array if the first argument is a vararg in the method
+     * and if the return type has the same type as the vararg array.
+     *
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     * interface Person {
+     *     Dream[] remember(Dream... otherDreams);
+     * }
+     *
+     * // returns otherDreams (happens to be a 4 elements array)
+     * given(person.remember(dream1, dream2, dream3, dream4)).will(returnsFirstArg());
+     * &lt;/code&gt;&lt;/pre&gt;
+     * &lt;/p&gt;
+     *
+     * @param &lt;T&gt; Return type of the invocation.
+     * @return Answer that will return the first argument of the invocation.
+     *
+     * @since 1.9.5
+     */
+    public static &lt;T&gt; Answer&lt;T&gt; returnsFirstArg() {
+<span class="fc" id="L88">        return (Answer&lt;T&gt;) new ReturnsArgumentAt(0);</span>
+    }
+
+    /**
+     * Returns the second parameter of an invocation.
+     *
+     * &lt;p&gt;
+     *     This additional answer could be used at stub time using the
+     *     &lt;code&gt;then|do|will{@link org.mockito.stubbing.Answer}&lt;/code&gt; methods. For example :
+     *
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     * given(trader.apply(leesFormula, onCreditDefaultSwap)).will(returnsSecondArg());
+     * doAnswer(returnsSecondArg()).when(trader).apply(leesFormula, onCreditDefaultSwap);
+     * &lt;/code&gt;&lt;/pre&gt;
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * This methods works with varargs as well, mockito will expand the vararg to return the argument
+     * at the given position. Suppose the following signature :
+     *
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     * interface Person {
+     *     Dream remember(Dream dream, Dream... otherDreams);
+     * }
+     *
+     * // returns dream2
+     * given(person.remember(dream1, dream2, dream3, dream4)).will(returnsSecondArg());
+     * &lt;/code&gt;&lt;/pre&gt;
+     *
+     * Mockito will return the vararg array if the second argument is a vararg in the method
+     * and if the return type has the same type as the vararg array.
+     *
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     * interface Person {
+     *     Dream[] remember(Dream dream1, Dream... otherDreams);
+     * }
+     *
+     * // returns otherDreams (happens to be a 3 elements array)
+     * given(person.remember(dream1, dream2, dream3, dream4)).will(returnsSecondArg());
+     * &lt;/code&gt;&lt;/pre&gt;
+     * &lt;/p&gt;
+     *
+     * @param &lt;T&gt; Return type of the invocation.
+     * @return Answer that will return the second argument of the invocation.
+     *
+     * @since 1.9.5
+     */
+    public static &lt;T&gt; Answer&lt;T&gt; returnsSecondArg() {
+<span class="fc" id="L136">        return (Answer&lt;T&gt;) new ReturnsArgumentAt(1);</span>
+    }
+
+    /**
+     * Returns the last parameter of an invocation.
+     *
+     * &lt;p&gt;
+     *     This additional answer could be used at stub time using the
+     *     &lt;code&gt;then|do|will{@link org.mockito.stubbing.Answer}&lt;/code&gt; methods. For example :
+     *
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     * given(person.remember(dream1, dream2, dream3, dream4)).will(returnsLastArg());
+     * doAnswer(returnsLastArg()).when(person).remember(dream1, dream2, dream3, dream4);
+     * &lt;/code&gt;&lt;/pre&gt;
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * This methods works with varargs as well, mockito will expand the vararg to return the argument
+     * at the given position. Suppose the following signature :
+     *
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     * interface Person {
+     *     Dream remember(Dream dream, Dream... otherDreams);
+     * }
+     *
+     * // returns dream4
+     * given(person.remember(dream1, dream2, dream3, dream4)).will(returnsLastArg());
+     * &lt;/code&gt;&lt;/pre&gt;
+     *
+     * Mockito will return the vararg array if the given {@code position} targets the vararg index in the method
+     * and if the return type has the same type as the vararg array.
+     *
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     * interface Person {
+     *     Dream[] remember(Dream dream1, Dream dream2, Dream dream3, Dream... otherDreams);
+     * }
+     *
+     * // returns otherDreams (happens to be a single element array)
+     * given(person.remember(dream1, dream2, dream3, dream4)).will(returnsLastArg());
+     * &lt;/code&gt;&lt;/pre&gt;
+     * &lt;/p&gt;
+     *
+     * @param &lt;T&gt; Return type of the invocation.
+     * @return Answer that will return the last argument of the invocation.
+     *
+     * @since 1.9.5
+     */
+    public static &lt;T&gt; Answer&lt;T&gt; returnsLastArg() {
+<span class="fc" id="L184">        return (Answer&lt;T&gt;) new ReturnsArgumentAt(ReturnsArgumentAt.LAST_ARGUMENT);</span>
+    }
+
+    /**
+     * Returns the parameter of an invocation at the given position.
+     *
+     * &lt;p&gt;
+     * This additional answer could be used at stub time using the
+     * &lt;code&gt;then|do|will{@link org.mockito.stubbing.Answer}&lt;/code&gt; methods. For example :
+     *
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     * given(person.remember(dream1, dream2, dream3, dream4)).will(returnsArgAt(3));
+     * doAnswer(returnsArgAt(3)).when(person).remember(dream1, dream2, dream3, dream4);
+     * &lt;/code&gt;&lt;/pre&gt;
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * This methods works with varargs as well, mockito will expand the vararg to return the argument
+     * at the given position. Suppose the following signature :
+     *
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     * interface Person {
+     *     Dream remember(Dream dream, Dream... otherDreams);
+     * }
+     *
+     * // returns dream 3
+     * given(person.remember(dream1, dream2, dream3, dream4)).will(returnsArgAt(2));
+     * &lt;/code&gt;&lt;/pre&gt;
+     *
+     * Mockito will return the vararg array if the given {@code position} targets the vararg index in the method
+     * and if the return type has the same type as the vararg array.
+     *
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     * interface Person {
+     *     Dream[] remember(Dream dream, Dream... otherDreams);
+     * }
+     *
+     * // returns otherDreams array (contains dream2, dream,3, dream4)
+     * given(person.remember(dream1, dream2, dream3, dream4)).will(returnsArgAt(1));
+     * &lt;/code&gt;&lt;/pre&gt;
+     * &lt;/p&gt;
+     *
+     * @param &lt;T&gt; Return type of the invocation.
+     * @param position index of the argument from the list of arguments.
+     * @return Answer that will return the argument from the given position in the argument's list
+     *
+     * @since 1.9.5
+     */
+    public static &lt;T&gt; Answer&lt;T&gt; returnsArgAt(int position) {
+<span class="fc" id="L233">        return (Answer&lt;T&gt;) new ReturnsArgumentAt(position);</span>
+    }
+
+    /**
+     * An answer that directly forwards the calls to the delegate. The delegate may or may not be of the same type as the mock.
+     * If the type is different, a matching method needs to be found on delegate type otherwise an exception is thrown.
+     * &lt;p&gt;
+     * Useful for spies or partial mocks of objects that are difficult to mock
+     * or spy using the usual spy API. Possible use cases:
+     * &lt;ul&gt;
+     *     &lt;li&gt;Final classes but with an interface&lt;/li&gt;
+     *     &lt;li&gt;Already custom proxied object&lt;/li&gt;
+     *     &lt;li&gt;Special objects with a finalize method, i.e. to avoid executing it 2 times&lt;/li&gt;
+     * &lt;/ul&gt;
+     *
+     * &lt;p&gt;
+     * The difference with the regular spy:
+     * &lt;ul&gt;
+     *   &lt;li&gt;
+     *     The regular spy ({@link Mockito#spy(Object)}) contains &lt;strong&gt;all&lt;/strong&gt; state from the spied instance
+     *     and the methods are invoked on the spy. The spied instance is only used at mock creation to copy the state from.
+     *     If you call a method on a regular spy and it internally calls other methods on this spy, those calls are remembered
+     *     for verifications, and they can be effectively stubbed.
+     *   &lt;/li&gt;
+     *   &lt;li&gt;
+     *     The mock that delegates simply delegates all methods to the delegate.
+     *     The delegate is used all the time as methods are delegated onto it.
+     *     If you call a method on a mock that delegates and it internally calls other methods on this mock,
+     *     those calls are &lt;strong&gt;not&lt;/strong&gt; remembered for verifications, stubbing does not have effect on them, too.
+     *     Mock that delegates is less powerful than the regular spy but it is useful when the regular spy cannot be created.
+     *   &lt;/li&gt;
+     * &lt;/ul&gt;
+     * An example with a final class that we want to delegate to:
+     * &lt;p&gt;
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     *   final class DontYouDareToMockMe implements list { ... }
+     *
+     *   DontYouDareToMockMe awesomeList = new DontYouDareToMockMe();
+     *
+     *   List mock = mock(List.class, delegatesTo(awesomeList));
+     * &lt;/code&gt;&lt;/pre&gt;
+     *
+     * &lt;p&gt;
+     * This feature suffers from the same drawback as the spy.
+     * The mock will call the delegate if you use regular when().then() stubbing style.
+     * Since the real implementation is called this might have some side effects.
+     * Therefore, you should use the doReturn|Throw|Answer|CallRealMethod stubbing style. Example:
+     *
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     *   List listWithDelegate = mock(List.class, AdditionalAnswers.delegatesTo(awesomeList));
+     *
+     *   //Impossible: real method is called so listWithDelegate.get(0) throws IndexOutOfBoundsException (the list is yet empty)
+     *   when(listWithDelegate.get(0)).thenReturn(&quot;foo&quot;);
+     *
+     *   //You have to use doReturn() for stubbing
+     *   doReturn(&quot;foo&quot;).when(listWithDelegate).get(0);
+     * &lt;/code&gt;&lt;/pre&gt;
+     *
+     * @param delegate The delegate to forward calls to. It does not have to be of the same type as the mock (although it usually is).
+     *                 The only requirement is that the instance should have compatible method signatures including the return values.
+     *                 Only the methods that were actually executed on the mock need to be present on the delegate type.
+     * @return the answer
+     *
+     * @since 1.9.5
+     */
+    public static &lt;T&gt; Answer&lt;T&gt; delegatesTo(Object delegate) {
+<span class="fc" id="L299">        return (Answer&lt;T&gt;) new ForwardsInvocations(delegate);</span>
+    }
+
+    /**
+     * Returns elements of the collection. Keeps returning the last element forever.
+     * Might be useful on occasion when you have a collection of elements to return.
+     * &lt;p&gt;
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     *   //this:
+     *   when(mock.foo()).thenReturn(1, 2, 3);
+     *
+     *   //is equivalent to:
+     *   when(mock.foo()).thenAnswer(AdditionalAnswers.returnsElementsOf(Arrays.asList(1, 2, 3)));
+     * &lt;/code&gt;&lt;/pre&gt;
+     *
+     * @param elements The collection of elements to return.
+     * @return the answer
+     *
+     * @since 1.9.5
+     */
+    public static &lt;T&gt; Answer&lt;T&gt; returnsElementsOf(Collection&lt;?&gt; elements) {
+<span class="fc" id="L320">        return (Answer&lt;T&gt;) new ReturnsElementsOf(elements);</span>
+    }
+
+    /**
+     * Returns an answer after a delay with a defined length.
+     *
+     * @param &lt;T&gt; return type
+     * @param sleepyTime the delay in milliseconds
+     * @param answer interface to the answer which provides the intended return value.
+     * @return the answer object to use
+     *
+     * @since 2.8.44
+     */
+    public static &lt;T&gt; Answer&lt;T&gt; answersWithDelay(long sleepyTime, Answer&lt;T&gt; answer) {
+<span class="fc" id="L334">        return (Answer&lt;T&gt;) new AnswersWithDelay(sleepyTime, (Answer&lt;Object&gt;) answer);</span>
+    }
+
+    /**
+     * Creates an answer from a functional interface - allows for a strongly typed answer to be created
+     * ideally in Java 8
+     * @param answer interface to the answer - which is expected to return something
+     * @param &lt;T&gt; return type
+     * @param &lt;A&gt; input parameter type 1
+     * @return the answer object to use
+     * @since 2.1.0
+     */
+    public static &lt;T, A&gt; Answer&lt;T&gt; answer(Answer1&lt;T, A&gt; answer) {
+<span class="fc" id="L347">        return toAnswer(answer);</span>
+    }
+
+    /**
+     * Creates an answer from a functional interface - allows for a strongly typed answer to be created
+     * ideally in Java 8
+     * @param answer interface to the answer - a void method
+     * @param &lt;A&gt; input parameter type 1
+     * @return the answer object to use
+     * @since 2.1.0
+     */
+    public static &lt;A&gt; Answer&lt;Void&gt; answerVoid(VoidAnswer1&lt;A&gt; answer) {
+<span class="fc" id="L359">        return toAnswer(answer);</span>
+    }
+
+    /**
+     * Creates an answer from a functional interface - allows for a strongly typed answer to be created
+     * ideally in Java 8
+     * @param answer interface to the answer - which is expected to return something
+     * @param &lt;T&gt; return type
+     * @param &lt;A&gt; input parameter type 1
+     * @param &lt;B&gt; input parameter type 2
+     * @return the answer object to use
+     * @since 2.1.0
+     */
+    public static &lt;T, A, B&gt; Answer&lt;T&gt; answer(Answer2&lt;T, A, B&gt; answer) {
+<span class="fc" id="L373">        return toAnswer(answer);</span>
+    }
+
+    /**
+     * Creates an answer from a functional interface - allows for a strongly typed answer to be created
+     * ideally in Java 8
+     * @param answer interface to the answer - a void method
+     * @param &lt;A&gt; input parameter type 1
+     * @param &lt;B&gt; input parameter type 2
+     * @return the answer object to use
+     * @since 2.1.0
+     */
+    public static &lt;A, B&gt; Answer&lt;Void&gt; answerVoid(VoidAnswer2&lt;A, B&gt; answer) {
+<span class="fc" id="L386">        return toAnswer(answer);</span>
+    }
+
+    /**
+     * Creates an answer from a functional interface - allows for a strongly typed answer to be created
+     * ideally in Java 8
+     * @param answer interface to the answer - which is expected to return something
+     * @param &lt;T&gt; return type
+     * @param &lt;A&gt; input parameter type 1
+     * @param &lt;B&gt; input parameter type 2
+     * @param &lt;C&gt; input parameter type 3
+     * @return the answer object to use
+     * @since 2.1.0
+     */
+    public static &lt;T, A, B, C&gt; Answer&lt;T&gt; answer(Answer3&lt;T, A, B, C&gt; answer) {
+<span class="fc" id="L401">        return toAnswer(answer);</span>
+    }
+
+    /**
+     * Creates an answer from a functional interface - allows for a strongly typed answer to be created
+     * ideally in Java 8
+     * @param answer interface to the answer - a void method
+     * @param &lt;A&gt; input parameter type 1
+     * @param &lt;B&gt; input parameter type 2
+     * @param &lt;C&gt; input parameter type 3
+     * @return the answer object to use
+     * @since 2.1.0
+     */
+    public static &lt;A, B, C&gt; Answer&lt;Void&gt; answerVoid(VoidAnswer3&lt;A, B, C&gt; answer) {
+<span class="fc" id="L415">        return toAnswer(answer);</span>
+    }
+
+    /**
+     * Creates an answer from a functional interface - allows for a strongly typed answer to be created
+     * ideally in Java 8
+     * @param answer interface to the answer - which is expected to return something
+     * @param &lt;T&gt; return type
+     * @param &lt;A&gt; input parameter type 1
+     * @param &lt;B&gt; input parameter type 2
+     * @param &lt;C&gt; input parameter type 3
+     * @param &lt;D&gt; input parameter type 4
+     * @return the answer object to use
+     * @since 2.1.0
+     */
+    public static &lt;T, A, B, C, D&gt; Answer&lt;T&gt; answer(Answer4&lt;T, A, B, C, D&gt; answer) {
+<span class="fc" id="L431">        return toAnswer(answer);</span>
+    }
+
+    /**
+     * Creates an answer from a functional interface - allows for a strongly typed answer to be created
+     * ideally in Java 8
+     * @param answer interface to the answer - a void method
+     * @param &lt;A&gt; input parameter type 1
+     * @param &lt;B&gt; input parameter type 2
+     * @param &lt;C&gt; input parameter type 3
+     * @param &lt;D&gt; input parameter type 4
+     * @return the answer object to use
+     * @since 2.1.0
+     */
+    public static &lt;A, B, C, D&gt; Answer&lt;Void&gt; answerVoid(VoidAnswer4&lt;A, B, C, D&gt; answer) {
+<span class="fc" id="L446">        return toAnswer(answer);</span>
+    }
+
+    /**
+     * Creates an answer from a functional interface - allows for a strongly typed answer to be created
+     * ideally in Java 8
+     * @param answer interface to the answer - which is expected to return something
+     * @param &lt;T&gt; return type
+     * @param &lt;A&gt; input parameter type 1
+     * @param &lt;B&gt; input parameter type 2
+     * @param &lt;C&gt; input parameter type 3
+     * @param &lt;D&gt; input parameter type 4
+     * @param &lt;E&gt; input parameter type 5
+     * @return the answer object to use
+     * @since 2.1.0
+     */
+    public static &lt;T, A, B, C, D, E&gt; Answer&lt;T&gt; answer(Answer5&lt;T, A, B, C, D, E&gt; answer) {
+<span class="fc" id="L463">        return toAnswer(answer);</span>
+    }
+
+    /**
+     * Creates an answer from a functional interface - allows for a strongly typed answer to be created
+     * ideally in Java 8
+     *
+     * @param answer interface to the answer - a void method
+     * @param &lt;A&gt; input parameter type 1
+     * @param &lt;B&gt; input parameter type 2
+     * @param &lt;C&gt; input parameter type 3
+     * @param &lt;D&gt; input parameter type 4
+     * @param &lt;E&gt; input parameter type 5
+     * @return the answer object to use
+     * @since 2.1.0
+     */
+    public static &lt;A, B, C, D, E&gt; Answer&lt;Void&gt; answerVoid(VoidAnswer5&lt;A, B, C, D, E&gt; answer) {
+<span class="fc" id="L480">        return toAnswer(answer);</span>
+    }
+
+    /**
+     * Creates an answer from a functional interface - allows for a strongly typed answer to be created
+     * idiomatically in Java 8
+     *
+     * @param answer interface to the answer - which is expected to return something
+     * @param &lt;T&gt; return type
+     * @param &lt;A&gt; input parameter type 1
+     * @param &lt;B&gt; input parameter type 2
+     * @param &lt;C&gt; input parameter type 3
+     * @param &lt;D&gt; input parameter type 4
+     * @param &lt;E&gt; input parameter type 5
+     * @param &lt;F&gt; input parameter type 6
+     * @return the answer object to use
+     * @since 2.26.0
+     */
+    public static &lt;T, A, B, C, D, E, F&gt; Answer&lt;T&gt; answer(Answer6&lt;T, A, B, C, D, E, F&gt; answer) {
+<span class="fc" id="L499">        return toAnswer(answer);</span>
+    }
+
+    /**
+     * Creates an answer from a functional interface - allows for a strongly typed answer to be created
+     * idiomatically in Java 8
+     *
+     * @param answer interface to the answer - a void method
+     * @param &lt;A&gt; input parameter type 1
+     * @param &lt;B&gt; input parameter type 2
+     * @param &lt;C&gt; input parameter type 3
+     * @param &lt;D&gt; input parameter type 4
+     * @param &lt;E&gt; input parameter type 5
+     * @param &lt;F&gt; input parameter type 6
+     * @return the answer object to use
+     * @since 2.26.0
+     */
+    public static &lt;A, B, C, D, E, F&gt; Answer&lt;Void&gt; answerVoid(VoidAnswer6&lt;A, B, C, D, E, F&gt; answer) {
+<span class="fc" id="L517">        return toAnswer(answer);</span>
+    }
+
+    private AdditionalAnswers() {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

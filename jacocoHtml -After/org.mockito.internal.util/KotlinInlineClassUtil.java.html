@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>KotlinInlineClassUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.util</a> &gt; <span class="el_source">KotlinInlineClassUtil.java</span></div><h1>KotlinInlineClassUtil.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2021 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.util;
+
+import org.mockito.internal.exceptions.Reporter;
+import org.mockito.internal.stubbing.answers.InvocationInfo;
+import org.mockito.invocation.InvocationOnMock;
+
+import java.lang.annotation.Annotation;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
+<span class="nc" id="L15">public class KotlinInlineClassUtil {</span>
+    private static Class&lt;Annotation&gt; jvmInlineAnnotation;
+
+    static {
+        try {
+<span class="fc" id="L20">            jvmInlineAnnotation = (Class&lt;Annotation&gt;) Class.forName(&quot;kotlin.jvm.JvmInline&quot;);</span>
+<span class="fc" id="L21">        } catch (ClassNotFoundException e) {</span>
+            // Do nothing: kotlin is pre 1.5.0
+<span class="fc" id="L23">        }</span>
+<span class="fc" id="L24">    }</span>
+
+    // When mocking function, returning inline class, its return type is
+    // underlying type.
+    // So, `thenReturn` calls fails, because of non-compatible types.
+    public static boolean isInlineClassWithAssignableUnderlyingType(
+            Class&lt;?&gt; inlineClass, Class&lt;?&gt; underlyingType) {
+        try {
+            // Since 1.5.0 inline classes have @JvmInline annotation
+<span class="fc bfc" id="L33" title="All 2 branches covered.">            if (jvmInlineAnnotation == null</span>
+<span class="fc bfc" id="L34" title="All 2 branches covered.">                    || !inlineClass.isAnnotationPresent(jvmInlineAnnotation)) return false;</span>
+
+            // All inline classes have 'box-impl' method, which accepts
+            // underlying type and returns inline class.
+            // Make sure that the current inline class is also the class that is compatible with the
+            // underlying type.
+            // If we don't make this check, then we would potentially pass a mock of inline type A
+            // into a method
+            // that accepts inline type B.
+<span class="fc" id="L43">            Object ignored = inlineClass.getDeclaredMethod(&quot;box-impl&quot;, underlyingType);</span>
+<span class="fc" id="L44">            return true;</span>
+<span class="nc" id="L45">        } catch (NoSuchMethodException e) {</span>
+<span class="nc" id="L46">            return false;</span>
+        }
+    }
+
+    private static Object unboxInlineClassIfPossible(Object boxedValue) {
+<span class="fc" id="L51">        Class&lt;?&gt; inlineClass = boxedValue.getClass();</span>
+        try {
+<span class="fc" id="L53">            Method unboxImpl = inlineClass.getDeclaredMethod(&quot;unbox-impl&quot;);</span>
+<span class="fc" id="L54">            return unboxImpl.invoke(boxedValue);</span>
+<span class="nc" id="L55">        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {</span>
+<span class="nc" id="L56">            throw Reporter.inlineClassWithoutUnboxImpl(inlineClass, e);</span>
+        }
+    }
+
+    public static Object unboxUnderlyingValueIfNeeded(InvocationOnMock invocation, Object value) {
+        // Short path - Kotlin 1.5+ is not present.
+<span class="fc bfc" id="L62" title="All 4 branches covered.">        if (value == null || jvmInlineAnnotation == null) {</span>
+<span class="fc" id="L63">            return value;</span>
+        }
+
+<span class="fc" id="L66">        Class&lt;?&gt; valueType = value.getClass();</span>
+<span class="fc" id="L67">        InvocationInfo invocationInfo = new InvocationInfo(invocation);</span>
+<span class="fc" id="L68">        Class&lt;?&gt; returnType = invocationInfo.getMethod().getReturnType();</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">        if (valueType.isAssignableFrom(returnType)) return value;</span>
+
+<span class="fc bfc" id="L71" title="All 2 branches covered.">        if (isInlineClassWithAssignableUnderlyingType(valueType, returnType)) {</span>
+<span class="fc" id="L72">            return unboxInlineClassIfPossible(value);</span>
+        } else {
+<span class="fc" id="L74">            return value;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VerificationDataImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.verification</a> &gt; <span class="el_source">VerificationDataImpl.java</span></div><h1>VerificationDataImpl.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.verification;
+
+import static org.mockito.internal.exceptions.Reporter.cannotVerifyToString;
+import static org.mockito.internal.util.ObjectMethodsGuru.isToStringMethod;
+
+import java.util.List;
+
+import org.mockito.internal.invocation.InvocationMatcher;
+import org.mockito.internal.stubbing.InvocationContainerImpl;
+import org.mockito.internal.verification.api.VerificationData;
+import org.mockito.invocation.Invocation;
+import org.mockito.invocation.MatchableInvocation;
+
+public class VerificationDataImpl implements VerificationData {
+
+    private final InvocationMatcher wanted;
+    private final InvocationContainerImpl invocations;
+
+<span class="fc" id="L23">    public VerificationDataImpl(InvocationContainerImpl invocations, InvocationMatcher wanted) {</span>
+<span class="fc" id="L24">        this.invocations = invocations;</span>
+<span class="fc" id="L25">        this.wanted = wanted;</span>
+<span class="fc" id="L26">        this.assertWantedIsVerifiable();</span>
+<span class="fc" id="L27">    }</span>
+
+    @Override
+    public List&lt;Invocation&gt; getAllInvocations() {
+<span class="fc" id="L31">        return invocations.getInvocations();</span>
+    }
+
+    @Override
+    public MatchableInvocation getTarget() {
+<span class="fc" id="L36">        return wanted;</span>
+    }
+
+    private void assertWantedIsVerifiable() {
+<span class="fc bfc" id="L40" title="All 2 branches covered.">        if (wanted == null) {</span>
+<span class="fc" id="L41">            return;</span>
+        }
+<span class="fc bfc" id="L43" title="All 2 branches covered.">        if (isToStringMethod(wanted.getMethod())) {</span>
+<span class="fc" id="L44">            throw cannotVerifyToString();</span>
+        }
+<span class="fc" id="L46">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DoNotMockEnforcer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.plugins</a> &gt; <span class="el_source">DoNotMockEnforcer.java</span></div><h1>DoNotMockEnforcer.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2019 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.plugins;
+
+import org.mockito.NotExtensible;
+import org.mockito.mock.MockCreationSettings;
+
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Enforcer that is applied to every type in the type hierarchy of the class-to-be-mocked.
+ */
+public interface DoNotMockEnforcer extends DoNotMockEnforcerWithType {
+
+    /**
+     * Check whether this type is allowed to be mocked. Return {@code null} if the enforcer allows
+     * this type to be mocked. Return a message if there is a reason this type can not be mocked.
+     * &lt;p&gt;
+     * Note that traversal of the type hierarchy is performed externally to this method.
+     * Implementations of it should therefore not perform type traversal themselves.
+     *
+     * @param type The type to check
+     * @return Optional message if this type can not be mocked, or {@code null} otherwise
+     * @see #checkTypeForDoNotMockViolation(MockCreationSettings)
+     */
+    String checkTypeForDoNotMockViolation(Class&lt;?&gt; type);
+
+    /**
+     * Check whether this type is allowed to be mocked. Return {@code null} if the enforcer allows
+     * this type to be mocked. Return a message if there is a reason this type can not be mocked.
+     * &lt;p&gt;
+     * The default implementation traverses the class hierarchy of the type to be mocked and
+     * checks it against {@link #checkTypeForDoNotMockViolation(Class)}. If any types fails
+     * the validation, the traversal is interrupted and the error message is returned.
+     *
+     * @param creationSettings The mock creation settings
+     * @return Optional message if this type can not be mocked, or {@code null} otherwise
+     * @since 5.9.0
+     */
+    @Override
+    default String checkTypeForDoNotMockViolation(MockCreationSettings&lt;?&gt; creationSettings) {
+<span class="fc" id="L45">        String warning = recursiveCheckDoNotMockAnnotationForType(creationSettings.getTypeToMock());</span>
+<span class="fc bfc" id="L46" title="All 2 branches covered.">        if (warning != null) {</span>
+<span class="fc" id="L47">            return warning;</span>
+        }
+
+<span class="fc bfc" id="L50" title="All 2 branches covered.">        for (Class&lt;?&gt; aClass : creationSettings.getExtraInterfaces()) {</span>
+<span class="fc" id="L51">            warning = recursiveCheckDoNotMockAnnotationForType(aClass);</span>
+<span class="pc bpc" id="L52" title="1 of 2 branches missed.">            if (warning != null) {</span>
+<span class="nc" id="L53">                return warning;</span>
+            }
+<span class="fc" id="L55">        }</span>
+
+<span class="fc" id="L57">        return null;</span>
+    }
+
+    private String recursiveCheckDoNotMockAnnotationForType(Class&lt;?&gt; type) {
+        // Object and interfaces do not have a super class
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (type == null) {</span>
+<span class="fc" id="L63">            return null;</span>
+        }
+
+<span class="fc bfc" id="L66" title="All 2 branches covered.">        if (Cache.MOCKABLE_TYPES.contains(type)) {</span>
+<span class="fc" id="L67">            return null;</span>
+        }
+
+<span class="fc" id="L70">        String warning = checkTypeForDoNotMockViolation(type);</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">        if (warning != null) {</span>
+<span class="fc" id="L72">            return warning;</span>
+        }
+
+<span class="fc" id="L75">        warning = recursiveCheckDoNotMockAnnotationForType(type.getSuperclass());</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        if (warning != null) {</span>
+<span class="fc" id="L77">            return warning;</span>
+        }
+
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        for (Class&lt;?&gt; aClass : type.getInterfaces()) {</span>
+<span class="fc" id="L81">            warning = recursiveCheckDoNotMockAnnotationForType(aClass);</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">            if (warning != null) {</span>
+<span class="fc" id="L83">                return warning;</span>
+            }
+        }
+
+<span class="fc" id="L87">        Cache.MOCKABLE_TYPES.add(type);</span>
+<span class="fc" id="L88">        return null;</span>
+    }
+
+    /**
+     * Static cache for types that are known to be mockable and
+     * thus may be skipped while traversing the class hierarchy.
+     */
+    @NotExtensible
+<span class="nc" id="L96">    class Cache {</span>
+<span class="fc" id="L97">        private static final Set&lt;Class&lt;?&gt;&gt; MOCKABLE_TYPES = ConcurrentHashMap.newKeySet();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ArgumentCaptor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito</a> &gt; <span class="el_source">ArgumentCaptor.java</span></div><h1>ArgumentCaptor.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito;
+
+import static org.mockito.internal.util.Primitives.defaultValue;
+
+import java.util.List;
+
+import org.mockito.internal.matchers.CapturingMatcher;
+
+/**
+ * Use it to capture argument values for further assertions.
+ *
+ * &lt;p&gt;
+ * Mockito verifies argument values in natural java style: by using an equals() method.
+ * This is also the recommended way of matching arguments because it makes tests clean and simple.
+ * In some situations though, it is helpful to assert on certain arguments after the actual verification.
+ * For example:
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ *   ArgumentCaptor&amp;lt;Person&amp;gt; argument = ArgumentCaptor.forClass(Person.class);
+ *   verify(mock).doSomething(argument.capture());
+ *   assertEquals(&quot;John&quot;, argument.getValue().getName());
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * Example of capturing varargs:
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ *   //capturing varargs:
+ *   ArgumentCaptor&amp;lt;Person&amp;gt; varArgs = ArgumentCaptor.forClass(Person.class);
+ *   verify(mock).varArgMethod(varArgs.capture());
+ *   List expected = asList(new Person(&quot;John&quot;), new Person(&quot;Jane&quot;));
+ *   assertEquals(expected, varArgs.getAllValues());
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * &lt;p&gt;
+ * &lt;strong&gt;Warning:&lt;/strong&gt; it is recommended to use ArgumentCaptor with verification &lt;strong&gt;but not&lt;/strong&gt; with stubbing.
+ * Using ArgumentCaptor with stubbing may decrease test readability because captor is created
+ * outside of assertion (aka verify or 'then') blocks.
+ * It may also reduce defect localization because if the stubbed method was not called, then no argument is captured.
+ *
+ * &lt;p&gt;
+ * In a way ArgumentCaptor is related to custom argument matchers (see javadoc for {@link ArgumentMatcher} class).
+ * Both techniques can be used for making sure certain arguments were passed to mock objects.
+ * However, ArgumentCaptor may be a better fit if:
+ * &lt;ul&gt;
+ * &lt;li&gt;custom argument matcher is not likely to be reused&lt;/li&gt;
+ * &lt;li&gt;you just need it to assert on argument values to complete verification&lt;/li&gt;
+ * &lt;/ul&gt;
+ * Custom argument matchers via {@link ArgumentMatcher} are usually better for stubbing.
+ *
+ * &lt;p&gt;
+ * This utility class &lt;strong&gt;will&lt;/strong&gt; perform type checking on the generic type (since Mockito 5.0.0).
+ * &lt;p&gt;
+ * There is an &lt;strong&gt;annotation&lt;/strong&gt; that you might find useful: &amp;#64;{@link Captor}
+ * &lt;p&gt;
+ * See the full documentation on Mockito in javadoc for {@link Mockito} class.
+ *
+ * @see Captor
+ * @since 1.8.0
+ */
+@CheckReturnValue
+public class ArgumentCaptor&lt;T&gt; {
+
+    private final CapturingMatcher&lt;T&gt; capturingMatcher;
+    private final Class&lt;? extends T&gt; clazz;
+
+<span class="fc" id="L68">    private ArgumentCaptor(Class&lt;? extends T&gt; clazz) {</span>
+<span class="fc" id="L69">        this.clazz = clazz;</span>
+<span class="fc" id="L70">        this.capturingMatcher = new CapturingMatcher&lt;&gt;(clazz);</span>
+<span class="fc" id="L71">    }</span>
+
+    /**
+     * Use it to capture the argument. This method &lt;b&gt;must be used inside of verification&lt;/b&gt;.
+     * &lt;p&gt;
+     * Internally, this method registers a special implementation of an {@link ArgumentMatcher}.
+     * This argument matcher stores the argument value so that you can use it later to perform assertions.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentCaptor} class.
+     *
+     * @return null or default values
+     */
+    public T capture() {
+<span class="fc" id="L84">        T ignored = Mockito.argThat(capturingMatcher);</span>
+<span class="fc" id="L85">        return defaultValue(clazz);</span>
+    }
+
+    /**
+     * Returns the captured value of the argument. When capturing varargs use {@link #getAllValues()}.
+     * &lt;p&gt;
+     * If verified method was called multiple times then this method it returns the latest captured value.
+     * &lt;p&gt;
+     * See examples in javadoc for {@link ArgumentCaptor} class.
+     *
+     * @return captured argument value
+     */
+    public T getValue() {
+<span class="fc" id="L98">        return this.capturingMatcher.getLastValue();</span>
+    }
+
+    /**
+     * Returns all captured values. Use it when capturing varargs or when the verified method was called multiple times.
+     * When varargs method was called multiple times, this method returns merged list of all values from all invocations.
+     * &lt;p&gt;
+     * Example:
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     *   mock.doSomething(new Person(&quot;John&quot;);
+     *   mock.doSomething(new Person(&quot;Jane&quot;);
+     *
+     *   ArgumentCaptor&amp;lt;Person&amp;gt; peopleCaptor = ArgumentCaptor.forClass(Person.class);
+     *   verify(mock, times(2)).doSomething(peopleCaptor.capture());
+     *
+     *   List&amp;lt;Person&amp;gt; capturedPeople = peopleCaptor.getAllValues();
+     *   assertEquals(&quot;John&quot;, capturedPeople.get(0).getName());
+     *   assertEquals(&quot;Jane&quot;, capturedPeople.get(1).getName());
+     * &lt;/pre&gt;
+     *
+     * Example of capturing varargs:
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     *   mock.countPeople(new Person(&quot;John&quot;), new Person(&quot;Jane&quot;); //vararg method
+     *
+     *   ArgumentCaptor&amp;lt;Person&amp;gt; peopleCaptor = ArgumentCaptor.forClass(Person.class);
+     *
+     *   verify(mock).countPeople(peopleCaptor.capture());
+     *
+     *   List expected = asList(new Person(&quot;John&quot;), new Person(&quot;Jane&quot;));
+     *   assertEquals(expected, peopleCaptor.getAllValues());
+     * &lt;/code&gt;&lt;/pre&gt;
+     * See more examples in javadoc for {@link ArgumentCaptor} class.
+     *
+     * @return captured argument value
+     */
+    public List&lt;T&gt; getAllValues() {
+<span class="fc" id="L134">        return this.capturingMatcher.getAllValues();</span>
+    }
+
+    /**
+     * Build a new &lt;code&gt;ArgumentCaptor&lt;/code&gt;.
+     * &lt;p&gt;
+     * An &lt;code&gt;ArgumentCaptor&lt;/code&gt; will perform type checks (since Mockito 5.0.0).
+     *
+     * @param clazz Type matching the parameter to be captured.
+     * @param &lt;S&gt; Type of clazz
+     * @param &lt;U&gt; Type of object captured by the newly built ArgumentCaptor
+     * @return A new ArgumentCaptor
+     */
+    public static &lt;U, S extends U&gt; ArgumentCaptor&lt;U&gt; forClass(Class&lt;S&gt; clazz) {
+<span class="fc" id="L148">        return new ArgumentCaptor&lt;&gt;(clazz);</span>
+    }
+
+    /**
+     * Build a new &lt;code&gt;ArgumentCaptor&lt;/code&gt; by inferring the class type.
+     * &lt;p&gt;
+     * This enables inferring the generic type of an argument captor without
+     * providing a raw class reference, which enables working around generic
+     * limitations of the Java compiler without producing compile-time warnings
+     * unlike {@link #forClass} which would require explicit casting or warning
+     * suppression.
+     * &lt;p&gt;
+     * Example usage:
+     *
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     *   // Given
+     *   UserRepository repository = mock();
+     *   UserService service = new UserService(repository);
+     *
+     *   Map&amp;lt;String, User&amp;gt; expectedUsers = Map.of(
+     *       &quot;12345&quot;, new User(&quot;12345&quot;, &quot;Bob&quot;),
+     *       &quot;45678&quot;, new User(&quot;45678&quot;, &quot;Dave&quot;)
+     *   );
+     *
+     *   ArgumentCaptor&amp;lt;Map&amp;lt;String, User&amp;gt;&amp;gt; captor = ArgumentCaptor.captor();
+     *
+     *   doNothing().when(repository).storeUsers(captor.capture());
+     *
+     *   // When
+     *   service.createUsers(List.of(
+     *       new User(&quot;12345&quot;, &quot;Bob&quot;),
+     *       new User(&quot;45678&quot;, &quot;Dave&quot;)
+     *   ));
+     *
+     *   // Then
+     *   Map&amp;lt;String, User&amp;gt; actualUsers = captor.getValue();
+     *
+     *   assertThat(expectedUsers).isEqualTo(actualUsers);
+     * &lt;/code&gt;&lt;/pre&gt;
+     *
+     * @param reified do not pass any value here. This is used to trick the compiler
+     *     into reifying the return type without needing casts.
+     * @param &lt;U&gt; the type of argument to be captured by this captor.
+     * @return A new ArgumentCaptor.
+     * @throws IllegalArgumentException if any arguments are passed to this method.
+     * @since 5.7.0
+     */
+    @SafeVarargs
+    @SuppressWarnings({&quot;varargs&quot;, &quot;unchecked&quot;})
+    public static &lt;U&gt; ArgumentCaptor&lt;U&gt; captor(U... reified) {
+<span class="fc bfc" id="L198" title="All 4 branches covered.">        if (reified == null || reified.length &gt; 0) {</span>
+<span class="fc" id="L199">            throw new IllegalArgumentException(&quot;Do not provide any arguments to the 'captor' call&quot;);</span>
+        }
+
+<span class="fc" id="L202">        return forClass((Class&lt;U&gt;) reified.getClass().getComponentType());</span>
+    }
+
+    /**
+     * Get the raw class being captured.
+     *
+     * @return the raw class that is being captured by this captor.
+     */
+    Class&lt;? extends T&gt; getCaptorType() {
+<span class="fc" id="L211">        return clazz;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Coverage.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito</a> &gt; <span class="el_source">Coverage.java</span></div><h1>Coverage.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2024 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
+
+public class Coverage {
+    /**
+     * Store the branches reached for each specific function (identified by name, or other consistent method)
+     */
+<span class="fc" id="L18">    private static final HashMap&lt;String, HashSet&lt;Integer&gt;&gt; branchesReached = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L19">    private static final HashMap&lt;String, Integer&gt; branchesTotal = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L20">    public Coverage() {}</span>
+
+    /**
+     * Set the total amount of branches for a given function identifier.
+     * @param function The function identifier.
+     * @param totalBranches The total amount of branches for that function.
+     */
+    public static void setTotalBranches(String function, int totalBranches) {
+<span class="fc" id="L28">        branchesTotal.put(function, totalBranches);</span>
+<span class="fc" id="L29">    }</span>
+
+    /**
+     * Marks the branch as having been reached at some point.
+     * @param function The function in which the branch was reached.
+     * @param branchID The unique identifier for the branch that was reached.
+     */
+    public static void reached(String function, int branchID) {
+<span class="fc bfc" id="L37" title="All 2 branches covered.">        if (!branchesReached.containsKey(function)) branchesReached.put(function, new HashSet&lt;&gt;());</span>
+<span class="fc" id="L38">        branchesReached.get(function).add(branchID);</span>
+<span class="fc" id="L39">        writeCoverage();</span>
+<span class="fc" id="L40">    }</span>
+
+    /**
+     * Write the current branch coverage to disk.
+     */
+    public static void writeCoverage() {
+<span class="fc" id="L46">        File f = new File(&quot;./build/coverage/coverage.txt&quot;);</span>
+<span class="fc" id="L47">        f.getParentFile().mkdirs();</span>
+        try {
+<span class="fc" id="L49">            FileWriter fw = new FileWriter(f);</span>
+<span class="fc" id="L50">            BufferedWriter bw = new BufferedWriter(fw);</span>
+<span class="fc" id="L51">            bw.write(getPrintCoverage());</span>
+<span class="fc" id="L52">            bw.close();</span>
+<span class="fc" id="L53">            fw.close();</span>
+<span class="nc" id="L54">        } catch (IOException e) {</span>
+<span class="nc" id="L55">            e.printStackTrace();</span>
+<span class="fc" id="L56">        }</span>
+<span class="fc" id="L57">    }</span>
+
+    private static int getTotalBranches(String function) {
+<span class="fc" id="L60">        int totalBranches = 1;</span>
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">        if (branchesTotal.get(function) != null) totalBranches = branchesTotal.get(function);</span>
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">        if (totalBranches == 0) totalBranches = 1;</span>
+<span class="fc" id="L63">        return totalBranches;</span>
+    }
+
+    private static String getPrintCoverage() {
+<span class="fc" id="L67">        String str = &quot;&quot;;</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        for (String function : branchesReached.keySet()) {</span>
+<span class="fc" id="L69">            str += &quot;============================\n&quot;;</span>
+<span class="fc" id="L70">            int totalBranches = getTotalBranches(function);</span>
+<span class="pc bpc" id="L71" title="1 of 2 branches missed.">            int branches = branchesReached.get(function) != null ? branchesReached.get(function).size() : 0;</span>
+<span class="fc" id="L72">            str += String.format(&quot;Coverage for %s: %.1f%%\n&quot;, function, ((double) branches * 100) / totalBranches);</span>
+<span class="fc" id="L73">            str += &quot;Taken branchIDs (&quot; + branches + &quot;):&quot;;</span>
+<span class="fc bfc" id="L74" title="All 2 branches covered.">            for (Integer branch : branchesReached.get(function)) {</span>
+<span class="fc" id="L75">                str += &quot; &quot; + branch;</span>
+<span class="fc" id="L76">            }</span>
+<span class="fc" id="L77">            str += &quot;\nNon-taken branchIDs (&quot; + (totalBranches-branches) + &quot;):&quot;;</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">            for (int i = 0; i &lt; totalBranches; ++i) {</span>
+<span class="pc bpc" id="L79" title="1 of 2 branches missed.">                if (branchesReached.get(function) != null) {</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">                    if (!branchesReached.get(function).contains(i))</span>
+<span class="fc" id="L81">                        str += &quot; &quot; + i;</span>
+                }
+            }
+<span class="fc" id="L84">            str += &quot;\n============================\n\n&quot;;</span>
+<span class="fc" id="L85">        }</span>
+<span class="fc" id="L86">        return str;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

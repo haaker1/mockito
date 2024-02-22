@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SubclassBytecodeGenerator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.creation.bytebuddy</a> &gt; <span class="el_source">SubclassBytecodeGenerator.java</span></div><h1>SubclassBytecodeGenerator.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.creation.bytebuddy;
+
+import static java.lang.Thread.currentThread;
+import static net.bytebuddy.description.modifier.Visibility.PRIVATE;
+import static net.bytebuddy.dynamic.Transformer.ForMethod.withModifiers;
+import static net.bytebuddy.implementation.MethodDelegation.to;
+import static net.bytebuddy.implementation.attribute.MethodAttributeAppender.ForInstrumentedMethod.INCLUDING_RECEIVER;
+import static net.bytebuddy.matcher.ElementMatchers.any;
+import static net.bytebuddy.matcher.ElementMatchers.hasParameters;
+import static net.bytebuddy.matcher.ElementMatchers.hasType;
+import static net.bytebuddy.matcher.ElementMatchers.isEquals;
+import static net.bytebuddy.matcher.ElementMatchers.isHashCode;
+import static net.bytebuddy.matcher.ElementMatchers.isPackagePrivate;
+import static net.bytebuddy.matcher.ElementMatchers.returns;
+import static net.bytebuddy.matcher.ElementMatchers.whereAny;
+import static org.mockito.internal.util.StringUtil.join;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.Serializable;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Type;
+import java.util.*;
+
+import net.bytebuddy.ByteBuddy;
+import net.bytebuddy.description.method.MethodDescription;
+import net.bytebuddy.description.modifier.SynchronizationState;
+import net.bytebuddy.description.modifier.Visibility;
+import net.bytebuddy.dynamic.DynamicType;
+import net.bytebuddy.dynamic.loading.MultipleParentClassLoader;
+import net.bytebuddy.dynamic.scaffold.TypeValidation;
+import net.bytebuddy.implementation.FieldAccessor;
+import net.bytebuddy.implementation.Implementation;
+import net.bytebuddy.implementation.attribute.MethodAttributeAppender;
+import net.bytebuddy.matcher.ElementMatcher;
+import net.bytebuddy.utility.GraalImageCode;
+import net.bytebuddy.utility.RandomString;
+
+import org.mockito.codegen.InjectionBase;
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.internal.creation.bytebuddy.ByteBuddyCrossClassLoaderSerializationSupport.CrossClassLoaderSerializableMock;
+import org.mockito.internal.creation.bytebuddy.MockMethodInterceptor.DispatcherDefaultingToRealMethod;
+import org.mockito.mock.SerializableMode;
+
+class SubclassBytecodeGenerator implements BytecodeGenerator {
+
+    private static final String CODEGEN_PACKAGE = &quot;org.mockito.codegen.&quot;;
+
+    private final SubclassLoader loader;
+    private final ModuleHandler handler;
+    private final ByteBuddy byteBuddy;
+    private final Implementation readReplace;
+    private final ElementMatcher&lt;? super MethodDescription&gt; matcher;
+
+<span class="fc" id="L61">    private final Implementation dispatcher = to(DispatcherDefaultingToRealMethod.class);</span>
+<span class="fc" id="L62">    private final Implementation hashCode = to(MockMethodInterceptor.ForHashCode.class);</span>
+<span class="fc" id="L63">    private final Implementation equals = to(MockMethodInterceptor.ForEquals.class);</span>
+<span class="fc" id="L64">    private final Implementation writeReplace = to(MockMethodInterceptor.ForWriteReplace.class);</span>
+
+    public SubclassBytecodeGenerator() {
+<span class="fc" id="L67">        this(new SubclassInjectionLoader());</span>
+<span class="fc" id="L68">    }</span>
+
+    public SubclassBytecodeGenerator(SubclassLoader loader) {
+<span class="fc" id="L71">        this(loader, null, any());</span>
+<span class="fc" id="L72">    }</span>
+
+    public SubclassBytecodeGenerator(
+            Implementation readReplace, ElementMatcher&lt;? super MethodDescription&gt; matcher) {
+<span class="fc" id="L76">        this(new SubclassInjectionLoader(), readReplace, matcher);</span>
+<span class="fc" id="L77">    }</span>
+
+    protected SubclassBytecodeGenerator(
+            SubclassLoader loader,
+            Implementation readReplace,
+<span class="fc" id="L82">            ElementMatcher&lt;? super MethodDescription&gt; matcher) {</span>
+<span class="fc" id="L83">        this.loader = loader;</span>
+<span class="fc" id="L84">        this.readReplace = readReplace;</span>
+<span class="fc" id="L85">        this.matcher = matcher;</span>
+<span class="fc" id="L86">        byteBuddy = new ByteBuddy().with(TypeValidation.DISABLED);</span>
+<span class="fc" id="L87">        handler = ModuleHandler.make(byteBuddy, loader);</span>
+<span class="fc" id="L88">    }</span>
+
+    private static boolean needsSamePackageClassLoader(MockFeatures&lt;?&gt; features) {
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        if (!Modifier.isPublic(features.mockedType.getModifiers())</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">                || !features.mockedType.isInterface()) {</span>
+            // The mocked type is package private or is not an interface and thus may contain
+            // package private methods.
+<span class="fc" id="L95">            return true;</span>
+        }
+<span class="fc bfc" id="L97" title="All 2 branches covered.">        if (hasNonPublicTypeReference(features.mockedType)) {</span>
+<span class="fc" id="L98">            return true;</span>
+        }
+
+<span class="fc bfc" id="L101" title="All 2 branches covered.">        for (Class&lt;?&gt; iface : features.interfaces) {</span>
+<span class="fc bfc" id="L102" title="All 2 branches covered.">            if (!Modifier.isPublic(iface.getModifiers())) {</span>
+<span class="fc" id="L103">                return true;</span>
+            }
+<span class="pc bpc" id="L105" title="1 of 2 branches missed.">            if (hasNonPublicTypeReference(iface)) {</span>
+<span class="nc" id="L106">                return true;</span>
+            }
+<span class="fc" id="L108">        }</span>
+<span class="fc" id="L109">        return false;</span>
+    }
+
+    private static boolean hasNonPublicTypeReference(Class&lt;?&gt; iface) {
+<span class="fc bfc" id="L113" title="All 2 branches covered.">        for (Method method : iface.getMethods()) {</span>
+<span class="fc bfc" id="L114" title="All 2 branches covered.">            if (!Modifier.isPublic(method.getReturnType().getModifiers())) {</span>
+<span class="fc" id="L115">                return true;</span>
+            }
+<span class="fc bfc" id="L117" title="All 2 branches covered.">            for (Class&lt;?&gt; param : method.getParameterTypes()) {</span>
+<span class="fc bfc" id="L118" title="All 2 branches covered.">                if (!Modifier.isPublic(param.getModifiers())) {</span>
+<span class="fc" id="L119">                    return true;</span>
+                }
+            }
+        }
+<span class="fc" id="L123">        return false;</span>
+    }
+
+    @Override
+    public &lt;T&gt; Class&lt;? extends T&gt; mockClass(MockFeatures&lt;T&gt; features) {
+<span class="fc" id="L128">        MultipleParentClassLoader.Builder loaderBuilder =</span>
+                new MultipleParentClassLoader.Builder()
+<span class="fc" id="L130">                        .appendMostSpecific(features.mockedType)</span>
+<span class="fc" id="L131">                        .appendMostSpecific(features.interfaces)</span>
+<span class="fc" id="L132">                        .appendMostSpecific(</span>
+                                MockAccess.class, DispatcherDefaultingToRealMethod.class)
+<span class="fc" id="L134">                        .appendMostSpecific(</span>
+                                MockMethodInterceptor.class,
+                                MockMethodInterceptor.ForHashCode.class,
+                                MockMethodInterceptor.ForEquals.class);
+<span class="fc" id="L138">        ClassLoader contextLoader = currentThread().getContextClassLoader();</span>
+<span class="fc" id="L139">        boolean shouldIncludeContextLoader = true;</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">        if (needsSamePackageClassLoader(features)) {</span>
+            // For the generated class to access package-private methods, it must be defined by the
+            // same classloader as its type. All the other added classloaders are required to load
+            // the type; if the context classloader is a child of the mocked type's defining
+            // classloader, it will break a mock that would have worked. Check if the context class
+            // loader is a child of the classloader we'd otherwise use, and possibly skip it.
+<span class="fc" id="L146">            ClassLoader candidateLoader = loaderBuilder.build();</span>
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">            for (ClassLoader parent = contextLoader; parent != null; parent = parent.getParent()) {</span>
+<span class="fc bfc" id="L148" title="All 2 branches covered.">                if (parent == candidateLoader) {</span>
+<span class="fc" id="L149">                    shouldIncludeContextLoader = false;</span>
+<span class="fc" id="L150">                    break;</span>
+                }
+            }
+        }
+<span class="fc bfc" id="L154" title="All 2 branches covered.">        if (shouldIncludeContextLoader) {</span>
+<span class="fc" id="L155">            loaderBuilder = loaderBuilder.appendMostSpecific(contextLoader);</span>
+        }
+<span class="fc" id="L157">        ClassLoader classLoader = loaderBuilder.build();</span>
+
+        // If Mockito does not need to create a new class loader and if a mock is not based on a JDK
+        // type, we attempt
+        // to define the mock class in the user runtime package to allow for mocking package private
+        // types and methods.
+        // This also requires that we are able to access the package of the mocked class either by
+        // override or explicit
+        // privilege given by the target package being opened to Mockito.
+<span class="fc" id="L166">        boolean localMock =</span>
+<span class="pc bpc" id="L167" title="1 of 4 branches missed.">                classLoader == features.mockedType.getClassLoader()</span>
+                        &amp;&amp; features.serializableMode != SerializableMode.ACROSS_CLASSLOADERS
+<span class="pc bpc" id="L169" title="1 of 2 branches missed.">                        &amp;&amp; !isComingFromJDK(features.mockedType)</span>
+<span class="pc bpc" id="L170" title="1 of 2 branches missed.">                        &amp;&amp; (loader.isDisrespectingOpenness()</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">                                || handler.isOpened(features.mockedType, MockAccess.class))</span>
+<span class="pc bpc" id="L172" title="1 of 2 branches missed.">                        &amp;&amp; !GraalImageCode.getCurrent().isDefined();</span>
+        String typeName;
+<span class="pc bpc" id="L174" title="1 of 4 branches missed.">        if (localMock</span>
+                || (loader instanceof MultipleParentClassLoader
+<span class="nc bnc" id="L176" title="All 2 branches missed.">                        &amp;&amp; !isComingFromJDK(features.mockedType))) {</span>
+<span class="fc" id="L177">            typeName = features.mockedType.getName();</span>
+        } else {
+<span class="fc" id="L179">            typeName =</span>
+<span class="fc" id="L180">                    InjectionBase.class.getPackage().getName()</span>
+                            + &quot;.&quot;
+<span class="fc" id="L182">                            + features.mockedType.getSimpleName();</span>
+        }
+<span class="fc" id="L184">        String name =</span>
+<span class="fc" id="L185">                String.format(</span>
+                        &quot;%s$%s$%s&quot;,
+                        typeName,
+                        &quot;MockitoMock&quot;,
+<span class="pc bpc" id="L189" title="1 of 2 branches missed.">                        GraalImageCode.getCurrent().isDefined()</span>
+<span class="nc" id="L190">                                ? suffix(features)</span>
+<span class="fc" id="L191">                                : RandomString.make());</span>
+
+<span class="fc bfc" id="L193" title="All 2 branches covered.">        if (localMock) {</span>
+<span class="fc" id="L194">            handler.adjustModuleGraph(features.mockedType, MockAccess.class, false, true);</span>
+<span class="fc bfc" id="L195" title="All 2 branches covered.">            for (Class&lt;?&gt; iFace : features.interfaces) {</span>
+<span class="fc" id="L196">                handler.adjustModuleGraph(iFace, features.mockedType, true, false);</span>
+<span class="fc" id="L197">                handler.adjustModuleGraph(features.mockedType, iFace, false, true);</span>
+<span class="fc" id="L198">            }</span>
+        } else {
+<span class="fc" id="L200">            boolean exported = handler.isExported(features.mockedType);</span>
+<span class="fc" id="L201">            Iterator&lt;Class&lt;?&gt;&gt; it = features.interfaces.iterator();</span>
+<span class="pc bpc" id="L202" title="1 of 4 branches missed.">            while (exported &amp;&amp; it.hasNext()) {</span>
+<span class="fc" id="L203">                exported = handler.isExported(it.next());</span>
+            }
+            // We check if all mocked types are exported without qualification to avoid generating a
+            // hook type.
+            // unless this is necessary. We expect this to be the case for most mocked types what
+            // makes this a
+            // worthy performance optimization.
+<span class="pc bpc" id="L210" title="1 of 2 branches missed.">            if (exported) {</span>
+<span class="fc" id="L211">                assertVisibility(features.mockedType);</span>
+<span class="fc bfc" id="L212" title="All 2 branches covered.">                for (Class&lt;?&gt; iFace : features.interfaces) {</span>
+<span class="fc" id="L213">                    assertVisibility(iFace);</span>
+<span class="fc" id="L214">                }</span>
+            } else {
+<span class="nc" id="L216">                Class&lt;?&gt; hook = handler.injectionBase(classLoader, typeName);</span>
+<span class="nc" id="L217">                assertVisibility(features.mockedType);</span>
+<span class="nc" id="L218">                handler.adjustModuleGraph(features.mockedType, hook, true, false);</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">                for (Class&lt;?&gt; iFace : features.interfaces) {</span>
+<span class="nc" id="L220">                    assertVisibility(iFace);</span>
+<span class="nc" id="L221">                    handler.adjustModuleGraph(iFace, hook, true, false);</span>
+<span class="nc" id="L222">                }</span>
+            }
+        }
+        // Graal requires that the byte code of classes is identical what requires that interfaces
+        // are always defined in the exact same order. Therefore, we add an interface to the
+        // interface set if not mocking a class when Graal is active.
+        @SuppressWarnings(&quot;unchecked&quot;)
+        Class&lt;T&gt; target =
+<span class="pc bpc" id="L230" title="3 of 4 branches missed.">                GraalImageCode.getCurrent().isDefined() &amp;&amp; features.mockedType.isInterface()</span>
+<span class="nc" id="L231">                        ? (Class&lt;T&gt;) Object.class</span>
+<span class="fc" id="L232">                        : features.mockedType;</span>
+        // If we create a mock for an interface with additional interfaces implemented, we do not
+        // want to preserve the annotations of either interface. The caching mechanism does not
+        // consider the order of these interfaces and the same mock class might be reused for
+        // either order. Also, it does not have clean semantics as annotations are not normally
+        // preserved for interfaces in Java.
+        Annotation[] annotationsOnType;
+<span class="fc bfc" id="L239" title="All 2 branches covered.">        if (features.stripAnnotations) {</span>
+<span class="fc" id="L240">            annotationsOnType = new Annotation[0];</span>
+<span class="fc bfc" id="L241" title="All 4 branches covered.">        } else if (!features.mockedType.isInterface() || features.interfaces.isEmpty()) {</span>
+<span class="fc" id="L242">            annotationsOnType = features.mockedType.getAnnotations();</span>
+        } else {
+<span class="fc" id="L244">            annotationsOnType = new Annotation[0];</span>
+        }
+<span class="fc" id="L246">        DynamicType.Builder&lt;T&gt; builder =</span>
+                byteBuddy
+<span class="fc" id="L248">                        .subclass(target)</span>
+<span class="fc" id="L249">                        .name(name)</span>
+<span class="fc" id="L250">                        .ignoreAlso(BytecodeGenerator.isGroovyMethod(false))</span>
+<span class="fc" id="L251">                        .annotateType(annotationsOnType)</span>
+<span class="fc" id="L252">                        .implement(</span>
+                                new ArrayList&lt;&gt;(
+<span class="pc bpc" id="L254" title="1 of 2 branches missed.">                                        GraalImageCode.getCurrent().isDefined()</span>
+<span class="nc" id="L255">                                                ? sortedSerializable(</span>
+                                                        features.interfaces,
+<span class="nc bnc" id="L257" title="All 2 branches missed.">                                                        GraalImageCode.getCurrent().isDefined()</span>
+                                                                        &amp;&amp; features.mockedType
+<span class="nc bnc" id="L259" title="All 2 branches missed.">                                                                                .isInterface()</span>
+<span class="nc" id="L260">                                                                ? features.mockedType</span>
+<span class="nc" id="L261">                                                                : void.class)</span>
+<span class="fc" id="L262">                                                : features.interfaces))</span>
+<span class="fc" id="L263">                        .method(matcher)</span>
+<span class="fc" id="L264">                        .intercept(dispatcher)</span>
+<span class="fc" id="L265">                        .transform(withModifiers(SynchronizationState.PLAIN))</span>
+<span class="fc" id="L266">                        .attribute(</span>
+<span class="fc bfc" id="L267" title="All 2 branches covered.">                                features.stripAnnotations</span>
+<span class="fc" id="L268">                                        ? MethodAttributeAppender.NoOp.INSTANCE</span>
+<span class="fc" id="L269">                                        : INCLUDING_RECEIVER)</span>
+<span class="fc" id="L270">                        .serialVersionUid(42L)</span>
+<span class="fc" id="L271">                        .defineField(&quot;mockitoInterceptor&quot;, MockMethodInterceptor.class, PRIVATE)</span>
+<span class="fc" id="L272">                        .implement(MockAccess.class)</span>
+<span class="fc" id="L273">                        .intercept(FieldAccessor.ofBeanProperty())</span>
+<span class="fc" id="L274">                        .method(isHashCode())</span>
+<span class="fc" id="L275">                        .intercept(hashCode)</span>
+<span class="fc" id="L276">                        .method(isEquals())</span>
+<span class="fc" id="L277">                        .intercept(equals);</span>
+<span class="pc bpc" id="L278" title="1 of 2 branches missed.">        if (features.serializableMode == SerializableMode.ACROSS_CLASSLOADERS) {</span>
+<span class="nc" id="L279">            builder =</span>
+<span class="nc" id="L280">                    builder.implement(CrossClassLoaderSerializableMock.class)</span>
+<span class="nc" id="L281">                            .intercept(writeReplace);</span>
+        }
+<span class="fc bfc" id="L283" title="All 2 branches covered.">        if (readReplace != null) {</span>
+<span class="fc" id="L284">            builder =</span>
+<span class="fc" id="L285">                    builder.defineMethod(&quot;readObject&quot;, void.class, Visibility.PRIVATE)</span>
+<span class="fc" id="L286">                            .withParameters(ObjectInputStream.class)</span>
+<span class="fc" id="L287">                            .throwing(ClassNotFoundException.class, IOException.class)</span>
+<span class="fc" id="L288">                            .intercept(readReplace);</span>
+        }
+<span class="pc bpc" id="L290" title="1 of 4 branches missed.">        if (name.startsWith(CODEGEN_PACKAGE) || classLoader instanceof MultipleParentClassLoader) {</span>
+<span class="fc" id="L291">            builder =</span>
+<span class="fc" id="L292">                    builder.ignoreAlso(</span>
+<span class="fc" id="L293">                            isPackagePrivate()</span>
+<span class="fc" id="L294">                                    .or(returns(isPackagePrivate()))</span>
+<span class="fc" id="L295">                                    .or(hasParameters(whereAny(hasType(isPackagePrivate())))));</span>
+        }
+<span class="fc" id="L297">        return builder.make()</span>
+<span class="fc" id="L298">                .load(</span>
+                        classLoader,
+<span class="fc" id="L300">                        loader.resolveStrategy(features.mockedType, classLoader, localMock))</span>
+<span class="fc" id="L301">                .getLoaded();</span>
+    }
+
+    private static CharSequence suffix(MockFeatures&lt;?&gt; features) {
+        // Constructs a deterministic suffix for this mock to assure that mocks always carry the
+        // same name.
+<span class="nc" id="L307">        StringBuilder sb = new StringBuilder();</span>
+<span class="nc" id="L308">        Set&lt;String&gt; names = new TreeSet&lt;&gt;();</span>
+<span class="nc" id="L309">        names.add(features.mockedType.getName());</span>
+<span class="nc bnc" id="L310" title="All 2 branches missed.">        for (Class&lt;?&gt; type : features.interfaces) {</span>
+<span class="nc" id="L311">            names.add(type.getName());</span>
+<span class="nc" id="L312">        }</span>
+<span class="nc" id="L313">        return sb.append(RandomString.hashOf(names.hashCode()))</span>
+<span class="nc" id="L314">                .append(RandomString.hashOf(features.serializableMode.name().hashCode()))</span>
+<span class="nc bnc" id="L315" title="All 2 branches missed.">                .append(features.stripAnnotations ? &quot;S&quot; : &quot;N&quot;);</span>
+    }
+
+    private static Collection&lt;? extends Type&gt; sortedSerializable(
+            Collection&lt;Class&lt;?&gt;&gt; interfaces, Class&lt;?&gt; mockedType) {
+<span class="nc" id="L320">        SortedSet&lt;Class&lt;?&gt;&gt; types = new TreeSet&lt;&gt;(Comparator.comparing(Class::getName));</span>
+<span class="nc" id="L321">        types.addAll(interfaces);</span>
+<span class="nc bnc" id="L322" title="All 2 branches missed.">        if (mockedType != void.class) {</span>
+<span class="nc" id="L323">            types.add(mockedType);</span>
+        }
+<span class="nc" id="L325">        types.add(Serializable.class);</span>
+<span class="nc" id="L326">        return types;</span>
+    }
+
+    @Override
+    public void mockClassStatic(Class&lt;?&gt; type) {
+<span class="nc" id="L331">        throw new MockitoException(&quot;The subclass byte code generator cannot create static mocks&quot;);</span>
+    }
+
+    @Override
+    public void mockClassConstruction(Class&lt;?&gt; type) {
+<span class="nc" id="L336">        throw new MockitoException(</span>
+                &quot;The subclass byte code generator cannot create construction mocks&quot;);
+    }
+
+    private boolean isComingFromJDK(Class&lt;?&gt; type) {
+        // Comes from the manifest entry :
+        // Implementation-Title: Java Runtime Environment
+        // This entry is not necessarily present in every jar of the JDK
+<span class="pc bpc" id="L344" title="1 of 2 branches missed.">        return (type.getPackage() != null</span>
+                        &amp;&amp; &quot;Java Runtime Environment&quot;
+<span class="pc bpc" id="L346" title="1 of 2 branches missed.">                                .equalsIgnoreCase(type.getPackage().getImplementationTitle()))</span>
+<span class="pc bpc" id="L347" title="1 of 2 branches missed.">                || type.getName().startsWith(&quot;java.&quot;)</span>
+<span class="pc bpc" id="L348" title="1 of 2 branches missed.">                || type.getName().startsWith(&quot;javax.&quot;);</span>
+    }
+
+    private static void assertVisibility(Class&lt;?&gt; type) {
+<span class="pc bpc" id="L352" title="1 of 2 branches missed.">        if (!Modifier.isPublic(type.getModifiers())) {</span>
+<span class="nc" id="L353">            throw new MockitoException(</span>
+<span class="nc" id="L354">                    join(</span>
+                            &quot;Cannot create mock for &quot; + type,
+                            &quot;&quot;,
+                            &quot;The type is not public and its mock class is loaded by a different class loader.&quot;,
+                            &quot;This can have multiple reasons:&quot;,
+                            &quot; - You are mocking a class with additional interfaces of another class loader&quot;,
+                            &quot; - Mockito is loaded by a different class loader than the mocked type (e.g. with OSGi)&quot;,
+                            &quot; - The thread's context class loader is different than the mock's class loader&quot;));
+        }
+<span class="fc" id="L363">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

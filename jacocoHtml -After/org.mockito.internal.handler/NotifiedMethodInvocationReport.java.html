@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NotifiedMethodInvocationReport.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.handler</a> &gt; <span class="el_source">NotifiedMethodInvocationReport.java</span></div><h1>NotifiedMethodInvocationReport.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.handler;
+
+import static org.mockito.internal.matchers.Equality.areEqual;
+
+import org.mockito.invocation.DescribedInvocation;
+import org.mockito.invocation.Invocation;
+import org.mockito.listeners.MethodInvocationReport;
+
+/**
+ * Report on a method call
+ */
+public class NotifiedMethodInvocationReport implements MethodInvocationReport {
+    private final Invocation invocation;
+    private final Object returnedValue;
+    private final Throwable throwable;
+
+    /**
+     * Build a new {@link org.mockito.listeners.MethodInvocationReport} with a return value.
+     *
+     *
+     * @param invocation Information on the method call
+     * @param returnedValue The value returned by the method invocation
+     */
+<span class="fc" id="L28">    public NotifiedMethodInvocationReport(Invocation invocation, Object returnedValue) {</span>
+<span class="fc" id="L29">        this.invocation = invocation;</span>
+<span class="fc" id="L30">        this.returnedValue = returnedValue;</span>
+<span class="fc" id="L31">        this.throwable = null;</span>
+<span class="fc" id="L32">    }</span>
+
+    /**
+     * Build a new {@link org.mockito.listeners.MethodInvocationReport} with a return value.
+     *
+     *
+     * @param invocation Information on the method call
+     * @param throwable Tha throwable raised by the method invocation
+     */
+<span class="fc" id="L41">    public NotifiedMethodInvocationReport(Invocation invocation, Throwable throwable) {</span>
+<span class="fc" id="L42">        this.invocation = invocation;</span>
+<span class="fc" id="L43">        this.returnedValue = null;</span>
+<span class="fc" id="L44">        this.throwable = throwable;</span>
+<span class="fc" id="L45">    }</span>
+
+    @Override
+    public DescribedInvocation getInvocation() {
+<span class="fc" id="L49">        return invocation;</span>
+    }
+
+    @Override
+    public Object getReturnedValue() {
+<span class="fc" id="L54">        return returnedValue;</span>
+    }
+
+    @Override
+    public Throwable getThrowable() {
+<span class="fc" id="L59">        return throwable;</span>
+    }
+
+    @Override
+    public boolean threwException() {
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        return throwable != null;</span>
+    }
+
+    @Override
+    public String getLocationOfStubbing() {
+<span class="fc bfc" id="L69" title="All 2 branches covered.">        return (invocation.stubInfo() == null)</span>
+<span class="fc" id="L70">                ? null</span>
+<span class="fc" id="L71">                : invocation.stubInfo().stubbedAt().toString();</span>
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">        if (this == o) {</span>
+<span class="nc" id="L77">            return true;</span>
+        }
+<span class="pc bpc" id="L79" title="2 of 4 branches missed.">        if (o == null || getClass() != o.getClass()) {</span>
+<span class="nc" id="L80">            return false;</span>
+        }
+
+<span class="fc" id="L83">        NotifiedMethodInvocationReport that = (NotifiedMethodInvocationReport) o;</span>
+
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">        return areEqual(invocation, that.invocation)</span>
+<span class="pc bpc" id="L86" title="1 of 2 branches missed.">                &amp;&amp; areEqual(returnedValue, that.returnedValue)</span>
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">                &amp;&amp; areEqual(throwable, that.throwable);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        int result = invocation != null ? invocation.hashCode() : 0;</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">        result = 31 * result + (returnedValue != null ? returnedValue.hashCode() : 0);</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">        result = 31 * result + (throwable != null ? throwable.hashCode() : 0);</span>
+<span class="nc" id="L95">        return result;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TypeBasedCandidateFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.configuration.injection.filter</a> &gt; <span class="el_source">TypeBasedCandidateFilter.java</span></div><h1>TypeBasedCandidateFilter.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.configuration.injection.filter;
+
+import static org.mockito.internal.exceptions.Reporter.moreThanOneMockCandidate;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+import java.lang.reflect.WildcardType;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Stream;
+
+import org.mockito.internal.util.MockUtil;
+
+public class TypeBasedCandidateFilter implements MockCandidateFilter {
+
+    private final MockCandidateFilter next;
+
+<span class="fc" id="L26">    public TypeBasedCandidateFilter(MockCandidateFilter next) {</span>
+<span class="fc" id="L27">        this.next = next;</span>
+<span class="fc" id="L28">    }</span>
+
+    protected boolean isCompatibleTypes(Type typeToMock, Type mockType, Field injectMocksField) {
+<span class="fc" id="L31">        boolean result = false;</span>
+<span class="fc bfc" id="L32" title="All 2 branches covered.">        if (typeToMock instanceof ParameterizedType) {</span>
+<span class="fc bfc" id="L33" title="All 2 branches covered.">            if (mockType instanceof ParameterizedType) {</span>
+                // ParameterizedType.equals() is documented as:
+                // &quot;Instances of classes that implement this interface must implement
+                // an equals() method that equates any two instances that share the
+                // same generic type declaration and have equal type parameters.&quot;
+                // Unfortunately, e.g. Wildcard parameter &quot;?&quot; doesn't equal java.lang.String,
+                // and e.g. Set doesn't equal TreeSet, so roll our own comparison if
+                // ParameterizedTypeImpl.equals() returns false
+<span class="fc bfc" id="L41" title="All 2 branches covered.">                if (typeToMock.equals(mockType)) {</span>
+<span class="fc" id="L42">                    result = true;</span>
+                } else {
+<span class="fc" id="L44">                    ParameterizedType genericTypeToMock = (ParameterizedType) typeToMock;</span>
+<span class="fc" id="L45">                    ParameterizedType genericMockType = (ParameterizedType) mockType;</span>
+<span class="fc" id="L46">                    Type[] actualTypeArguments = genericTypeToMock.getActualTypeArguments();</span>
+<span class="fc" id="L47">                    Type[] actualTypeArguments2 = genericMockType.getActualTypeArguments();</span>
+<span class="fc bfc" id="L48" title="All 2 branches covered.">                    if (actualTypeArguments.length == actualTypeArguments2.length) {</span>
+                        // Recurse on type parameters, so we properly test whether e.g. Wildcard
+                        // bounds have a match
+<span class="fc" id="L51">                        result =</span>
+<span class="fc" id="L52">                                recurseOnTypeArguments(</span>
+                                        injectMocksField,
+                                        actualTypeArguments,
+                                        actualTypeArguments2);
+                    } else {
+                        // the two ParameterizedTypes cannot match because they have unequal
+                        // number of type arguments
+<span class="fc" id="L59">                        result = false;</span>
+                    }
+<span class="fc" id="L61">                }</span>
+            } else {
+                // mockType is a non-parameterized Class, i.e. a concrete class.
+                // so walk concrete class' type hierarchy
+<span class="fc" id="L65">                Class&lt;?&gt; concreteMockClass = (Class&lt;?&gt;) mockType;</span>
+<span class="fc" id="L66">                Stream&lt;Type&gt; mockSuperTypes = getSuperTypes(concreteMockClass);</span>
+<span class="fc" id="L67">                result =</span>
+<span class="fc" id="L68">                        mockSuperTypes.anyMatch(</span>
+                                mockSuperType -&gt;
+<span class="fc" id="L70">                                        isCompatibleTypes(</span>
+                                                typeToMock, mockSuperType, injectMocksField));
+<span class="fc" id="L72">            }</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">        } else if (typeToMock instanceof WildcardType) {</span>
+<span class="fc" id="L74">            WildcardType wildcardTypeToMock = (WildcardType) typeToMock;</span>
+<span class="fc" id="L75">            Type[] upperBounds = wildcardTypeToMock.getUpperBounds();</span>
+<span class="fc" id="L76">            result =</span>
+<span class="fc" id="L77">                    Arrays.stream(upperBounds)</span>
+<span class="fc" id="L78">                            .anyMatch(t -&gt; isCompatibleTypes(t, mockType, injectMocksField));</span>
+<span class="pc bpc" id="L79" title="2 of 4 branches missed.">        } else if (typeToMock instanceof Class &amp;&amp; mockType instanceof Class) {</span>
+<span class="fc" id="L80">            result = ((Class&lt;?&gt;) typeToMock).isAssignableFrom((Class&lt;?&gt;) mockType);</span>
+        } // no need to check for GenericArrayType, as Mockito cannot mock this anyway
+
+<span class="fc" id="L83">        return result;</span>
+    }
+
+    private Stream&lt;Type&gt; getSuperTypes(Class&lt;?&gt; concreteMockClass) {
+<span class="fc" id="L87">        Stream&lt;Type&gt; mockInterfaces = Arrays.stream(concreteMockClass.getGenericInterfaces());</span>
+<span class="fc" id="L88">        Type genericSuperclass = concreteMockClass.getGenericSuperclass();</span>
+        // for java.lang.Object, genericSuperclass is null
+<span class="fc bfc" id="L90" title="All 2 branches covered.">        if (genericSuperclass != null) {</span>
+<span class="fc" id="L91">            Stream&lt;Type&gt; mockSuperTypes =</span>
+<span class="fc" id="L92">                    Stream.concat(mockInterfaces, Stream.of(genericSuperclass));</span>
+<span class="fc" id="L93">            return mockSuperTypes;</span>
+        } else {
+<span class="fc" id="L95">            return mockInterfaces;</span>
+        }
+    }
+
+    private boolean recurseOnTypeArguments(
+            Field injectMocksField, Type[] actualTypeArguments, Type[] actualTypeArguments2) {
+<span class="fc" id="L101">        boolean isCompatible = true;</span>
+<span class="fc bfc" id="L102" title="All 2 branches covered.">        for (int i = 0; i &lt; actualTypeArguments.length; i++) {</span>
+<span class="fc" id="L103">            Type actualTypeArgument = actualTypeArguments[i];</span>
+<span class="fc" id="L104">            Type actualTypeArgument2 = actualTypeArguments2[i];</span>
+<span class="fc bfc" id="L105" title="All 2 branches covered.">            if (actualTypeArgument instanceof TypeVariable) {</span>
+<span class="fc" id="L106">                TypeVariable&lt;?&gt; typeVariable = (TypeVariable&lt;?&gt;) actualTypeArgument;</span>
+                // this is a TypeVariable declared by the class under test that turned
+                // up in one of its fields,
+                // e.g. class ClassUnderTest&lt;T1, T2&gt; { List&lt;T1&gt; tList; Set&lt;T2&gt; tSet}
+                // The TypeVariable`s actual type is declared by the field containing
+                // the object under test, i.e. the field annotated with @InjectMocks
+                // e.g. @InjectMocks ClassUnderTest&lt;String, Integer&gt; underTest = ..
+
+<span class="fc" id="L114">                Type genericType = injectMocksField.getGenericType();</span>
+<span class="fc bfc" id="L115" title="All 2 branches covered.">                if (genericType instanceof ParameterizedType) {</span>
+<span class="fc" id="L116">                    Type[] injectMocksFieldTypeParameters =</span>
+<span class="fc" id="L117">                            ((ParameterizedType) genericType).getActualTypeArguments();</span>
+                    // Find index of given TypeVariable where it was defined, e.g. 0 for T1 in
+                    // ClassUnderTest&lt;T1, T2&gt;
+                    // (we're always able to find it, otherwise test class wouldn't have compiled))
+<span class="fc" id="L121">                    TypeVariable&lt;?&gt;[] genericTypeParameters =</span>
+<span class="fc" id="L122">                            injectMocksField.getType().getTypeParameters();</span>
+<span class="fc" id="L123">                    int variableIndex = -1;</span>
+<span class="pc bpc" id="L124" title="1 of 2 branches missed.">                    for (int i2 = 0; i2 &lt; genericTypeParameters.length; i2++) {</span>
+<span class="fc bfc" id="L125" title="All 2 branches covered.">                        if (genericTypeParameters[i2].equals(typeVariable)) {</span>
+<span class="fc" id="L126">                            variableIndex = i2;</span>
+<span class="fc" id="L127">                            break;</span>
+                        }
+                    }
+                    // now test whether actual type for the type variable is compatible, e.g. for
+                    //   class ClassUnderTest&lt;T1, T2&gt; {..}
+                    // T1 would be the String in
+                    //   ClassUnderTest&lt;String, Integer&gt; underTest = ..
+<span class="fc" id="L134">                    isCompatible &amp;=</span>
+<span class="fc" id="L135">                            isCompatibleTypes(</span>
+                                    injectMocksFieldTypeParameters[variableIndex],
+                                    actualTypeArgument2,
+                                    injectMocksField);
+<span class="fc" id="L139">                } else {</span>
+                    // must be a concrete class, recurse on super types that may have type
+                    // parameters
+<span class="fc" id="L142">                    isCompatible &amp;=</span>
+<span class="fc" id="L143">                            getSuperTypes((Class&lt;?&gt;) genericType)</span>
+<span class="fc" id="L144">                                    .anyMatch(</span>
+                                            superType -&gt;
+<span class="fc" id="L146">                                                    isCompatibleTypes(</span>
+                                                            superType,
+                                                            actualTypeArgument2,
+                                                            injectMocksField));
+                }
+<span class="fc" id="L151">            } else {</span>
+<span class="fc" id="L152">                isCompatible &amp;=</span>
+<span class="fc" id="L153">                        isCompatibleTypes(</span>
+                                actualTypeArgument, actualTypeArgument2, injectMocksField);
+            }
+        }
+<span class="fc" id="L157">        return isCompatible;</span>
+    }
+
+    @Override
+    public OngoingInjector filterCandidate(
+            final Collection&lt;Object&gt; mocks,
+            final Field candidateFieldToBeInjected,
+            final List&lt;Field&gt; allRemainingCandidateFields,
+            final Object injectee,
+            final Field injectMocksField) {
+<span class="fc" id="L167">        List&lt;Object&gt; mockTypeMatches = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L168" title="All 2 branches covered.">        for (Object mock : mocks) {</span>
+<span class="fc bfc" id="L169" title="All 2 branches covered.">            if (candidateFieldToBeInjected.getType().isAssignableFrom(mock.getClass())) {</span>
+<span class="fc" id="L170">                Type mockType = MockUtil.getMockSettings(mock).getGenericTypeToMock();</span>
+<span class="fc" id="L171">                Type typeToMock = candidateFieldToBeInjected.getGenericType();</span>
+<span class="pc bpc" id="L172" title="1 of 4 branches missed.">                boolean bothHaveTypeInfo = typeToMock != null &amp;&amp; mockType != null;</span>
+<span class="fc bfc" id="L173" title="All 2 branches covered.">                if (bothHaveTypeInfo) {</span>
+                    // be more specific if generic type information is available
+<span class="fc bfc" id="L175" title="All 2 branches covered.">                    if (isCompatibleTypes(typeToMock, mockType, injectMocksField)) {</span>
+<span class="fc" id="L176">                        mockTypeMatches.add(mock);</span>
+                    } // else filter out mock, as generic types don't match
+                } else {
+                    // field is assignable from mock class, but no generic type information
+                    // is available (can happen with programmatically created Mocks where no
+                    // genericTypeToMock was supplied)
+<span class="fc" id="L182">                    mockTypeMatches.add(mock);</span>
+                }
+            } // else filter out mock
+            // BTW mocks may contain Spy objects with their original class (seemingly before
+            // being wrapped), and MockUtil.getMockSettings() throws exception for those
+<span class="fc" id="L187">        }</span>
+
+<span class="fc bfc" id="L189" title="All 2 branches covered.">        boolean wasMultipleMatches = mockTypeMatches.size() &gt; 1;</span>
+
+<span class="fc" id="L191">        OngoingInjector result =</span>
+<span class="fc" id="L192">                next.filterCandidate(</span>
+                        mockTypeMatches,
+                        candidateFieldToBeInjected,
+                        allRemainingCandidateFields,
+                        injectee,
+                        injectMocksField);
+
+<span class="fc bfc" id="L199" title="All 2 branches covered.">        if (wasMultipleMatches) {</span>
+            // we had found multiple mocks matching by type, see whether following filters
+            // were able to reduce this to single match (e.g. by filtering for matching field names)
+<span class="fc bfc" id="L202" title="All 2 branches covered.">            if (result == OngoingInjector.nop) {</span>
+                // nope, following filters cannot reduce this to a single match
+<span class="fc" id="L204">                throw moreThanOneMockCandidate(candidateFieldToBeInjected, mocks);</span>
+            }
+        }
+<span class="fc" id="L207">        return result;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

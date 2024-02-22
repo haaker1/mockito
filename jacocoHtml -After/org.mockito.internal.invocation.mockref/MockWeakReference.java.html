@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockWeakReference.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.invocation.mockref</a> &gt; <span class="el_source">MockWeakReference.java</span></div><h1>MockWeakReference.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2018 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.invocation.mockref;
+
+import java.io.ObjectStreamException;
+import java.lang.ref.WeakReference;
+
+/**
+ * A weak reference that is converted into a strong reference when serialized.
+ * See {@link MockReference}.
+ */
+public class MockWeakReference&lt;T&gt; implements MockReference&lt;T&gt; {
+
+    private final WeakReference&lt;T&gt; ref;
+
+<span class="fc" id="L18">    public MockWeakReference(T t) {</span>
+<span class="fc" id="L19">        this.ref = new WeakReference&lt;T&gt;(t);</span>
+<span class="fc" id="L20">    }</span>
+
+    private Object writeReplace() throws ObjectStreamException {
+<span class="fc" id="L23">        return new MockStrongReference&lt;T&gt;(get(), true);</span>
+    }
+
+    @Override
+    public T get() {
+<span class="fc" id="L28">        T ref = this.ref.get();</span>
+
+<span class="fc bfc" id="L30" title="All 2 branches covered.">        if (ref == null) {</span>
+<span class="fc" id="L31">            throw new IllegalStateException(</span>
+                    &quot;The mock object was garbage collected. &quot;
+                            + &quot;This should not happen in normal circumstances when using public API. &quot;
+                            + &quot;Typically, the test class keeps strong reference to the mock object &quot;
+                            + &quot;and it prevents getting the mock collected. Mockito internally needs &quot;
+                            + &quot;to keep weak references to mock objects to avoid memory leaks for &quot;
+                            + &quot;certain types of MockMaker implementations. If you see this exception &quot;
+                            + &quot;using Mockito public API, please file a bug. For more information see &quot;
+                            + &quot;issue #1313.&quot;);
+        }
+
+<span class="fc" id="L42">        return ref;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

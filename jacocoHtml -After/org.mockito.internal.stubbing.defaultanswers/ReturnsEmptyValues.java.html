@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReturnsEmptyValues.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.stubbing.defaultanswers</a> &gt; <span class="el_source">ReturnsEmptyValues.java</span></div><h1>ReturnsEmptyValues.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.stubbing.defaultanswers;
+
+import static org.mockito.internal.util.ObjectMethodsGuru.isCompareToMethod;
+import static org.mockito.internal.util.ObjectMethodsGuru.isToStringMethod;
+
+import java.io.Serializable;
+import java.time.Duration;
+import java.time.Period;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.SortedSet;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.stream.DoubleStream;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
+
+import org.mockito.internal.util.MockUtil;
+import org.mockito.internal.util.Primitives;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.mock.MockName;
+import org.mockito.stubbing.Answer;
+
+/**
+ * Default answer of every Mockito mock.
+ * &lt;ul&gt;
+ * &lt;li&gt;
+ * Returns appropriate primitive for primitive-returning methods
+ * &lt;/li&gt;
+ * &lt;li&gt;
+ * Returns consistent values for primitive wrapper classes (e.g. int-returning method returns 0 &lt;b&gt;and&lt;/b&gt; Integer-returning method returns 0, too)
+ * &lt;/li&gt;
+ * &lt;li&gt;
+ * Returns empty collection for collection-returning methods (works for most commonly used collection types)
+ * &lt;/li&gt;
+ * &lt;li&gt;
+ * Returns description of mock for toString() method
+ * &lt;/li&gt;
+ * &lt;li&gt;
+ * Returns zero if references are equals otherwise non-zero for Comparable#compareTo(T other) method (see issue 184)
+ * &lt;/li&gt;
+ * &lt;li&gt;
+ * Returns an {@code java.util.Optional#empty() empty Optional} for Optional. Similarly for primitive optional variants.
+ * &lt;/li&gt;
+ * &lt;li&gt;
+ * Returns an {@code java.util.stream.Stream#empty() empty Stream} for Stream. Similarly for primitive stream variants.
+ * &lt;/li&gt;
+ * &lt;li&gt;
+ * Returns an {@code java.time.Duration.ZERO zero Duration} for empty Duration and {@code java.time.Period.ZERO zero Period} for empty Period.
+ * &lt;/li&gt;
+ * &lt;li&gt;
+ * Returns null for everything else
+ * &lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+<span class="fc" id="L74">public class ReturnsEmptyValues implements Answer&lt;Object&gt;, Serializable {</span>
+
+    private static final long serialVersionUID = 1998191268711234347L;
+
+    /* (non-Javadoc)
+     * @see org.mockito.stubbing.Answer#answer(org.mockito.invocation.InvocationOnMock)
+     */
+    @Override
+    public Object answer(InvocationOnMock invocation) {
+<span class="fc bfc" id="L83" title="All 2 branches covered.">        if (isToStringMethod(invocation.getMethod())) {</span>
+<span class="fc" id="L84">            Object mock = invocation.getMock();</span>
+<span class="fc" id="L85">            MockName name = MockUtil.getMockName(mock);</span>
+<span class="fc bfc" id="L86" title="All 2 branches covered.">            if (name.isDefault()) {</span>
+<span class="fc" id="L87">                return &quot;Mock for &quot;</span>
+<span class="fc" id="L88">                        + MockUtil.getMockSettings(mock).getTypeToMock().getSimpleName()</span>
+                        + &quot;, hashCode: &quot;
+<span class="fc" id="L90">                        + mock.hashCode();</span>
+            } else {
+<span class="fc" id="L92">                return name.toString();</span>
+            }
+<span class="fc bfc" id="L94" title="All 2 branches covered.">        } else if (isCompareToMethod(invocation.getMethod())) {</span>
+            // see issue 184.
+            // mocks by default should return 0 if references are the same, otherwise some other
+            // value because they are not the same. Hence we return 1 (anything but 0 is good).
+            // Only for compareTo() method by the Comparable interface
+<span class="fc bfc" id="L99" title="All 2 branches covered.">            return invocation.getMock() == invocation.getArgument(0) ? 0 : 1;</span>
+        }
+
+<span class="fc" id="L102">        Class&lt;?&gt; returnType = invocation.getMethod().getReturnType();</span>
+<span class="fc" id="L103">        return returnValueFor(returnType);</span>
+    }
+
+    Object returnValueFor(Class&lt;?&gt; type) {
+<span class="fc bfc" id="L107" title="All 2 branches covered.">        if (Primitives.isPrimitiveOrWrapper(type)) {</span>
+<span class="fc" id="L108">            return Primitives.defaultValue(type);</span>
+            // new instances are used instead of Collections.emptyList(), etc.
+            // to avoid UnsupportedOperationException if code under test modifies returned
+            // collection
+<span class="fc bfc" id="L112" title="All 2 branches covered.">        } else if (type == Iterable.class) {</span>
+<span class="fc" id="L113">            return new ArrayList&lt;&gt;(0);</span>
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        } else if (type == Collection.class) {</span>
+<span class="fc" id="L115">            return new LinkedList&lt;&gt;();</span>
+<span class="fc bfc" id="L116" title="All 2 branches covered.">        } else if (type == Set.class) {</span>
+<span class="fc" id="L117">            return new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        } else if (type == HashSet.class) {</span>
+<span class="fc" id="L119">            return new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L120" title="All 2 branches covered.">        } else if (type == SortedSet.class) {</span>
+<span class="fc" id="L121">            return new TreeSet&lt;&gt;();</span>
+<span class="fc bfc" id="L122" title="All 2 branches covered.">        } else if (type == TreeSet.class) {</span>
+<span class="fc" id="L123">            return new TreeSet&lt;&gt;();</span>
+<span class="fc bfc" id="L124" title="All 2 branches covered.">        } else if (type == LinkedHashSet.class) {</span>
+<span class="fc" id="L125">            return new LinkedHashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L126" title="All 2 branches covered.">        } else if (type == List.class) {</span>
+<span class="fc" id="L127">            return new LinkedList&lt;&gt;();</span>
+<span class="fc bfc" id="L128" title="All 2 branches covered.">        } else if (type == LinkedList.class) {</span>
+<span class="fc" id="L129">            return new LinkedList&lt;&gt;();</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">        } else if (type == ArrayList.class) {</span>
+<span class="fc" id="L131">            return new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L132" title="All 2 branches covered.">        } else if (type == Map.class) {</span>
+<span class="fc" id="L133">            return new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">        } else if (type == HashMap.class) {</span>
+<span class="fc" id="L135">            return new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L136" title="All 2 branches covered.">        } else if (type == SortedMap.class) {</span>
+<span class="fc" id="L137">            return new TreeMap&lt;&gt;();</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">        } else if (type == TreeMap.class) {</span>
+<span class="fc" id="L139">            return new TreeMap&lt;&gt;();</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">        } else if (type == LinkedHashMap.class) {</span>
+<span class="fc" id="L141">            return new LinkedHashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L142" title="All 2 branches covered.">        } else if (type == Stream.class) {</span>
+<span class="fc" id="L143">            return Stream.empty();</span>
+<span class="fc bfc" id="L144" title="All 2 branches covered.">        } else if (type == DoubleStream.class) {</span>
+<span class="fc" id="L145">            return DoubleStream.empty();</span>
+<span class="fc bfc" id="L146" title="All 2 branches covered.">        } else if (type == IntStream.class) {</span>
+<span class="fc" id="L147">            return IntStream.empty();</span>
+<span class="fc bfc" id="L148" title="All 2 branches covered.">        } else if (type == LongStream.class) {</span>
+<span class="fc" id="L149">            return LongStream.empty();</span>
+<span class="fc bfc" id="L150" title="All 2 branches covered.">        } else if (type == Duration.class) {</span>
+<span class="fc" id="L151">            return Duration.ZERO;</span>
+<span class="pc bpc" id="L152" title="1 of 2 branches missed.">        } else if (type == Period.class) {</span>
+<span class="nc" id="L153">            return Period.ZERO;</span>
+        }
+        // Let's not care about the rest of collections.
+
+<span class="fc" id="L157">        return returnCommonEmptyValueFor(type);</span>
+    }
+
+    /**
+     * Returns empty values for common known types, shared between {@link ReturnsEmptyValues} and {@link ReturnsDeepStubs}.
+     *
+     * @param type the type to check
+     * @return the empty value, or {@code null}
+     */
+    static Object returnCommonEmptyValueFor(Class&lt;?&gt; type) {
+<span class="fc bfc" id="L167" title="All 2 branches covered.">        if (type == Optional.class) {</span>
+<span class="fc" id="L168">            return Optional.empty();</span>
+<span class="fc bfc" id="L169" title="All 2 branches covered.">        } else if (type == OptionalDouble.class) {</span>
+<span class="fc" id="L170">            return OptionalDouble.empty();</span>
+<span class="fc bfc" id="L171" title="All 2 branches covered.">        } else if (type == OptionalInt.class) {</span>
+<span class="fc" id="L172">            return OptionalInt.empty();</span>
+<span class="fc bfc" id="L173" title="All 2 branches covered.">        } else if (type == OptionalLong.class) {</span>
+<span class="fc" id="L174">            return OptionalLong.empty();</span>
+        }
+<span class="fc" id="L176">        return null;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

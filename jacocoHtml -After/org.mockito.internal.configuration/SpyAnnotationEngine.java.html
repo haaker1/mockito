@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SpyAnnotationEngine.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.configuration</a> &gt; <span class="el_source">SpyAnnotationEngine.java</span></div><h1>SpyAnnotationEngine.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.configuration;
+
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.withSettings;
+import static org.mockito.internal.exceptions.Reporter.unsupportedCombinationOfAnnotations;
+import static org.mockito.internal.util.StringUtil.join;
+
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
+
+import org.mockito.Captor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockSettings;
+import org.mockito.Mockito;
+import org.mockito.Spy;
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.internal.configuration.plugins.Plugins;
+import org.mockito.internal.util.MockUtil;
+import org.mockito.plugins.AnnotationEngine;
+import org.mockito.plugins.MemberAccessor;
+
+/**
+ * Process fields annotated with &amp;#64;Spy.
+ * &lt;p/&gt;
+ * &lt;p&gt;
+ * Will try transform the field in a spy as with &lt;code&gt;Mockito.spy()&lt;/code&gt;.
+ * &lt;/p&gt;
+ * &lt;p/&gt;
+ * &lt;p&gt;
+ * If the field is not initialized, will try to initialize it, with a no-arg constructor.
+ * &lt;/p&gt;
+ * &lt;p/&gt;
+ * &lt;p&gt;
+ * If the field is also annotated with the &lt;strong&gt;compatible&lt;/strong&gt; &amp;#64;InjectMocks then the field will be ignored,
+ * The injection engine will handle this specific case.
+ * &lt;/p&gt;
+ * &lt;p/&gt;
+ * &lt;p&gt;This engine will fail, if the field is also annotated with incompatible Mockito annotations.
+ */
+@SuppressWarnings({&quot;unchecked&quot;})
+<span class="fc" id="L49">public class SpyAnnotationEngine implements AnnotationEngine {</span>
+
+    @Override
+    public AutoCloseable process(Class&lt;?&gt; context, Object testInstance) {
+<span class="fc" id="L53">        Field[] fields = context.getDeclaredFields();</span>
+<span class="fc" id="L54">        MemberAccessor accessor = Plugins.getMemberAccessor();</span>
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        for (Field field : fields) {</span>
+<span class="fc bfc" id="L56" title="All 2 branches covered.">            if (field.isAnnotationPresent(Spy.class)</span>
+<span class="fc bfc" id="L57" title="All 2 branches covered.">                    &amp;&amp; !field.isAnnotationPresent(InjectMocks.class)) {</span>
+<span class="fc" id="L58">                assertNoIncompatibleAnnotations(Spy.class, field, Mock.class, Captor.class);</span>
+                Object instance;
+                try {
+<span class="fc" id="L61">                    instance = accessor.get(field, testInstance);</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">                    if (MockUtil.isMock(instance)) {</span>
+                        // instance has been spied earlier
+                        // for example happens when MockitoAnnotations.openMocks is called two
+                        // times.
+<span class="fc" id="L66">                        Mockito.reset(instance);</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">                    } else if (instance != null) {</span>
+<span class="fc" id="L68">                        accessor.set(field, testInstance, spyInstance(field, instance));</span>
+                    } else {
+<span class="fc" id="L70">                        accessor.set(field, testInstance, spyNewInstance(testInstance, field));</span>
+                    }
+<span class="fc" id="L72">                } catch (Exception e) {</span>
+<span class="fc" id="L73">                    throw new MockitoException(</span>
+                            &quot;Unable to initialize @Spy annotated field '&quot;
+<span class="fc" id="L75">                                    + field.getName()</span>
+                                    + &quot;'.\n&quot;
+<span class="fc" id="L77">                                    + e.getMessage(),</span>
+                            e);
+<span class="fc" id="L79">                }</span>
+            }
+        }
+<span class="fc" id="L82">        return new NoAction();</span>
+    }
+
+    private static Object spyInstance(Field field, Object instance) {
+        // TODO: Add mockMaker option for @Spy annotation (#2740)
+<span class="fc" id="L87">        return Mockito.mock(</span>
+<span class="fc" id="L88">                instance.getClass(),</span>
+<span class="fc" id="L89">                withSettings()</span>
+<span class="fc" id="L90">                        .genericTypeToMock(field.getGenericType())</span>
+<span class="fc" id="L91">                        .spiedInstance(instance)</span>
+<span class="fc" id="L92">                        .defaultAnswer(CALLS_REAL_METHODS)</span>
+<span class="fc" id="L93">                        .name(field.getName()));</span>
+    }
+
+    private static Object spyNewInstance(Object testInstance, Field field)
+            throws InstantiationException, IllegalAccessException, InvocationTargetException {
+        // TODO: Add mockMaker option for @Spy annotation (#2740)
+        MockSettings settings =
+<span class="fc" id="L100">                withSettings()</span>
+<span class="fc" id="L101">                        .genericTypeToMock(field.getGenericType())</span>
+<span class="fc" id="L102">                        .defaultAnswer(CALLS_REAL_METHODS)</span>
+<span class="fc" id="L103">                        .name(field.getName());</span>
+<span class="fc" id="L104">        Class&lt;?&gt; type = field.getType();</span>
+<span class="fc bfc" id="L105" title="All 2 branches covered.">        if (type.isInterface()) {</span>
+<span class="fc" id="L106">            return Mockito.mock(type, settings.useConstructor());</span>
+        }
+<span class="fc" id="L108">        int modifiers = type.getModifiers();</span>
+<span class="fc bfc" id="L109" title="All 2 branches covered.">        if (typeIsPrivateAbstractInnerClass(type, modifiers)) {</span>
+<span class="fc" id="L110">            throw new MockitoException(</span>
+<span class="fc" id="L111">                    join(</span>
+                            &quot;@Spy annotation can't initialize private abstract inner classes.&quot;,
+<span class="fc" id="L113">                            &quot;  inner class: '&quot; + type.getSimpleName() + &quot;'&quot;,</span>
+<span class="fc" id="L114">                            &quot;  outer class: '&quot; + type.getEnclosingClass().getSimpleName() + &quot;'&quot;,</span>
+                            &quot;&quot;,
+                            &quot;You should augment the visibility of this inner class&quot;));
+        }
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        if (typeIsNonStaticInnerClass(type, modifiers)) {</span>
+<span class="fc" id="L119">            Class&lt;?&gt; enclosing = type.getEnclosingClass();</span>
+<span class="fc bfc" id="L120" title="All 2 branches covered.">            if (!enclosing.isInstance(testInstance)) {</span>
+<span class="fc" id="L121">                throw new MockitoException(</span>
+<span class="fc" id="L122">                        join(</span>
+                                &quot;@Spy annotation can only initialize inner classes declared in the test.&quot;,
+<span class="fc" id="L124">                                &quot;  inner class: '&quot; + type.getSimpleName() + &quot;'&quot;,</span>
+<span class="fc" id="L125">                                &quot;  outer class: '&quot; + enclosing.getSimpleName() + &quot;'&quot;,</span>
+                                &quot;&quot;));
+            }
+<span class="fc" id="L128">            return Mockito.mock(type, settings.useConstructor().outerInstance(testInstance));</span>
+        }
+
+<span class="fc" id="L131">        Constructor&lt;?&gt; constructor = noArgConstructorOf(type);</span>
+<span class="fc bfc" id="L132" title="All 2 branches covered.">        if (Modifier.isPrivate(constructor.getModifiers())) {</span>
+<span class="fc" id="L133">            MemberAccessor accessor = Plugins.getMemberAccessor();</span>
+<span class="fc" id="L134">            return Mockito.mock(type, settings.spiedInstance(accessor.newInstance(constructor)));</span>
+        } else {
+<span class="fc" id="L136">            return Mockito.mock(type, settings.useConstructor());</span>
+        }
+    }
+
+    private static Constructor&lt;?&gt; noArgConstructorOf(Class&lt;?&gt; type) {
+        Constructor&lt;?&gt; constructor;
+        try {
+<span class="fc" id="L143">            constructor = type.getDeclaredConstructor();</span>
+<span class="fc" id="L144">        } catch (NoSuchMethodException e) {</span>
+<span class="fc" id="L145">            throw new MockitoException(</span>
+                    &quot;Please ensure that the type '&quot;
+<span class="fc" id="L147">                            + type.getSimpleName()</span>
+                            + &quot;' has a no-arg constructor.&quot;,
+                    e);
+<span class="fc" id="L150">        }</span>
+<span class="fc" id="L151">        return constructor;</span>
+    }
+
+    private static boolean typeIsNonStaticInnerClass(Class&lt;?&gt; type, int modifiers) {
+<span class="fc bfc" id="L155" title="All 4 branches covered.">        return !Modifier.isStatic(modifiers) &amp;&amp; type.getEnclosingClass() != null;</span>
+    }
+
+    private static boolean typeIsPrivateAbstractInnerClass(Class&lt;?&gt; type, int modifiers) {
+<span class="fc bfc" id="L159" title="All 2 branches covered.">        return Modifier.isPrivate(modifiers)</span>
+<span class="fc bfc" id="L160" title="All 2 branches covered.">                &amp;&amp; Modifier.isAbstract(modifiers)</span>
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">                &amp;&amp; type.getEnclosingClass() != null;</span>
+    }
+
+    // TODO duplicated elsewhere
+    private static void assertNoIncompatibleAnnotations(
+            Class&lt;? extends Annotation&gt; annotation,
+            Field field,
+            Class&lt;? extends Annotation&gt;... undesiredAnnotations) {
+<span class="fc bfc" id="L169" title="All 2 branches covered.">        for (Class&lt;? extends Annotation&gt; u : undesiredAnnotations) {</span>
+<span class="fc bfc" id="L170" title="All 2 branches covered.">            if (field.isAnnotationPresent(u)) {</span>
+<span class="fc" id="L171">                throw unsupportedCombinationOfAnnotations(</span>
+<span class="fc" id="L172">                        annotation.getSimpleName(), u.getSimpleName());</span>
+            }
+        }
+<span class="fc" id="L175">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

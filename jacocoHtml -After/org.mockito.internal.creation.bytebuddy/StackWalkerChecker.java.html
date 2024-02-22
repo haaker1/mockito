@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StackWalkerChecker.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.creation.bytebuddy</a> &gt; <span class="el_source">StackWalkerChecker.java</span></div><h1>StackWalkerChecker.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2022 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.creation.bytebuddy;
+
+import java.lang.reflect.Method;
+import java.util.Iterator;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+class StackWalkerChecker implements Predicate&lt;Class&lt;?&gt;&gt; {
+
+    private final Method stackWalkerGetInstance;
+    private final Method stackWalkerWalk;
+    private final Method stackWalkerStackFrameGetDeclaringClass;
+    private final Enum&lt;?&gt; stackWalkerOptionRetainClassReference;
+
+<span class="fc" id="L20">    StackWalkerChecker() throws Exception {</span>
+<span class="fc" id="L21">        Class&lt;?&gt; stackWalker = Class.forName(&quot;java.lang.StackWalker&quot;);</span>
+        @SuppressWarnings({&quot;unchecked&quot;, &quot;rawtypes&quot;})
+<span class="fc" id="L23">        Class&lt;? extends Enum&gt; stackWalkerOption =</span>
+<span class="fc" id="L24">                (Class&lt;? extends Enum&lt;?&gt;&gt;) Class.forName(&quot;java.lang.StackWalker$Option&quot;);</span>
+<span class="fc" id="L25">        stackWalkerGetInstance = stackWalker.getMethod(&quot;getInstance&quot;, stackWalkerOption);</span>
+<span class="fc" id="L26">        stackWalkerWalk = stackWalker.getMethod(&quot;walk&quot;, Function.class);</span>
+<span class="fc" id="L27">        Class&lt;?&gt; stackWalkerStackFrame = Class.forName(&quot;java.lang.StackWalker$StackFrame&quot;);</span>
+<span class="fc" id="L28">        stackWalkerStackFrameGetDeclaringClass =</span>
+<span class="fc" id="L29">                stackWalkerStackFrame.getMethod(&quot;getDeclaringClass&quot;);</span>
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L31">        Enum&lt;?&gt; stackWalkerOptionRetainClassReference =</span>
+<span class="fc" id="L32">                Enum.valueOf(stackWalkerOption, &quot;RETAIN_CLASS_REFERENCE&quot;);</span>
+<span class="fc" id="L33">        this.stackWalkerOptionRetainClassReference = stackWalkerOptionRetainClassReference;</span>
+<span class="fc" id="L34">    }</span>
+
+    static Predicate&lt;Class&lt;?&gt;&gt; orFallback() {
+        try {
+<span class="fc" id="L38">            return new StackWalkerChecker();</span>
+<span class="nc" id="L39">        } catch (Exception e) {</span>
+<span class="nc" id="L40">            return new StackTraceChecker();</span>
+        }
+    }
+
+    @Override
+    public boolean test(Class&lt;?&gt; type) {
+        try {
+<span class="fc" id="L47">            Object walker =</span>
+<span class="fc" id="L48">                    stackWalkerGetInstance.invoke(null, stackWalkerOptionRetainClassReference);</span>
+<span class="fc" id="L49">            return (Boolean)</span>
+<span class="fc" id="L50">                    stackWalkerWalk.invoke(</span>
+                            walker,
+                            (Function&lt;?, ?&gt;)
+                                    stream -&gt; {
+<span class="fc" id="L54">                                        Iterator&lt;?&gt; iterator = ((Stream&lt;?&gt;) stream).iterator();</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">                                        while (iterator.hasNext()) {</span>
+                                            try {
+<span class="fc" id="L57">                                                Object frame = iterator.next();</span>
+<span class="fc" id="L58">                                                if (((Class&lt;?&gt;)</span>
+                                                                stackWalkerStackFrameGetDeclaringClass
+<span class="fc" id="L60">                                                                        .invoke(frame))</span>
+<span class="fc" id="L61">                                                        .getName()</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">                                                        .startsWith(&quot;org.mockito.internal.&quot;)) {</span>
+<span class="fc" id="L63">                                                    continue;</span>
+                                                }
+<span class="pc bpc" id="L65" title="1 of 2 branches missed.">                                                if (iterator.hasNext()) {</span>
+<span class="fc" id="L66">                                                    Object next = iterator.next();</span>
+<span class="fc" id="L67">                                                    Class&lt;?&gt; declaringClass =</span>
+                                                            (Class&lt;?&gt;)
+                                                                    stackWalkerStackFrameGetDeclaringClass
+<span class="fc" id="L70">                                                                            .invoke(next);</span>
+<span class="pc bpc" id="L71" title="1 of 2 branches missed.">                                                    if (type != declaringClass</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">                                                            &amp;&amp; type.isAssignableFrom(</span>
+                                                                    declaringClass)) {
+<span class="fc" id="L74">                                                        return true;</span>
+                                                    } else {
+<span class="fc" id="L76">                                                        break;</span>
+                                                    }
+                                                } else {
+<span class="nc" id="L79">                                                    break;</span>
+                                                }
+<span class="nc" id="L81">                                            } catch (Exception ignored) {</span>
+<span class="nc" id="L82">                                                return false;</span>
+                                            }
+                                        }
+<span class="fc" id="L85">                                        return false;</span>
+                                    });
+<span class="nc" id="L87">        } catch (Exception ignored) {</span>
+<span class="nc" id="L88">            return false;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

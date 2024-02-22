@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NullResultGuardian.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.handler</a> &gt; <span class="el_source">NullResultGuardian.java</span></div><h1>NullResultGuardian.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.handler;
+
+import static org.mockito.internal.util.Primitives.defaultValue;
+
+import org.mockito.invocation.Invocation;
+import org.mockito.invocation.InvocationContainer;
+import org.mockito.invocation.MockHandler;
+import org.mockito.mock.MockCreationSettings;
+
+/**
+ * Protects the results from delegate MockHandler. Makes sure the results are valid.
+ *
+ * by Szczepan Faber, created at: 5/22/12
+ */
+class NullResultGuardian&lt;T&gt; implements MockHandler&lt;T&gt; {
+
+    private final MockHandler&lt;T&gt; delegate;
+
+<span class="fc" id="L23">    public NullResultGuardian(MockHandler&lt;T&gt; delegate) {</span>
+<span class="fc" id="L24">        this.delegate = delegate;</span>
+<span class="fc" id="L25">    }</span>
+
+    @Override
+    public Object handle(Invocation invocation) throws Throwable {
+<span class="fc" id="L29">        Object result = delegate.handle(invocation);</span>
+<span class="fc" id="L30">        Class&lt;?&gt; returnType = invocation.getMethod().getReturnType();</span>
+<span class="fc bfc" id="L31" title="All 4 branches covered.">        if (result == null &amp;&amp; returnType.isPrimitive()) {</span>
+            // primitive values cannot be null
+<span class="fc" id="L33">            return defaultValue(returnType);</span>
+        }
+<span class="fc" id="L35">        return result;</span>
+    }
+
+    @Override
+    public MockCreationSettings&lt;T&gt; getMockSettings() {
+<span class="fc" id="L40">        return delegate.getMockSettings();</span>
+    }
+
+    @Override
+    public InvocationContainer getInvocationContainer() {
+<span class="fc" id="L45">        return delegate.getInvocationContainer();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

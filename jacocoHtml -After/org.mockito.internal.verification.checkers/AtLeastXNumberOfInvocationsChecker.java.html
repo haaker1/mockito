@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AtLeastXNumberOfInvocationsChecker.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.verification.checkers</a> &gt; <span class="el_source">AtLeastXNumberOfInvocationsChecker.java</span></div><h1>AtLeastXNumberOfInvocationsChecker.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.verification.checkers;
+
+import static org.mockito.internal.exceptions.Reporter.tooFewActualInvocations;
+import static org.mockito.internal.exceptions.Reporter.tooFewActualInvocationsInOrder;
+import static org.mockito.internal.invocation.InvocationMarker.markVerified;
+import static org.mockito.internal.invocation.InvocationMarker.markVerifiedInOrder;
+import static org.mockito.internal.invocation.InvocationsFinder.findAllMatchingUnverifiedChunks;
+import static org.mockito.internal.invocation.InvocationsFinder.findInvocations;
+import static org.mockito.internal.invocation.InvocationsFinder.getAllLocations;
+
+import java.util.List;
+
+import org.mockito.internal.verification.api.InOrderContext;
+import org.mockito.invocation.Invocation;
+import org.mockito.invocation.Location;
+import org.mockito.invocation.MatchableInvocation;
+
+public final class AtLeastXNumberOfInvocationsChecker {
+
+    public static void checkAtLeastNumberOfInvocations(
+            List&lt;Invocation&gt; invocations, MatchableInvocation wanted, int wantedCount) {
+<span class="fc" id="L26">        List&lt;Invocation&gt; actualInvocations = findInvocations(invocations, wanted);</span>
+
+<span class="fc" id="L28">        int actualCount = actualInvocations.size();</span>
+<span class="fc bfc" id="L29" title="All 2 branches covered.">        if (wantedCount &gt; actualCount) {</span>
+<span class="fc" id="L30">            List&lt;Location&gt; allLocations = getAllLocations(actualInvocations);</span>
+<span class="fc" id="L31">            throw tooFewActualInvocations(</span>
+                    new AtLeastDiscrepancy(wantedCount, actualCount), wanted, allLocations);
+        }
+
+<span class="fc" id="L35">        markVerified(actualInvocations, wanted);</span>
+<span class="fc" id="L36">    }</span>
+
+    public static void checkAtLeastNumberOfInvocations(
+            List&lt;Invocation&gt; invocations,
+            MatchableInvocation wanted,
+            int wantedCount,
+            InOrderContext orderingContext) {
+<span class="fc" id="L43">        List&lt;Invocation&gt; chunk =</span>
+<span class="fc" id="L44">                findAllMatchingUnverifiedChunks(invocations, wanted, orderingContext);</span>
+
+<span class="fc" id="L46">        int actualCount = chunk.size();</span>
+
+<span class="fc bfc" id="L48" title="All 2 branches covered.">        if (wantedCount &gt; actualCount) {</span>
+<span class="fc" id="L49">            List&lt;Location&gt; allLocations = getAllLocations(chunk);</span>
+<span class="fc" id="L50">            throw tooFewActualInvocationsInOrder(</span>
+                    new AtLeastDiscrepancy(wantedCount, actualCount), wanted, allLocations);
+        }
+
+<span class="fc" id="L54">        markVerifiedInOrder(chunk, wanted, orderingContext);</span>
+<span class="fc" id="L55">    }</span>
+
+    private AtLeastXNumberOfInvocationsChecker() {}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DoAnswerStyleStubbing.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.stubbing</a> &gt; <span class="el_source">DoAnswerStyleStubbing.java</span></div><h1>DoAnswerStyleStubbing.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.stubbing;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.mockito.quality.Strictness;
+import org.mockito.stubbing.Answer;
+
+/**
+ * Holds answers declared using 'doAnswer' stubbing style.
+ */
+<span class="fc" id="L17">class DoAnswerStyleStubbing implements Serializable {</span>
+
+<span class="fc" id="L19">    private final List&lt;Answer&lt;?&gt;&gt; answers = new ArrayList&lt;&gt;();</span>
+    private Strictness stubbingStrictness;
+
+    void setAnswers(List&lt;Answer&lt;?&gt;&gt; answers, Strictness stubbingStrictness) {
+<span class="fc" id="L23">        this.stubbingStrictness = stubbingStrictness;</span>
+<span class="fc" id="L24">        this.answers.addAll(answers);</span>
+<span class="fc" id="L25">    }</span>
+
+    boolean isSet() {
+<span class="fc bfc" id="L28" title="All 2 branches covered.">        return answers.size() &gt; 0;</span>
+    }
+
+    void clear() {
+<span class="fc" id="L32">        answers.clear();</span>
+<span class="fc" id="L33">        stubbingStrictness = null;</span>
+<span class="fc" id="L34">    }</span>
+
+    List&lt;Answer&lt;?&gt;&gt; getAnswers() {
+<span class="fc" id="L37">        return answers;</span>
+    }
+
+    Strictness getStubbingStrictness() {
+<span class="fc" id="L41">        return stubbingStrictness;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

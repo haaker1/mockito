@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UniversalTestListener.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.junit</a> &gt; <span class="el_source">UniversalTestListener.java</span></div><h1>UniversalTestListener.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2018 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.junit;
+
+import java.util.Collection;
+import java.util.IdentityHashMap;
+import org.mockito.internal.creation.settings.CreationSettings;
+import org.mockito.internal.listeners.AutoCleanableListener;
+import org.mockito.mock.MockCreationSettings;
+import org.mockito.plugins.MockitoLogger;
+import org.mockito.quality.Strictness;
+
+/**
+ * Universal test listener that behaves accordingly to current setting of strictness.
+ * Will come handy when we offer tweaking strictness at the method level with annotation.
+ * Should be relatively easy to improve and offer tweaking strictness per mock.
+ */
+public class UniversalTestListener implements MockitoTestListener, AutoCleanableListener {
+
+    private Strictness currentStrictness;
+    private final MockitoLogger logger;
+
+<span class="fc" id="L25">    private IdentityHashMap mocks = new IdentityHashMap&lt;Object, MockCreationSettings&gt;();</span>
+    private final DefaultStubbingLookupListener stubbingLookupListener;
+    private boolean listenerDirty;
+
+<span class="fc" id="L29">    public UniversalTestListener(Strictness initialStrictness, MockitoLogger logger) {</span>
+<span class="fc" id="L30">        this.currentStrictness = initialStrictness;</span>
+<span class="fc" id="L31">        this.logger = logger;</span>
+
+        // creating single stubbing lookup listener per junit rule instance / test method
+        // this way, when strictness is updated in the middle of the test it will affect the
+        // behavior of the stubbing listener
+<span class="fc" id="L36">        this.stubbingLookupListener = new DefaultStubbingLookupListener(currentStrictness);</span>
+<span class="fc" id="L37">    }</span>
+
+    @Override
+    public void testFinished(TestFinishedEvent event) {
+<span class="fc" id="L41">        Collection&lt;Object&gt; createdMocks = mocks.keySet();</span>
+        // At this point, we don't need the mocks any more and we can mark all collected mocks for
+        // gc
+        // TODO make it better, it's easy to forget to clean up mocks and we still create new
+        // instance of list that nobody will read, it's also duplicated
+        // TODO clean up all other state, null out stubbingLookupListener
+<span class="fc" id="L47">        mocks = new IdentityHashMap&lt;&gt;();</span>
+
+<span class="pc bpc" id="L49" title="1 of 4 branches missed.">        switch (currentStrictness) {</span>
+            case WARN:
+<span class="fc" id="L51">                emitWarnings(logger, event, createdMocks);</span>
+<span class="fc" id="L52">                break;</span>
+            case STRICT_STUBS:
+<span class="fc" id="L54">                reportUnusedStubs(event, createdMocks);</span>
+<span class="fc" id="L55">                break;</span>
+            case LENIENT:
+<span class="fc" id="L57">                break;</span>
+            default:
+<span class="nc" id="L59">                throw new IllegalStateException(&quot;Unknown strictness: &quot; + currentStrictness);</span>
+        }
+<span class="fc" id="L61">    }</span>
+
+    private void reportUnusedStubs(TestFinishedEvent event, Collection&lt;Object&gt; mocks) {
+        // If there is some other failure (or mismatches were detected) don't report another
+        // exception to avoid confusion
+<span class="fc bfc" id="L66" title="All 4 branches covered.">        if (event.getFailure() == null &amp;&amp; !stubbingLookupListener.isMismatchesReported()) {</span>
+<span class="fc" id="L67">            UnusedStubbings unused = new UnusedStubbingsFinder().getUnusedStubbings(mocks);</span>
+<span class="fc" id="L68">            unused.reportUnused();</span>
+        }
+<span class="fc" id="L70">    }</span>
+
+    private static void emitWarnings(
+            MockitoLogger logger, TestFinishedEvent event, Collection&lt;Object&gt; mocks) {
+<span class="fc bfc" id="L74" title="All 2 branches covered.">        if (event.getFailure() != null) {</span>
+            // print stubbing mismatches only when there is a test failure
+            // to avoid false negatives. Give hint only when test fails.
+<span class="fc" id="L77">            new ArgMismatchFinder()</span>
+<span class="fc" id="L78">                    .getStubbingArgMismatches(mocks)</span>
+<span class="fc" id="L79">                    .format(event.getTestName(), logger);</span>
+        } else {
+            // print unused stubbings only when test succeeds to avoid reporting multiple problems
+            // and confusing users
+<span class="fc" id="L83">            new UnusedStubbingsFinder()</span>
+<span class="fc" id="L84">                    .getUnusedStubbings(mocks)</span>
+<span class="fc" id="L85">                    .format(event.getTestName(), logger);</span>
+        }
+<span class="fc" id="L87">    }</span>
+
+    @Override
+    public void onMockCreated(Object mock, MockCreationSettings settings) {
+<span class="fc" id="L91">        this.mocks.put(mock, settings);</span>
+
+        // It is not ideal that we modify the state of MockCreationSettings object
+        // MockCreationSettings is intended to be an immutable view of the creation settings
+        // In future, we should start passing MockSettings object to the creation listener
+        // TODO #793 - when completed, we should be able to get rid of the CreationSettings casting
+        // below
+<span class="fc" id="L98">        ((CreationSettings) settings).getStubbingLookupListeners().add(stubbingLookupListener);</span>
+<span class="fc" id="L99">    }</span>
+
+    public void setStrictness(Strictness strictness) {
+<span class="fc" id="L102">        this.currentStrictness = strictness;</span>
+<span class="fc" id="L103">        this.stubbingLookupListener.setCurrentStrictness(strictness);</span>
+<span class="fc" id="L104">    }</span>
+
+    /**
+     * See {@link AutoCleanableListener#isListenerDirty()}
+     */
+    @Override
+    public boolean isListenerDirty() {
+<span class="fc" id="L111">        return listenerDirty;</span>
+    }
+
+    /**
+     * Marks listener as dirty, scheduled for cleanup when the next session starts
+     */
+    public void setListenerDirty() {
+<span class="fc" id="L118">        this.listenerDirty = true;</span>
+<span class="fc" id="L119">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AnnotationEngine.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.plugins</a> &gt; <span class="el_source">AnnotationEngine.java</span></div><h1>AnnotationEngine.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.plugins;
+
+/**
+ * Configures test via annotations.
+ *
+ * &lt;p&gt;Mockito default engine handles the logic behind &amp;#064;Mock, &amp;#064;Captor, &amp;#064;Spy and &amp;#064;InjectMocks annotations.
+ *
+ * &lt;p&gt;This interface is an extension point that make possible to use a different annotation engine allowing to extend
+ * or replace mockito default engine.
+ *
+ * &lt;p&gt;
+ * If you are interested then see implementations or source code of {@link org.mockito.MockitoAnnotations#openMocks(Object)}
+ *
+ * &lt;p&gt;This plugin mechanism supersedes the {@link org.mockito.configuration.IMockitoConfiguration}
+ * in regard of switching mockito components.
+ */
+public interface AnnotationEngine {
+    /**
+     * Processes the test instance to configure annotated members.
+     *
+     * @param clazz Class where to extract field information, check implementation for details
+     * @param testInstance Test instance
+     */
+    AutoCloseable process(Class&lt;?&gt; clazz, Object testInstance);
+
+<span class="fc" id="L30">    class NoAction implements AutoCloseable {</span>
+
+        @Override
+<span class="fc" id="L33">        public void close() {}</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

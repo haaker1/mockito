@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReturnsDeepStubs.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.stubbing.defaultanswers</a> &gt; <span class="el_source">ReturnsDeepStubs.java</span></div><h1>ReturnsDeepStubs.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.stubbing.defaultanswers;
+
+import static org.mockito.Mockito.withSettings;
+import static org.mockito.internal.util.MockUtil.typeMockabilityOf;
+
+import java.io.IOException;
+import java.io.Serializable;
+
+import org.mockito.MockSettings;
+import org.mockito.Mockito;
+import org.mockito.internal.MockitoCore;
+import org.mockito.internal.creation.settings.CreationSettings;
+import org.mockito.internal.stubbing.InvocationContainerImpl;
+import org.mockito.internal.stubbing.StubbedInvocationMatcher;
+import org.mockito.internal.util.MockUtil;
+import org.mockito.internal.util.reflection.GenericMetadataSupport;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.mock.MockCreationSettings;
+import org.mockito.stubbing.Answer;
+
+/**
+ * Returning deep stub implementation.
+ *
+ * &lt;p&gt;Will return previously created mock if the invocation matches.
+ *
+ * &lt;p&gt;Supports nested generic information, with this answer you can write code like this :
+ *
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ *     interface GenericsNest&amp;lt;K extends Comparable&amp;lt;K&amp;gt; &amp; Cloneable&amp;gt; extends Map&amp;lt;K, Set&amp;lt;Number&amp;gt;&amp;gt; {}
+ *
+ *     GenericsNest&amp;lt;?&amp;gt; mock = mock(GenericsNest.class, new ReturnsGenericDeepStubs());
+ *     Number number = mock.entrySet().iterator().next().getValue().iterator().next();
+ * &lt;/code&gt;&lt;/pre&gt;
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;However this answer does not support generics information when the mock has been deserialized.
+ *
+ * @see org.mockito.Mockito#RETURNS_DEEP_STUBS
+ * @see org.mockito.Answers#RETURNS_DEEP_STUBS
+ */
+<span class="fc" id="L45">public class ReturnsDeepStubs implements Answer&lt;Object&gt;, Serializable {</span>
+
+    private static final long serialVersionUID = -7105341425736035847L;
+
+    @Override
+    public Object answer(InvocationOnMock invocation) throws Throwable {
+<span class="fc" id="L51">        GenericMetadataSupport returnTypeGenericMetadata =</span>
+<span class="fc" id="L52">                actualParameterizedType(invocation.getMock())</span>
+<span class="fc" id="L53">                        .resolveGenericReturnType(invocation.getMethod());</span>
+<span class="fc" id="L54">        MockCreationSettings&lt;?&gt; mockSettings = MockUtil.getMockSettings(invocation.getMock());</span>
+
+<span class="fc" id="L56">        Class&lt;?&gt; rawType = returnTypeGenericMetadata.rawType();</span>
+<span class="fc" id="L57">        final var emptyValue = ReturnsEmptyValues.returnCommonEmptyValueFor(rawType);</span>
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        if (emptyValue != null) {</span>
+<span class="fc" id="L59">            return emptyValue;</span>
+        }
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        if (!typeMockabilityOf(rawType, mockSettings.getMockMaker()).mockable()) {</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">            if (invocation.getMethod().getReturnType().equals(rawType)) {</span>
+<span class="fc" id="L63">                return delegate().answer(invocation);</span>
+            } else {
+<span class="fc" id="L65">                return delegate().returnValueFor(rawType);</span>
+            }
+        }
+
+        // When dealing with erased generics, we only receive the Object type as rawType. At this
+        // point, there is nothing to salvage for Mockito. Instead of trying to be smart and
+        // generate
+        // a mock that would potentially match the return signature, instead return `null`. This
+        // is valid per the CheckCast JVM instruction and is better than causing a
+        // ClassCastException
+        // on runtime.
+<span class="pc bpc" id="L76" title="1 of 4 branches missed.">        if (rawType.equals(Object.class) &amp;&amp; !returnTypeGenericMetadata.hasRawExtraInterfaces()) {</span>
+<span class="fc" id="L77">            return null;</span>
+        }
+
+<span class="fc" id="L80">        return deepStub(invocation, returnTypeGenericMetadata);</span>
+    }
+
+    private Object deepStub(
+            InvocationOnMock invocation, GenericMetadataSupport returnTypeGenericMetadata)
+            throws Throwable {
+<span class="fc" id="L86">        InvocationContainerImpl container = MockUtil.getInvocationContainer(invocation.getMock());</span>
+
+<span class="fc" id="L88">        Answer existingAnswer = container.findStubbedAnswer();</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        if (existingAnswer != null) {</span>
+<span class="fc" id="L90">            return existingAnswer.answer(invocation);</span>
+        }
+
+        // record deep stub answer
+<span class="fc" id="L94">        StubbedInvocationMatcher stubbing =</span>
+<span class="fc" id="L95">                recordDeepStubAnswer(</span>
+<span class="fc" id="L96">                        newDeepStubMock(returnTypeGenericMetadata, invocation.getMock()),</span>
+                        container);
+
+        // deep stubbing creates a stubbing and immediately uses it
+        // so the stubbing is actually used by the same invocation
+<span class="fc" id="L101">        stubbing.markStubUsed(stubbing.getInvocation());</span>
+
+<span class="fc" id="L103">        return stubbing.answer(invocation);</span>
+    }
+
+    /**
+     * Creates a mock using the Generics Metadata.
+     *
+     * &lt;li&gt;Finally as we want to mock the actual type, but we want to pass along the contextual generics meta-data
+     * that was resolved for the current return type, for this to happen we associate to the mock an new instance of
+     * {@link ReturnsDeepStubs} answer in which we will store the returned type generic metadata.
+     *
+     * @param returnTypeGenericMetadata The metadata to use to create the new mock.
+     * @param parentMock                The parent of the current deep stub mock.
+     * @return The mock
+     */
+    private Object newDeepStubMock(
+            GenericMetadataSupport returnTypeGenericMetadata, Object parentMock) {
+<span class="fc" id="L119">        MockCreationSettings parentMockSettings = MockUtil.getMockSettings(parentMock);</span>
+<span class="fc" id="L120">        return mockitoCore()</span>
+<span class="fc" id="L121">                .mock(</span>
+<span class="fc" id="L122">                        returnTypeGenericMetadata.rawType(),</span>
+<span class="fc" id="L123">                        withSettingsUsing(returnTypeGenericMetadata, parentMockSettings));</span>
+    }
+
+    private MockSettings withSettingsUsing(
+            GenericMetadataSupport returnTypeGenericMetadata,
+            MockCreationSettings&lt;?&gt; parentMockSettings) {
+        MockSettings mockSettings =
+<span class="fc bfc" id="L130" title="All 2 branches covered.">                returnTypeGenericMetadata.hasRawExtraInterfaces()</span>
+<span class="fc" id="L131">                        ? withSettings()</span>
+<span class="fc" id="L132">                                .extraInterfaces(returnTypeGenericMetadata.rawExtraInterfaces())</span>
+<span class="fc" id="L133">                        : withSettings();</span>
+
+<span class="fc" id="L135">        return propagateSerializationSettings(mockSettings, parentMockSettings)</span>
+<span class="fc" id="L136">                .defaultAnswer(returnsDeepStubsAnswerUsing(returnTypeGenericMetadata))</span>
+<span class="fc" id="L137">                .mockMaker(parentMockSettings.getMockMaker());</span>
+    }
+
+    private MockSettings propagateSerializationSettings(
+            MockSettings mockSettings, MockCreationSettings parentMockSettings) {
+<span class="fc" id="L142">        return mockSettings.serializable(parentMockSettings.getSerializableMode());</span>
+    }
+
+    private ReturnsDeepStubs returnsDeepStubsAnswerUsing(
+            final GenericMetadataSupport returnTypeGenericMetadata) {
+<span class="fc" id="L147">        return new ReturnsDeepStubsSerializationFallback(returnTypeGenericMetadata);</span>
+    }
+
+    private StubbedInvocationMatcher recordDeepStubAnswer(
+            final Object mock, InvocationContainerImpl container) {
+<span class="fc" id="L152">        DeeplyStubbedAnswer answer = new DeeplyStubbedAnswer(mock);</span>
+<span class="fc" id="L153">        return container.addAnswer(answer, false, null);</span>
+    }
+
+    protected GenericMetadataSupport actualParameterizedType(Object mock) {
+<span class="fc" id="L157">        CreationSettings mockSettings =</span>
+<span class="fc" id="L158">                (CreationSettings) MockUtil.getMockHandler(mock).getMockSettings();</span>
+<span class="fc" id="L159">        return GenericMetadataSupport.inferFrom(mockSettings.getTypeToMock());</span>
+    }
+
+    private static class ReturnsDeepStubsSerializationFallback extends ReturnsDeepStubs
+            implements Serializable {
+        @SuppressWarnings(&quot;serial&quot;) // not gonna be serialized
+        private final GenericMetadataSupport returnTypeGenericMetadata;
+
+        public ReturnsDeepStubsSerializationFallback(
+<span class="fc" id="L168">                GenericMetadataSupport returnTypeGenericMetadata) {</span>
+<span class="fc" id="L169">            this.returnTypeGenericMetadata = returnTypeGenericMetadata;</span>
+<span class="fc" id="L170">        }</span>
+
+        @Override
+        protected GenericMetadataSupport actualParameterizedType(Object mock) {
+<span class="fc" id="L174">            return returnTypeGenericMetadata;</span>
+        }
+
+        /**
+         * Generics support and serialization with deep stubs don't work together.
+         * &lt;p&gt;
+         * The issue is that GenericMetadataSupport is not serializable because
+         * the type elements inferred via reflection are not serializable. Supporting
+         * serialization would require to replace all types coming from the Java reflection
+         * with our own and still managing type equality with the JDK ones.
+         */
+        private Object writeReplace() throws IOException {
+<span class="fc" id="L186">            return Mockito.RETURNS_DEEP_STUBS;</span>
+        }
+    }
+
+    private static class DeeplyStubbedAnswer implements Answer&lt;Object&gt;, Serializable {
+        @SuppressWarnings(
+                &quot;serial&quot;) // serialization will fail with a nice message if mock not serializable
+        private final Object mock;
+
+<span class="fc" id="L195">        DeeplyStubbedAnswer(Object mock) {</span>
+<span class="fc" id="L196">            this.mock = mock;</span>
+<span class="fc" id="L197">        }</span>
+
+        @Override
+        public Object answer(InvocationOnMock invocation) throws Throwable {
+<span class="fc" id="L201">            return mock;</span>
+        }
+    }
+
+    private static MockitoCore mockitoCore() {
+<span class="fc" id="L206">        return LazyHolder.MOCKITO_CORE;</span>
+    }
+
+    private static ReturnsEmptyValues delegate() {
+<span class="fc" id="L210">        return LazyHolder.DELEGATE;</span>
+    }
+
+    private static class LazyHolder {
+<span class="fc" id="L214">        private static final MockitoCore MOCKITO_CORE = new MockitoCore();</span>
+<span class="fc" id="L215">        private static final ReturnsEmptyValues DELEGATE = new ReturnsEmptyValues();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

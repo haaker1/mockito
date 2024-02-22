@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MockitoAnyIncorrectPrimitiveType.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.errorprone.bugpatterns</a> &gt; <span class="el_source">MockitoAnyIncorrectPrimitiveType.java</span></div><h1>MockitoAnyIncorrectPrimitiveType.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.errorprone.bugpatterns;
+
+import static com.google.errorprone.BugPattern.LinkType.CUSTOM;
+import static com.google.errorprone.BugPattern.SeverityLevel.ERROR;
+import static com.google.errorprone.matchers.method.MethodMatchers.staticMethod;
+
+import com.google.auto.service.AutoService;
+import com.google.errorprone.BugPattern;
+import com.google.errorprone.bugpatterns.BugChecker;
+import com.google.errorprone.matchers.Matcher;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MethodInvocationTree;
+import com.sun.tools.javac.code.Type;
+import java.util.regex.Pattern;
+
+/**
+ * Matches on usage of {@code Mockito.argThat(Matcher)} with a matcher that does not extend
+ * ArgumentMatcher.
+ */
+@AutoService(BugChecker.class)
+@BugPattern(
+        name = &quot;MockitoAnyIncorrectPrimitiveType&quot;,
+        summary =
+                &quot;Matcher mismatch: incorrect use of any() or anyX() to match a primitive argument&quot;,
+        severity = ERROR,
+        linkType = CUSTOM,
+        link = &quot;site.mockito.org/usage/bugpattern/MockitoAnyIncorrectPrimitiveType&quot;,
+        explanation =
+                &quot;Mockito relies on Java type checking to ensure that parameter matchers are&quot;
+                        + &quot; type safe but there are some discrepancies between what the Java type checker&quot;
+                        + &quot; allows and what Mockito expects. e.g. Java will allow anyInt() to be used as a&quot;
+                        + &quot; matcher for a long parameter because an int can be widened to a long. This&quot;
+                        + &quot; checker highlights those incorrect usages and suggests replacements. In Mockito&quot;
+                        + &quot; 1.x this was not really an issue because the anyX() methods did not do runtime&quot;
+                        + &quot; type checking of the arguments but in Mockito 2.x they do.&quot;
+                        + &quot; Java will also allow any() to be used within a primitive but any() returns null and&quot;
+                        + &quot; the compiler wraps that call in unboxing which leads to a NPE.&quot;)
+<span class="fc" id="L42">public class MockitoAnyIncorrectPrimitiveType extends AbstractMockitoAnyForPrimitiveType {</span>
+
+    // Match against any() or any of the any&lt;x&gt;() methods.
+<span class="fc" id="L45">    private static final Pattern METHOD_NAME_PATTERN =</span>
+<span class="fc" id="L46">            Pattern.compile(&quot;any(Boolean|Byte|Char|Double|Float|Int|Long|Short)?&quot;);</span>
+
+<span class="fc" id="L48">    private static final String[] CLASS_NAMES = {</span>
+        &quot;org.mockito.ArgumentMatchers&quot;, &quot;org.mockito.Mockito&quot;, &quot;org.mockito.Matchers&quot;
+    };
+
+<span class="fc" id="L52">    private static final Matcher&lt;ExpressionTree&gt; METHOD_MATCHER =</span>
+<span class="fc" id="L53">            staticMethod()</span>
+<span class="fc" id="L54">                    .onClassAny(CLASS_NAMES)</span>
+<span class="fc" id="L55">                    .withNameMatching(METHOD_NAME_PATTERN)</span>
+<span class="fc" id="L56">                    .withNoParameters();</span>
+
+    @Override
+    protected Matcher&lt;? super MethodInvocationTree&gt; matcher() {
+<span class="fc" id="L60">        return METHOD_MATCHER;</span>
+    }
+
+    @Override
+    protected String formatMessage(
+            String expectedTypeAsString, Type matcherType, String replacementName) {
+<span class="fc" id="L66">        return String.format(</span>
+                &quot;Matcher mismatch: expected matcher for parameter of type '%s',&quot;
+                        + &quot; found matcher for parameter of type '%s'&quot;,
+                expectedTypeAsString, matcherType);
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

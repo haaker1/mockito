@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PlatformUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.creation.bytebuddy</a> &gt; <span class="el_source">PlatformUtils.java</span></div><h1>PlatformUtils.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2023 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.creation.bytebuddy;
+
+/**
+ * Helpers for various platform detection mechanisms related to the ByteBuddy mock maker.
+ *
+ * @author Ashley Scopes
+ */
+final class PlatformUtils {
+    private PlatformUtils() {
+        // Static-only class.
+    }
+
+    static boolean isAndroidPlatform() {
+<span class="fc" id="L18">        return System.getProperty(&quot;java.specification.vendor&quot;, &quot;&quot;)</span>
+<span class="fc" id="L19">                .toLowerCase()</span>
+<span class="fc" id="L20">                .contains(&quot;android&quot;);</span>
+    }
+
+    static boolean isProbablyTermuxEnvironment() {
+<span class="fc" id="L24">        boolean isLinux = System.getProperty(&quot;os.name&quot;, &quot;&quot;).equalsIgnoreCase(&quot;linux&quot;);</span>
+<span class="fc" id="L25">        boolean isInTermuxData =</span>
+<span class="fc" id="L26">                System.getProperty(&quot;java.home&quot;, &quot;&quot;).toLowerCase().contains(&quot;/com.termux/&quot;);</span>
+<span class="pc bpc" id="L27" title="3 of 4 branches missed.">        return isLinux &amp;&amp; isInTermuxData;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

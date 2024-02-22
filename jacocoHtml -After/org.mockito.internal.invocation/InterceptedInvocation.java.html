@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InterceptedInvocation.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.invocation</a> &gt; <span class="el_source">InterceptedInvocation.java</span></div><h1>InterceptedInvocation.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2016 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.invocation;
+
+import static org.mockito.internal.exceptions.Reporter.cannotCallAbstractRealMethod;
+import static org.mockito.internal.invocation.ArgumentsProcessor.argumentsToMatchers;
+
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.List;
+
+import org.mockito.ArgumentMatcher;
+import org.mockito.internal.exceptions.VerificationAwareInvocation;
+import org.mockito.internal.invocation.mockref.MockReference;
+import org.mockito.internal.reporting.PrintSettings;
+import org.mockito.invocation.Invocation;
+import org.mockito.invocation.Location;
+import org.mockito.invocation.StubInfo;
+
+public class InterceptedInvocation implements Invocation, VerificationAwareInvocation {
+
+    private static final long serialVersionUID = 475027563923510472L;
+
+    private final MockReference&lt;Object&gt; mockRef;
+    private final MockitoMethod mockitoMethod;
+    private final Object[] arguments;
+    private final Object[] rawArguments;
+    private final RealMethod realMethod;
+
+    private final int sequenceNumber;
+
+    private final Location location;
+
+    private boolean verified;
+    private boolean isIgnoredForVerification;
+    private StubInfo stubInfo;
+
+    public InterceptedInvocation(
+            MockReference&lt;Object&gt; mockRef,
+            MockitoMethod mockitoMethod,
+            Object[] arguments,
+            RealMethod realMethod,
+            Location location,
+<span class="fc" id="L46">            int sequenceNumber) {</span>
+<span class="fc" id="L47">        this.mockRef = mockRef;</span>
+<span class="fc" id="L48">        this.mockitoMethod = mockitoMethod;</span>
+<span class="fc" id="L49">        this.arguments = ArgumentsProcessor.expandArgs(mockitoMethod, arguments);</span>
+<span class="fc" id="L50">        this.rawArguments = arguments;</span>
+<span class="fc" id="L51">        this.realMethod = realMethod;</span>
+<span class="fc" id="L52">        this.location = location;</span>
+<span class="fc" id="L53">        this.sequenceNumber = sequenceNumber;</span>
+<span class="fc" id="L54">    }</span>
+
+    @Override
+    public boolean isVerified() {
+<span class="fc bfc" id="L58" title="All 4 branches covered.">        return verified || isIgnoredForVerification;</span>
+    }
+
+    @Override
+    public int getSequenceNumber() {
+<span class="fc" id="L63">        return sequenceNumber;</span>
+    }
+
+    @Override
+    public Location getLocation() {
+<span class="fc" id="L68">        return location;</span>
+    }
+
+    @Override
+    public Object[] getRawArguments() {
+<span class="fc" id="L73">        return rawArguments;</span>
+    }
+
+    @Override
+    public Class&lt;?&gt; getRawReturnType() {
+<span class="nc" id="L78">        return mockitoMethod.getReturnType();</span>
+    }
+
+    @Override
+    public void markVerified() {
+<span class="fc" id="L83">        verified = true;</span>
+<span class="fc" id="L84">    }</span>
+
+    @Override
+    public StubInfo stubInfo() {
+<span class="fc" id="L88">        return stubInfo;</span>
+    }
+
+    @Override
+    public void markStubbed(StubInfo stubInfo) {
+<span class="fc" id="L93">        this.stubInfo = stubInfo;</span>
+<span class="fc" id="L94">    }</span>
+
+    @Override
+    public boolean isIgnoredForVerification() {
+<span class="fc" id="L98">        return isIgnoredForVerification;</span>
+    }
+
+    @Override
+    public void ignoreForVerification() {
+<span class="fc" id="L103">        isIgnoredForVerification = true;</span>
+<span class="fc" id="L104">    }</span>
+
+    @Override
+    public Object getMock() {
+<span class="fc" id="L108">        return mockRef.get();</span>
+    }
+
+    @Override
+    public Method getMethod() {
+<span class="fc" id="L113">        return mockitoMethod.getJavaMethod();</span>
+    }
+
+    @Override
+    public Object[] getArguments() {
+<span class="fc" id="L118">        return arguments;</span>
+    }
+
+    @Override
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public &lt;T&gt; T getArgument(int index) {
+<span class="fc" id="L124">        return (T) arguments[index];</span>
+    }
+
+    @Override
+    public &lt;T&gt; T getArgument(int index, Class&lt;T&gt; clazz) {
+<span class="nc" id="L129">        return clazz.cast(arguments[index]);</span>
+    }
+
+    @Override
+    public List&lt;ArgumentMatcher&gt; getArgumentsAsMatchers() {
+<span class="fc" id="L134">        return argumentsToMatchers(getArguments());</span>
+    }
+
+    @Override
+    public Object callRealMethod() throws Throwable {
+<span class="fc bfc" id="L139" title="All 2 branches covered.">        if (!realMethod.isInvokable()) {</span>
+<span class="fc" id="L140">            throw cannotCallAbstractRealMethod();</span>
+        }
+<span class="fc" id="L142">        return realMethod.invoke();</span>
+    }
+
+    /**
+     * @deprecated Not used by Mockito but by mockito-scala
+     */
+    @Deprecated
+    public MockReference&lt;Object&gt; getMockRef() {
+<span class="nc" id="L150">        return mockRef;</span>
+    }
+
+    /**
+     * @deprecated Not used by Mockito but by mockito-scala
+     */
+    @Deprecated
+    public MockitoMethod getMockitoMethod() {
+<span class="nc" id="L158">        return mockitoMethod;</span>
+    }
+
+    /**
+     * @deprecated Not used by Mockito but by mockito-scala
+     */
+    @Deprecated
+    public RealMethod getRealMethod() {
+<span class="nc" id="L166">        return realMethod;</span>
+    }
+
+    @Override
+    public int hashCode() {
+        // TODO SF we need to provide hash code implementation so that there are no unexpected,
+        // slight perf issues
+<span class="fc" id="L173">        return 1;</span>
+    }
+
+    @Override
+    public boolean equals(Object o) {
+<span class="pc bpc" id="L178" title="1 of 2 branches missed.">        if (!(o instanceof InterceptedInvocation)) {</span>
+<span class="nc" id="L179">            return false;</span>
+        }
+<span class="fc" id="L181">        InterceptedInvocation other = (InterceptedInvocation) o;</span>
+<span class="fc bfc" id="L182" title="All 2 branches covered.">        return this.mockRef.get().equals(other.mockRef.get())</span>
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">                &amp;&amp; this.mockitoMethod.equals(other.mockitoMethod)</span>
+<span class="fc bfc" id="L184" title="All 2 branches covered.">                &amp;&amp; this.equalArguments(other.arguments);</span>
+    }
+
+    private boolean equalArguments(Object[] arguments) {
+<span class="fc" id="L188">        return Arrays.equals(arguments, this.arguments);</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L193">        return new PrintSettings().print(getArgumentsAsMatchers(), this);</span>
+    }
+
+<span class="fc" id="L196">    public static final RealMethod NO_OP =</span>
+<span class="fc" id="L197">            new RealMethod() {</span>
+                @Override
+                public boolean isInvokable() {
+<span class="nc" id="L200">                    return false;</span>
+                }
+
+                public Object invoke() throws Throwable {
+<span class="nc" id="L204">                    return null;</span>
+                }
+            };
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

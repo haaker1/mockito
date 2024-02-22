@@ -1,0 +1,745 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GenericMetadataSupport.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mockito</a> &gt; <a href="index.source.html" class="el_package">org.mockito.internal.util.reflection</a> &gt; <span class="el_source">GenericMetadataSupport.java</span></div><h1>GenericMetadataSupport.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (c) 2007 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
+package org.mockito.internal.util.reflection;
+
+import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+import java.lang.reflect.WildcardType;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
+import org.mockito.exceptions.base.MockitoException;
+import org.mockito.internal.util.Checks;
+
+/**
+ * This class can retrieve generic meta-data that the compiler stores on classes
+ * and accessible members.
+ *
+ * &lt;p&gt;
+ * The main idea of this code is to create a Map that will help to resolve return types.
+ * In order to actually work with nested generics, this map will have to be passed along new instances
+ * as a type context.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * Hence :
+ * &lt;ul&gt;
+ * &lt;li&gt;A new instance representing the metadata is created using the {@link #inferFrom(Type)} method from a real
+ * &lt;code&gt;Class&lt;/code&gt; or from a &lt;code&gt;ParameterizedType&lt;/code&gt;, other types are not yet supported.&lt;/li&gt;
+ *
+ * &lt;li&gt;Then from this metadata, we can extract meta-data for a generic return type of a method, using
+ * {@link #resolveGenericReturnType(Method)}.&lt;/li&gt;
+ * &lt;/ul&gt;
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * For now this code support the following kind of generic declarations :
+ * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+ * interface GenericsNest&amp;lt;K extends Comparable&amp;lt;K&amp;gt; &amp; Cloneable&amp;gt; extends Map&amp;lt;K, Set&amp;lt;Number&amp;gt;&amp;gt; {
+ *     Set&amp;lt;Number&amp;gt; remove(Object key); // override with fixed ParameterizedType
+ *     List&amp;lt;? super Integer&amp;gt; returning_wildcard_with_class_lower_bound();
+ *     List&amp;lt;? super K&amp;gt; returning_wildcard_with_typeVar_lower_bound();
+ *     List&amp;lt;? extends K&amp;gt; returning_wildcard_with_typeVar_upper_bound();
+ *     K returningK();
+ *     &amp;lt;O extends K&amp;gt; List&amp;lt;O&amp;gt; paramType_with_type_params();
+ *     &amp;lt;S, T extends S&amp;gt; T two_type_params();
+ *     &amp;lt;O extends K&amp;gt; O typeVar_with_type_params();
+ *     Number returningNonGeneric();
+ * }
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * @see #inferFrom(Type)
+ * @see #resolveGenericReturnType(Method)
+ * @see org.mockito.internal.stubbing.defaultanswers.ReturnsDeepStubs
+ */
+<span class="fc" id="L68">public abstract class GenericMetadataSupport {</span>
+
+    // public static MockitoLogger logger = new ConsoleMockitoLogger();
+
+    /** Represents actual type variables resolved for current class. */
+<span class="fc" id="L73">    protected Map&lt;TypeVariable&lt;?&gt;, Type&gt; contextualActualTypeParameters = new HashMap&lt;&gt;();</span>
+
+    /**
+     * Registers the type variables for the given type and all of its superclasses and superinterfaces.
+     */
+    protected void registerAllTypeVariables(Type classType) {
+<span class="fc" id="L79">        Queue&lt;Type&gt; typesToRegister = new LinkedList&lt;Type&gt;();</span>
+<span class="fc" id="L80">        Set&lt;Type&gt; registeredTypes = new HashSet&lt;Type&gt;();</span>
+<span class="fc" id="L81">        typesToRegister.add(classType);</span>
+
+<span class="fc bfc" id="L83" title="All 2 branches covered.">        while (!typesToRegister.isEmpty()) {</span>
+<span class="fc" id="L84">            Type typeToRegister = typesToRegister.poll();</span>
+<span class="fc bfc" id="L85" title="All 4 branches covered.">            if (typeToRegister == null || registeredTypes.contains(typeToRegister)) {</span>
+<span class="fc" id="L86">                continue;</span>
+            }
+
+<span class="fc" id="L89">            registerTypeVariablesOn(typeToRegister);</span>
+<span class="fc" id="L90">            registeredTypes.add(typeToRegister);</span>
+
+<span class="fc" id="L92">            Class&lt;?&gt; rawType = extractRawTypeOf(typeToRegister);</span>
+<span class="fc" id="L93">            typesToRegister.add(rawType.getGenericSuperclass());</span>
+<span class="fc" id="L94">            typesToRegister.addAll(Arrays.asList(rawType.getGenericInterfaces()));</span>
+<span class="fc" id="L95">        }</span>
+<span class="fc" id="L96">    }</span>
+
+    protected Class&lt;?&gt; extractRawTypeOf(Type type) {
+<span class="fc bfc" id="L99" title="All 2 branches covered.">        if (type instanceof Class) {</span>
+<span class="fc" id="L100">            return (Class&lt;?&gt;) type;</span>
+        }
+<span class="fc bfc" id="L102" title="All 2 branches covered.">        if (type instanceof ParameterizedType) {</span>
+<span class="fc" id="L103">            return (Class&lt;?&gt;) ((ParameterizedType) type).getRawType();</span>
+        }
+<span class="fc bfc" id="L105" title="All 2 branches covered.">        if (type instanceof BoundedType) {</span>
+<span class="fc" id="L106">            return extractRawTypeOf(((BoundedType) type).firstBound());</span>
+        }
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">        if (type instanceof TypeVariable) {</span>
+            /*
+             * If type is a TypeVariable, then it is needed to gather data elsewhere.
+             * Usually TypeVariables are declared on the class definition, such as such
+             * as List&lt;E&gt;.
+             */
+<span class="fc" id="L114">            return extractRawTypeOf(contextualActualTypeParameters.get(type));</span>
+        }
+<span class="nc" id="L116">        throw new MockitoException(&quot;Raw extraction not supported for : '&quot; + type + &quot;'&quot;);</span>
+    }
+
+    protected void registerTypeVariablesOn(Type classType) {
+<span class="fc bfc" id="L120" title="All 2 branches covered.">        if (!(classType instanceof ParameterizedType)) {</span>
+<span class="fc" id="L121">            return;</span>
+        }
+<span class="fc" id="L123">        ParameterizedType parameterizedType = (ParameterizedType) classType;</span>
+<span class="fc" id="L124">        TypeVariable&lt;?&gt;[] typeParameters =</span>
+<span class="fc" id="L125">                ((Class&lt;?&gt;) parameterizedType.getRawType()).getTypeParameters();</span>
+<span class="fc" id="L126">        Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">        for (int i = 0; i &lt; actualTypeArguments.length; i++) {</span>
+<span class="fc" id="L128">            TypeVariable&lt;?&gt; typeParameter = typeParameters[i];</span>
+<span class="fc" id="L129">            Type actualTypeArgument = actualTypeArguments[i];</span>
+
+<span class="fc bfc" id="L131" title="All 2 branches covered.">            if (actualTypeArgument instanceof TypeVariable) {</span>
+                /*
+                 * If actualTypeArgument is a TypeVariable, and it is not present in
+                 * the context map then it is needed to try harder to gather more data
+                 * from the type argument itself. In some case the type argument do
+                 * define upper bounds, this allow to look for them if not in the
+                 * context map.
+                 */
+<span class="fc" id="L139">                registerTypeVariableIfNotPresent((TypeVariable&lt;?&gt;) actualTypeArgument);</span>
+
+                // Prevent registration of a cycle of TypeVariables. This can happen when we are
+                // processing
+                // type parameters in a Method, while we already processed the type parameters of a
+                // class.
+<span class="fc bfc" id="L145" title="All 2 branches covered.">                if (contextualActualTypeParameters.containsKey(typeParameter)) {</span>
+<span class="fc" id="L146">                    continue;</span>
+                }
+            }
+
+<span class="fc bfc" id="L150" title="All 2 branches covered.">            if (actualTypeArgument instanceof WildcardType) {</span>
+<span class="fc" id="L151">                contextualActualTypeParameters.put(</span>
+<span class="fc" id="L152">                        typeParameter, boundsOf((WildcardType) actualTypeArgument));</span>
+<span class="pc bpc" id="L153" title="1 of 2 branches missed.">            } else if (typeParameter != actualTypeArgument) {</span>
+<span class="fc" id="L154">                contextualActualTypeParameters.put(typeParameter, actualTypeArgument);</span>
+            }
+            // logger.log(&quot;For '&quot; + parameterizedType + &quot;' found type variable : { '&quot; +
+            // typeParameter + &quot;(&quot; + System.identityHashCode(typeParameter) + &quot;)&quot; + &quot;' : '&quot; +
+            // actualTypeArgument + &quot;(&quot; + System.identityHashCode(typeParameter) + &quot;)&quot; + &quot;' }&quot;);
+        }
+<span class="fc" id="L160">    }</span>
+
+    protected void registerTypeParametersOn(TypeVariable&lt;?&gt;[] typeParameters) {
+<span class="fc bfc" id="L163" title="All 2 branches covered.">        for (TypeVariable&lt;?&gt; type : typeParameters) {</span>
+<span class="fc" id="L164">            registerTypeVariableIfNotPresent(type);</span>
+        }
+<span class="fc" id="L166">    }</span>
+
+    private void registerTypeVariableIfNotPresent(TypeVariable&lt;?&gt; typeVariable) {
+<span class="fc bfc" id="L169" title="All 2 branches covered.">        if (!contextualActualTypeParameters.containsKey(typeVariable)) {</span>
+<span class="fc" id="L170">            contextualActualTypeParameters.put(typeVariable, boundsOf(typeVariable));</span>
+            // logger.log(&quot;For '&quot; + typeVariable.getGenericDeclaration() + &quot;' found type variable :
+            // { '&quot; + typeVariable + &quot;(&quot; + System.identityHashCode(typeVariable) + &quot;)&quot; + &quot;' : '&quot; +
+            // boundsOf(typeVariable) + &quot;' }&quot;);
+        }
+<span class="fc" id="L175">    }</span>
+
+    /**
+     * @param typeParameter The TypeVariable parameter
+     * @return A {@link BoundedType} for easy bound information, if first bound is a TypeVariable
+     * then retrieve BoundedType of this TypeVariable
+     */
+    private BoundedType boundsOf(TypeVariable&lt;?&gt; typeParameter) {
+<span class="fc bfc" id="L183" title="All 2 branches covered.">        if (typeParameter.getBounds()[0] instanceof TypeVariable) {</span>
+<span class="fc" id="L184">            return boundsOf((TypeVariable&lt;?&gt;) typeParameter.getBounds()[0]);</span>
+        }
+<span class="fc" id="L186">        return new TypeVarBoundedType(typeParameter);</span>
+    }
+
+    /**
+     * @param wildCard The WildCard type
+     * @return A {@link BoundedType} for easy bound information, if first bound is a TypeVariable
+     * then retrieve BoundedType of this TypeVariable
+     */
+    private BoundedType boundsOf(WildcardType wildCard) {
+        /*
+         *  According to JLS(https://docs.oracle.com/javase/specs/jls/se8/html/jls-4.html#jls-4.5.1):
+         *  - Lower and upper can't coexist: (for instance, this is not allowed:
+         *    &lt;? extends List&lt;String&gt; &amp; super MyInterface&gt;)
+         *  - Multiple concrete type bounds are not supported (for instance, this is not allowed:
+         *    &lt;? extends ArrayList&lt;String&gt; &amp; MyInterface&gt;)
+         *    But the following form is possible where there is a single concrete tyep bound followed by interface type bounds
+         *    &lt;T extends List&lt;String&gt; &amp; Comparable&gt;
+         */
+
+<span class="fc" id="L205">        WildCardBoundedType wildCardBoundedType = new WildCardBoundedType(wildCard);</span>
+<span class="fc bfc" id="L206" title="All 2 branches covered.">        if (wildCardBoundedType.firstBound() instanceof TypeVariable) {</span>
+<span class="fc" id="L207">            return boundsOf((TypeVariable&lt;?&gt;) wildCardBoundedType.firstBound());</span>
+        }
+
+<span class="fc" id="L210">        return wildCardBoundedType;</span>
+    }
+
+    /**
+     * @return Raw type of the current instance.
+     */
+    public abstract Class&lt;?&gt; rawType();
+
+    /**
+     * @return Returns extra interfaces &lt;strong&gt;if relevant&lt;/strong&gt;, otherwise empty List.
+     */
+    public List&lt;Type&gt; extraInterfaces() {
+<span class="nc" id="L222">        return Collections.emptyList();</span>
+    }
+
+    /**
+     * @return Returns an array with the raw types of {@link #extraInterfaces()} &lt;strong&gt;if relevant&lt;/strong&gt;.
+     */
+    public Class&lt;?&gt;[] rawExtraInterfaces() {
+<span class="fc" id="L229">        return new Class[0];</span>
+    }
+
+    /**
+     * @return Returns true if metadata knows about extra-interfaces {@link #extraInterfaces()} &lt;strong&gt;if relevant&lt;/strong&gt;.
+     */
+    public boolean hasRawExtraInterfaces() {
+<span class="fc bfc" id="L236" title="All 2 branches covered.">        return rawExtraInterfaces().length &gt; 0;</span>
+    }
+
+    /**
+     * @return Actual type arguments matching the type variables of the raw type represented by this {@link GenericMetadataSupport} instance.
+     */
+    public Map&lt;TypeVariable&lt;?&gt;, Type&gt; actualTypeArguments() {
+<span class="fc" id="L243">        TypeVariable&lt;?&gt;[] typeParameters = rawType().getTypeParameters();</span>
+<span class="fc" id="L244">        LinkedHashMap&lt;TypeVariable&lt;?&gt;, Type&gt; actualTypeArguments = new LinkedHashMap&lt;&gt;();</span>
+
+<span class="fc bfc" id="L246" title="All 2 branches covered.">        for (TypeVariable&lt;?&gt; typeParameter : typeParameters) {</span>
+
+<span class="fc" id="L248">            Type actualType = getActualTypeArgumentFor(typeParameter);</span>
+
+<span class="fc" id="L250">            actualTypeArguments.put(typeParameter, actualType);</span>
+            // logger.log(&quot;For '&quot; + rawType().getCanonicalName() + &quot;' returning explicit
+            // TypeVariable : { '&quot; + typeParameter + &quot;(&quot; + System.identityHashCode(typeParameter) +
+            // &quot;)&quot; + &quot;' : '&quot; + actualType +&quot;' }&quot;);
+        }
+
+<span class="fc" id="L256">        return actualTypeArguments;</span>
+    }
+
+    protected Type getActualTypeArgumentFor(TypeVariable&lt;?&gt; typeParameter) {
+<span class="fc" id="L260">        Type type = this.contextualActualTypeParameters.get(typeParameter);</span>
+<span class="fc bfc" id="L261" title="All 2 branches covered.">        if (type instanceof TypeVariable) {</span>
+<span class="fc" id="L262">            TypeVariable&lt;?&gt; typeVariable = (TypeVariable&lt;?&gt;) type;</span>
+<span class="fc" id="L263">            return getActualTypeArgumentFor(typeVariable);</span>
+        }
+
+<span class="fc" id="L266">        return type;</span>
+    }
+
+    /**
+     * Resolve current method generic return type to a {@link GenericMetadataSupport}.
+     *
+     * @param method Method to resolve the return type.
+     * @return {@link GenericMetadataSupport} representing this generic return type.
+     */
+    public GenericMetadataSupport resolveGenericReturnType(Method method) {
+<span class="fc" id="L276">        Type genericReturnType = method.getGenericReturnType();</span>
+        // logger.log(&quot;Method '&quot; + method.toGenericString() + &quot;' has return type : &quot; +
+        // genericReturnType.getClass().getInterfaces()[0].getSimpleName() + &quot; : &quot; +
+        // genericReturnType);
+
+<span class="fc" id="L281">        int arity = 0;</span>
+<span class="fc bfc" id="L282" title="All 2 branches covered.">        while (genericReturnType instanceof GenericArrayType) {</span>
+<span class="fc" id="L283">            arity++;</span>
+<span class="fc" id="L284">            genericReturnType = ((GenericArrayType) genericReturnType).getGenericComponentType();</span>
+        }
+
+<span class="fc" id="L287">        GenericMetadataSupport genericMetadataSupport =</span>
+<span class="fc" id="L288">                resolveGenericType(genericReturnType, method);</span>
+<span class="fc bfc" id="L289" title="All 2 branches covered.">        if (arity == 0) {</span>
+<span class="fc" id="L290">            return genericMetadataSupport;</span>
+        } else {
+<span class="fc" id="L292">            return new GenericArrayReturnType(genericMetadataSupport, arity);</span>
+        }
+    }
+
+    private GenericMetadataSupport resolveGenericType(Type type, Method method) {
+
+<span class="fc bfc" id="L298" title="All 2 branches covered.">        if (type instanceof Class) {</span>
+<span class="fc" id="L299">            return new NotGenericReturnTypeSupport(this, type);</span>
+        }
+<span class="fc bfc" id="L301" title="All 2 branches covered.">        if (type instanceof ParameterizedType) {</span>
+<span class="fc" id="L302">            return new ParameterizedReturnType(</span>
+<span class="fc" id="L303">                    this, method.getTypeParameters(), (ParameterizedType) type);</span>
+        }
+<span class="pc bpc" id="L305" title="1 of 2 branches missed.">        if (type instanceof TypeVariable) {</span>
+<span class="fc" id="L306">            return new TypeVariableReturnType(</span>
+<span class="fc" id="L307">                    this, method.getTypeParameters(), (TypeVariable&lt;?&gt;) type);</span>
+        }
+
+<span class="nc" id="L310">        throw new MockitoException(</span>
+                &quot;Ouch, it shouldn't happen, type '&quot;
+<span class="nc" id="L312">                        + type.getClass().getCanonicalName()</span>
+                        + &quot;' on method : '&quot;
+<span class="nc" id="L314">                        + method.toGenericString()</span>
+                        + &quot;' is not supported : &quot;
+                        + type);
+    }
+
+    /**
+     * Create an new instance of {@link GenericMetadataSupport} inferred from a {@link Type}.
+     *
+     * &lt;p&gt;
+     * At the moment &lt;code&gt;type&lt;/code&gt; can only be a {@link Class} or a {@link ParameterizedType}, otherwise
+     * it'll throw a {@link MockitoException}.
+     * &lt;/p&gt;
+     *
+     * @param type The class from which the {@link GenericMetadataSupport} should be built.
+     * @return The new {@link GenericMetadataSupport}.
+     * @throws MockitoException Raised if type is not a {@link Class} or a {@link ParameterizedType}.
+     */
+    public static GenericMetadataSupport inferFrom(Type type) {
+<span class="fc" id="L332">        Checks.checkNotNull(type, &quot;type&quot;);</span>
+<span class="fc bfc" id="L333" title="All 2 branches covered.">        if (type instanceof Class) {</span>
+<span class="fc" id="L334">            return new FromClassGenericMetadataSupport((Class&lt;?&gt;) type);</span>
+        }
+<span class="pc bpc" id="L336" title="1 of 2 branches missed.">        if (type instanceof ParameterizedType) {</span>
+<span class="fc" id="L337">            return new FromParameterizedTypeGenericMetadataSupport((ParameterizedType) type);</span>
+        }
+
+<span class="nc" id="L340">        throw new MockitoException(</span>
+                &quot;Type meta-data for this Type (&quot;
+<span class="nc" id="L342">                        + type.getClass().getCanonicalName()</span>
+                        + &quot;) is not supported : &quot;
+                        + type);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //// Below are specializations of GenericMetadataSupport that could handle retrieval of possible
+    // Types
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Generic metadata implementation for {@link Class}.
+     * &lt;p&gt;
+     * Offer support to retrieve generic metadata on a {@link Class} by reading type parameters and type variables on
+     * the class and its ancestors and interfaces.
+     */
+    private static class FromClassGenericMetadataSupport extends GenericMetadataSupport {
+        private final Class&lt;?&gt; clazz;
+
+<span class="fc" id="L361">        public FromClassGenericMetadataSupport(Class&lt;?&gt; clazz) {</span>
+<span class="fc" id="L362">            this.clazz = clazz;</span>
+
+<span class="fc" id="L364">            registerTypeParametersOn(clazz.getTypeParameters());</span>
+<span class="fc" id="L365">            registerAllTypeVariables(clazz);</span>
+<span class="fc" id="L366">        }</span>
+
+        @Override
+        public Class&lt;?&gt; rawType() {
+<span class="fc" id="L370">            return clazz;</span>
+        }
+    }
+
+    /**
+     * Generic metadata implementation for &quot;standalone&quot; {@link ParameterizedType}.
+     * &lt;p&gt;
+     * Offer support to retrieve generic metadata on a {@link ParameterizedType} by reading type variables of
+     * the related raw type and declared type variable of this parameterized type.
+     * &lt;p&gt;
+     * This class is not designed to work on ParameterizedType returned by {@link Method#getGenericReturnType()}, as
+     * the ParameterizedType instance return in these cases could have Type Variables that refer to type declaration(s).
+     * That's what meant the &quot;standalone&quot; word at the beginning of the Javadoc.
+     * Instead use {@link ParameterizedReturnType}.
+     */
+    private static class FromParameterizedTypeGenericMetadataSupport
+            extends GenericMetadataSupport {
+        private final ParameterizedType parameterizedType;
+
+<span class="fc" id="L389">        public FromParameterizedTypeGenericMetadataSupport(ParameterizedType parameterizedType) {</span>
+<span class="fc" id="L390">            this.parameterizedType = parameterizedType;</span>
+<span class="fc" id="L391">            readActualTypeParameters();</span>
+<span class="fc" id="L392">        }</span>
+
+        private void readActualTypeParameters() {
+<span class="fc" id="L395">            registerAllTypeVariables(parameterizedType);</span>
+<span class="fc" id="L396">        }</span>
+
+        @Override
+        public Class&lt;?&gt; rawType() {
+<span class="fc" id="L400">            return (Class&lt;?&gt;) parameterizedType.getRawType();</span>
+        }
+    }
+
+    /**
+     * Generic metadata specific to {@link ParameterizedType} returned via {@link Method#getGenericReturnType()}.
+     */
+    private static class ParameterizedReturnType extends GenericMetadataSupport {
+        private final ParameterizedType parameterizedType;
+        private final TypeVariable&lt;?&gt;[] typeParameters;
+
+        public ParameterizedReturnType(
+                GenericMetadataSupport source,
+                TypeVariable&lt;?&gt;[] typeParameters,
+<span class="fc" id="L414">                ParameterizedType parameterizedType) {</span>
+<span class="fc" id="L415">            this.parameterizedType = parameterizedType;</span>
+<span class="fc" id="L416">            this.typeParameters = typeParameters;</span>
+<span class="fc" id="L417">            this.contextualActualTypeParameters = source.contextualActualTypeParameters;</span>
+
+<span class="fc" id="L419">            readTypeParameters();</span>
+<span class="fc" id="L420">            readTypeVariables();</span>
+<span class="fc" id="L421">        }</span>
+
+        private void readTypeParameters() {
+<span class="fc" id="L424">            registerTypeParametersOn(typeParameters);</span>
+<span class="fc" id="L425">        }</span>
+
+        private void readTypeVariables() {
+<span class="fc" id="L428">            registerTypeVariablesOn(parameterizedType);</span>
+<span class="fc" id="L429">        }</span>
+
+        @Override
+        public Class&lt;?&gt; rawType() {
+<span class="fc" id="L433">            return (Class&lt;?&gt;) parameterizedType.getRawType();</span>
+        }
+    }
+
+    /**
+     * Generic metadata for {@link TypeVariable} returned via {@link Method#getGenericReturnType()}.
+     */
+    private static class TypeVariableReturnType extends GenericMetadataSupport {
+        private final TypeVariable&lt;?&gt; typeVariable;
+        private final TypeVariable&lt;?&gt;[] typeParameters;
+        private Class&lt;?&gt; rawType;
+        private List&lt;Type&gt; extraInterfaces;
+
+        public TypeVariableReturnType(
+                GenericMetadataSupport source,
+                TypeVariable&lt;?&gt;[] typeParameters,
+<span class="fc" id="L449">                TypeVariable&lt;?&gt; typeVariable) {</span>
+<span class="fc" id="L450">            this.typeParameters = typeParameters;</span>
+<span class="fc" id="L451">            this.typeVariable = typeVariable;</span>
+<span class="fc" id="L452">            this.contextualActualTypeParameters = source.contextualActualTypeParameters;</span>
+
+<span class="fc" id="L454">            readTypeParameters();</span>
+<span class="fc" id="L455">            readTypeVariables();</span>
+<span class="fc" id="L456">        }</span>
+
+        private void readTypeParameters() {
+<span class="fc" id="L459">            registerTypeParametersOn(typeParameters);</span>
+<span class="fc" id="L460">        }</span>
+
+        private void readTypeVariables() {
+<span class="fc bfc" id="L463" title="All 2 branches covered.">            for (Type type : typeVariable.getBounds()) {</span>
+<span class="fc" id="L464">                registerTypeVariablesOn(type);</span>
+            }
+<span class="fc" id="L466">            registerTypeParametersOn(new TypeVariable[] {typeVariable});</span>
+<span class="fc" id="L467">            registerTypeVariablesOn(getActualTypeArgumentFor(typeVariable));</span>
+<span class="fc" id="L468">        }</span>
+
+        @Override
+        public Class&lt;?&gt; rawType() {
+<span class="fc bfc" id="L472" title="All 2 branches covered.">            if (rawType == null) {</span>
+<span class="fc" id="L473">                rawType = extractRawTypeOf(typeVariable);</span>
+            }
+<span class="fc" id="L475">            return rawType;</span>
+        }
+
+        @Override
+        public List&lt;Type&gt; extraInterfaces() {
+<span class="fc bfc" id="L480" title="All 2 branches covered.">            if (extraInterfaces != null) {</span>
+<span class="fc" id="L481">                return extraInterfaces;</span>
+            }
+<span class="fc" id="L483">            Type type = extractActualBoundedTypeOf(typeVariable);</span>
+<span class="fc bfc" id="L484" title="All 2 branches covered.">            if (type instanceof BoundedType) {</span>
+<span class="fc" id="L485">                return extraInterfaces = Arrays.asList(((BoundedType) type).interfaceBounds());</span>
+            }
+<span class="fc bfc" id="L487" title="All 2 branches covered.">            if (type instanceof ParameterizedType) {</span>
+<span class="fc" id="L488">                return extraInterfaces = Collections.singletonList(type);</span>
+            }
+<span class="pc bpc" id="L490" title="1 of 2 branches missed.">            if (type instanceof Class) {</span>
+<span class="fc" id="L491">                return extraInterfaces = Collections.emptyList();</span>
+            }
+<span class="nc" id="L493">            throw new MockitoException(</span>
+                    &quot;Cannot extract extra-interfaces from '&quot; + typeVariable + &quot;' : '&quot; + type + &quot;'&quot;);
+        }
+
+        /**
+         * @return Returns an array with the extracted raw types of {@link #extraInterfaces()}.
+         * @see #extractRawTypeOf(java.lang.reflect.Type)
+         */
+        @Override
+        public Class&lt;?&gt;[] rawExtraInterfaces() {
+<span class="fc" id="L503">            List&lt;Type&gt; extraInterfaces = extraInterfaces();</span>
+<span class="fc" id="L504">            List&lt;Class&lt;?&gt;&gt; rawExtraInterfaces = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L505" title="All 2 branches covered.">            for (Type extraInterface : extraInterfaces) {</span>
+<span class="fc" id="L506">                Class&lt;?&gt; rawInterface = extractRawTypeOf(extraInterface);</span>
+                // avoid interface collision with actual raw type (with typevariables, resolution ca
+                // be quite aggressive)
+<span class="fc bfc" id="L509" title="All 2 branches covered.">                if (!rawType().equals(rawInterface)) {</span>
+<span class="fc" id="L510">                    rawExtraInterfaces.add(rawInterface);</span>
+                }
+<span class="fc" id="L512">            }</span>
+<span class="fc" id="L513">            return rawExtraInterfaces.toArray(new Class[rawExtraInterfaces.size()]);</span>
+        }
+
+        private Type extractActualBoundedTypeOf(Type type) {
+<span class="fc bfc" id="L517" title="All 2 branches covered.">            if (type instanceof TypeVariable) {</span>
+                /*
+                If type is a TypeVariable, then it is needed to gather data elsewhere. Usually TypeVariables are declared
+                on the class definition, such as such as List&lt;E&gt;.
+                */
+<span class="fc" id="L522">                return extractActualBoundedTypeOf(contextualActualTypeParameters.get(type));</span>
+            }
+<span class="fc bfc" id="L524" title="All 2 branches covered.">            if (type instanceof BoundedType) {</span>
+<span class="fc" id="L525">                Type actualFirstBound =</span>
+<span class="fc" id="L526">                        extractActualBoundedTypeOf(((BoundedType) type).firstBound());</span>
+<span class="pc bpc" id="L527" title="1 of 2 branches missed.">                if (!(actualFirstBound instanceof BoundedType)) {</span>
+<span class="fc" id="L528">                    return type; // avoid going one step further, ie avoid : O(TypeVar) -&gt;</span>
+                    // K(TypeVar) -&gt; Some ParamType
+                }
+<span class="nc" id="L531">                return actualFirstBound;</span>
+            }
+<span class="fc" id="L533">            return type; // irrelevant, we don't manage other types as they are not bounded.</span>
+        }
+    }
+
+    private static class GenericArrayReturnType extends GenericMetadataSupport {
+
+        private final GenericMetadataSupport genericArrayType;
+
+        private final int arity;
+
+<span class="fc" id="L543">        public GenericArrayReturnType(GenericMetadataSupport genericArrayType, int arity) {</span>
+<span class="fc" id="L544">            this.genericArrayType = genericArrayType;</span>
+<span class="fc" id="L545">            this.arity = arity;</span>
+<span class="fc" id="L546">        }</span>
+
+        @Override
+        public Class&lt;?&gt; rawType() {
+<span class="fc" id="L550">            Class&lt;?&gt; rawComponentType = genericArrayType.rawType();</span>
+<span class="fc" id="L551">            StringBuilder stringBuilder = new StringBuilder();</span>
+<span class="fc bfc" id="L552" title="All 2 branches covered.">            for (int i = 0; i &lt; arity; i++) {</span>
+<span class="fc" id="L553">                stringBuilder.append(&quot;[&quot;);</span>
+            }
+            try {
+<span class="fc" id="L556">                return Class.forName(</span>
+                        stringBuilder
+<span class="fc" id="L558">                                .append(&quot;L&quot;)</span>
+<span class="fc" id="L559">                                .append(rawComponentType.getName())</span>
+<span class="fc" id="L560">                                .append(&quot;;&quot;)</span>
+<span class="fc" id="L561">                                .toString(),</span>
+                        false,
+<span class="fc" id="L563">                        rawComponentType.getClassLoader());</span>
+<span class="nc" id="L564">            } catch (ClassNotFoundException e) {</span>
+<span class="nc" id="L565">                throw new IllegalStateException(&quot;This was not supposed to happen.&quot;, e);</span>
+            }
+        }
+    }
+
+    /**
+     * Non-Generic metadata for {@link Class} returned via {@link Method#getGenericReturnType()}.
+     */
+    private static class NotGenericReturnTypeSupport extends GenericMetadataSupport {
+        private final Class&lt;?&gt; returnType;
+
+<span class="fc" id="L576">        public NotGenericReturnTypeSupport(GenericMetadataSupport source, Type genericReturnType) {</span>
+<span class="fc" id="L577">            returnType = (Class&lt;?&gt;) genericReturnType;</span>
+<span class="fc" id="L578">            this.contextualActualTypeParameters = source.contextualActualTypeParameters;</span>
+
+<span class="fc" id="L580">            registerAllTypeVariables(returnType);</span>
+<span class="fc" id="L581">        }</span>
+
+        @Override
+        public Class&lt;?&gt; rawType() {
+<span class="fc" id="L585">            return returnType;</span>
+        }
+    }
+
+    /**
+     * Type representing bounds of a type
+     *
+     * @see TypeVarBoundedType
+     * @see &lt;a href=&quot;https://docs.oracle.com/javase/specs/jls/se8/html/jls-4.html#jls-4.4&quot;&gt;https://docs.oracle.com/javase/specs/jls/se8/html/jls-4.html#jls-4.4&lt;/a&gt;
+     * @see WildCardBoundedType
+     * @see &lt;a href=&quot;https://docs.oracle.com/javase/specs/jls/se8/html/jls-4.html#jls-4.5.1&quot;&gt;https://docs.oracle.com/javase/specs/jls/se8/html/jls-4.html#jls-4.5.1&lt;/a&gt;
+     */
+    public interface BoundedType extends Type {
+        Type firstBound();
+
+        Type[] interfaceBounds();
+    }
+
+    /**
+     * Type representing bounds of a type variable, allows to keep all bounds information.
+     *
+     * &lt;p&gt;It uses the first bound in the array, as this array is never null and always contains at least
+     * one element (Object is always here if no bounds are declared).&lt;/p&gt;
+     *
+     * &lt;p&gt;If upper bounds are declared with SomeClass and additional interfaces, then firstBound will be SomeClass and
+     * interfacesBound will be an array of the additional interfaces.
+     * &lt;p&gt;
+     * i.e. &lt;code&gt;SomeClass&lt;/code&gt;.
+     * &lt;pre class=&quot;code&quot;&gt;&lt;code class=&quot;java&quot;&gt;
+     *     interface UpperBoundedTypeWithClass&lt;E extends Comparable&lt;E&gt; &amp; Cloneable&gt; {
+     *         E get();
+     *     }
+     *     // will return Comparable type
+     * &lt;/code&gt;&lt;/pre&gt;
+     * &lt;/p&gt;
+     *
+     * @see &lt;a href=&quot;https://docs.oracle.com/javase/specs/jls/se8/html/jls-4.html#jls-4.4&quot;&gt;https://docs.oracle.com/javase/specs/jls/se8/html/jls-4.html#jls-4.4&lt;/a&gt;
+     */
+    public static class TypeVarBoundedType implements BoundedType {
+        private final TypeVariable&lt;?&gt; typeVariable;
+
+<span class="fc" id="L626">        public TypeVarBoundedType(TypeVariable&lt;?&gt; typeVariable) {</span>
+<span class="fc" id="L627">            this.typeVariable = typeVariable;</span>
+<span class="fc" id="L628">        }</span>
+
+        /**
+         * @return either a class or an interface (parameterized or not), if no bounds declared Object is returned.
+         */
+        @Override
+        public Type firstBound() {
+<span class="fc" id="L635">            return typeVariable.getBounds()[0]; //</span>
+        }
+
+        /**
+         * On a Type Variable (typeVar extends C_0 &amp; I_1 &amp; I_2 &amp; etc), will return an array
+         * containing I_1 and I_2.
+         *
+         * @return other bounds for this type, these bounds can only be only interfaces as the JLS says,
+         * empty array if no other bound declared.
+         */
+        @Override
+        public Type[] interfaceBounds() {
+<span class="fc" id="L647">            Type[] interfaceBounds = new Type[typeVariable.getBounds().length - 1];</span>
+<span class="fc" id="L648">            System.arraycopy(</span>
+<span class="fc" id="L649">                    typeVariable.getBounds(),</span>
+                    1,
+                    interfaceBounds,
+                    0,
+<span class="fc" id="L653">                    typeVariable.getBounds().length - 1);</span>
+<span class="fc" id="L654">            return interfaceBounds;</span>
+        }
+
+        @Override
+        public boolean equals(Object o) {
+<span class="nc bnc" id="L659" title="All 2 branches missed.">            if (this == o) {</span>
+<span class="nc" id="L660">                return true;</span>
+            }
+<span class="nc bnc" id="L662" title="All 4 branches missed.">            if (o == null || getClass() != o.getClass()) {</span>
+<span class="nc" id="L663">                return false;</span>
+            }
+
+<span class="nc" id="L666">            return typeVariable.equals(((TypeVarBoundedType) o).typeVariable);</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="nc" id="L671">            return typeVariable.hashCode();</span>
+        }
+
+        @Override
+        public String toString() {
+<span class="nc" id="L676">            return &quot;{firstBound=&quot;</span>
+<span class="nc" id="L677">                    + firstBound()</span>
+                    + &quot;, interfaceBounds=&quot;
+<span class="nc" id="L679">                    + Arrays.deepToString(interfaceBounds())</span>
+                    + '}';
+        }
+
+        public TypeVariable&lt;?&gt; typeVariable() {
+<span class="nc" id="L684">            return typeVariable;</span>
+        }
+    }
+
+    /**
+     * Type representing bounds of a wildcard, allows to keep all bounds information.
+     *
+     * &lt;p&gt;The JLS says that lower bound and upper bound are mutually exclusive, and that multiple bounds
+     * are not allowed.
+     *
+     * @see &lt;a href=&quot;https://docs.oracle.com/javase/specs/jls/se8/html/jls-4.html#jls-4.4&quot;&gt;https://docs.oracle.com/javase/specs/jls/se8/html/jls-4.html#jls-4.4&lt;/a&gt;
+     */
+    public static class WildCardBoundedType implements BoundedType {
+        private final WildcardType wildcard;
+
+<span class="fc" id="L699">        public WildCardBoundedType(WildcardType wildcard) {</span>
+<span class="fc" id="L700">            this.wildcard = wildcard;</span>
+<span class="fc" id="L701">        }</span>
+
+        /** @return The first bound, either a type or a reference to a TypeVariable */
+        @Override
+        public Type firstBound() {
+<span class="fc" id="L706">            Type[] lowerBounds = wildcard.getLowerBounds();</span>
+<span class="fc" id="L707">            Type[] upperBounds = wildcard.getUpperBounds();</span>
+
+<span class="fc bfc" id="L709" title="All 2 branches covered.">            return lowerBounds.length != 0 ? lowerBounds[0] : upperBounds[0];</span>
+        }
+
+        /** @return An empty array as, wildcard don't support multiple bounds. */
+        @Override
+        public Type[] interfaceBounds() {
+<span class="fc" id="L715">            return new Type[0];</span>
+        }
+
+        @Override
+        public boolean equals(Object o) {
+<span class="nc bnc" id="L720" title="All 2 branches missed.">            if (this == o) {</span>
+<span class="nc" id="L721">                return true;</span>
+            }
+<span class="nc bnc" id="L723" title="All 4 branches missed.">            if (o == null || getClass() != o.getClass()) {</span>
+<span class="nc" id="L724">                return false;</span>
+            }
+
+<span class="nc" id="L727">            return wildcard.equals(((TypeVarBoundedType) o).typeVariable);</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="nc" id="L732">            return wildcard.hashCode();</span>
+        }
+
+        @Override
+        public String toString() {
+<span class="nc" id="L737">            return &quot;{firstBound=&quot; + firstBound() + &quot;, interfaceBounds=[]}&quot;;</span>
+        }
+
+        public WildcardType wildCard() {
+<span class="nc" id="L741">            return wildcard;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>
