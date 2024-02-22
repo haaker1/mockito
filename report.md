@@ -159,7 +159,7 @@ Number of test cases added: two per team member (P) or at least four (P+).
 | Matches::matches           | 100%            | 100%         |
 | Equality::AreEquals        | 100%            | 100%         |
 
-Report of new coverage: [link]
+Report of new coverage:  [./jacocoHtml - After](https://github.com/haaker1/mockito/blob/issue/5-coverage-improvement/jacocoHtml%20-%20after.html)
 
 ## Self-assessment: Way of working
 
